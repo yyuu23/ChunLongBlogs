@@ -250,6 +250,10 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
           <input value={config.ccLicense} onChange={(e) => set("ccLicense", e.target.value)} className={input} />
         </label>
         <label className={`${label} sm:col-span-2`}>
+          <span className="text-xs font-medium text-slate-500">AI 小助手人设（system prompt，需在 .env 配置接口后才生效）</span>
+          <textarea value={config.aiPersona} onChange={(e) => set("aiPersona", e.target.value)} rows={2} className={`resize-none ${input}`} />
+        </label>
+        <label className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">关于页内容（Markdown）</span>
           <textarea
             value={config.aboutMarkdown}

@@ -40,6 +40,8 @@ export interface SiteConfig {
   footerText: string;
   /** 知识共享协议，如 "BY-NC-SA 4.0"；留空则不显示 */
   ccLicense: string;
+  /** AI 聊天助手人设（system prompt） */
+  aiPersona: string;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -93,6 +95,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   icp: "",
   footerText: "",
   ccLicense: "BY-NC-SA 4.0",
+  aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
 };
 
 export const getSiteConfig = cache(async (): Promise<SiteConfig> => {

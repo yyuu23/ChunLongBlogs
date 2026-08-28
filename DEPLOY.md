@@ -134,3 +134,21 @@ certbot --nginx -d chunlong.me
   `node -e "const b=require('bcryptjs');console.log(b.hashSync('新密码',10))"` 后 SQL 更新 `admin_users.password_hash`
 - **图片上传 401**：确认是从 `/admin` 登录后的会话操作
 - **端口被占**：`pm2 delete chunlong-blog && PORT=3001 pm2 start npm --name chunlong-blog -- start` 并同步修改 Nginx
+
+## 9. AI 聊天助手（可选）
+
+左下角的 AI 小助手需要在 `.env` 配置任意 OpenAI 兼容接口后生效：
+
+```ini
+LLM_BASE_URL=https://api.deepseek.com/v1   # 或智谱 https://open.bigmodel.cn/api/paas/v4 等
+LLM_API_KEY=sk-xxxx
+LLM_MODEL=deepseek-chat
+```
+
+配置后 `pm2 restart chunlong-blog`。助手人设可在后台「站点设置 → AI 小助手人设」修改。Key 只存在服务器端，不会暴露给访客。
+
+## 10. 音乐馆说明
+
+- 后台「音乐馆」可上传本地音频或填任意直链
+- 「从网易云导入」填歌单 ID（网页版网易云地址栏 `id=` 后的数字），自动拉取歌单信息，音频走网易云官方外链；VIP 歌曲无法播放（前台会显示"音频不可用"），介意可在后台手动替换音频地址
+- 自带的演示音频是构建脚本生成的环境音（`npm run assets` 相关），可随意删除

@@ -1,0 +1,76 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Eye } from "lucide-react";
+import type { GiscusConfig } from "@/lib/site";
+
+/** 阅读量上报 + 展示（同一会话对同一文章只计一次） */
+export function ViewCounter({ slug, initial }: { slug: string; initial: number }) {
+  const [views, setViews] = useState(initial);
+  const posted = useRef(false);
+
+  useEffect(() => {
+    if (posted.current) return;
+    posted.current = true;
+    const key = `cl-viewed-${slug}`;
+    try {
+      if (sessionStorage.getItem(key) === "1") return;
+      sessionStorage.setItem(key, "1");
+    } catch {}
+    fetch(`/api/posts/${slug}/view`, { method: "POST" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.views === "number") setViews(d.views);
+      })
+      .catch(() => {});
+  }, [slug]);
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Eye className="h-3.5 w-3.5" />
+      {views} 次阅读
+    </span>
+  );
+}
+
+/** giscus 评论区（未配置时显示占位提示，仅作者可见后台配置入口说明） */
+export function GiscusComments({ config }: { config: GiscusConfig | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!mounted || !config || !ref.current || ref.current.childElementCount > 0) return;
+    const script = document.createElement("script");
+    script.src = "https://giscus.app/client.js";
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.setAttribute("data-repo", config.repo);
+    script.setAttribute("data-repo-id", config.repoId);
+    script.setAttribute("data-category", config.category);
+    script.setAttribute("data-category-id", config.categoryId);
+    script.setAttribute("data-mapping", "pathname");
+    script.setAttribute("data-strict", "0");
+    script.setAttribute("data-reactions-enabled", "1");
+    script.setAttribute("data-emit-metadata", "0");
+    script.setAttribute("data-input-position", "top");
+    script.setAttribute("data-theme", "transparent_dark");
+    script.setAttribute("data-lang", "zh-CN");
+    ref.current.appendChild(script);
+  }, [mounted, config]);
+
+  if (!config) {
+    return (
+      <p className="glass-card p-6 text-center text-sm text-muted">
+        评论区尚未配置 · 站长可在后台「站点设置」中开启 giscus
+      </p>
+    );
+  }
+
+  return (
+    <div className="glass-card p-5">
+      <div ref={ref} />
+    </div>
+  );
+}

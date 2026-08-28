@@ -38,6 +38,8 @@ export interface SiteConfig {
   aboutMarkdown: string;
   icp: string;
   footerText: string;
+  /** 知识共享协议，如 "BY-NC-SA 4.0"；留空则不显示 */
+  ccLicense: string;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -90,6 +92,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 `,
   icp: "",
   footerText: "",
+  ccLicense: "BY-NC-SA 4.0",
 };
 
 export const getSiteConfig = cache(async (): Promise<SiteConfig> => {

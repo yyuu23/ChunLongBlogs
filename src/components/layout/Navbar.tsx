@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { LogoEgg } from "@/components/effects/LogoEgg";
 
 const LINKS = [
   { href: "/", label: "首页" },
@@ -31,6 +32,17 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [q, setQ] = useState("");
   const lastY = useRef(0);
+  // Logo 彩蛋：3 秒窗口内连击 7 次
+  const [eggTrigger, setEggTrigger] = useState(0);
+  const logoClicks = useRef<number[]>([]);
+  const onLogoClick = () => {
+    const now = Date.now();
+    logoClicks.current = [...logoClicks.current.filter((t) => now - t < 3000), now];
+    if (logoClicks.current.length >= 7) {
+      logoClicks.current = [];
+      setEggTrigger((n) => n + 1);
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => {
@@ -53,6 +65,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
 
   return (
     <>
+      <LogoEgg trigger={eggTrigger} />
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-transform duration-300 ${
           hidden ? "-translate-y-full" : "translate-y-0"
@@ -65,8 +78,8 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
               : "bg-transparent border border-transparent"
           }`}
         >
-          {/* Logo */}
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 pl-1 pr-2">
+          {/* Logo（七连击有彩蛋） */}
+          <Link href="/" onClick={onLogoClick} className="flex shrink-0 items-center gap-2.5 pl-1 pr-2">
             <span className="relative h-8 w-8 overflow-hidden rounded-full ring-2 ring-indigo-400/50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatar} alt={siteName} className="h-full w-full object-cover" />

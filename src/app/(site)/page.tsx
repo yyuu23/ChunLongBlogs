@@ -1,21 +1,36 @@
 import Link from "next/link";
-import { BookOpenText, FileText, Eye, PenLine } from "lucide-react";
+import { desc, eq, sql } from "drizzle-orm";
+import { BookOpenText, FileText, Eye, PenLine, Images } from "lucide-react";
 import { HeroBanner } from "@/components/home/HeroBanner";
 import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
 import { AnnouncementBar } from "@/components/home/AnnouncementBar";
+import { WeatherCard } from "@/components/home/WeatherCard";
 import { PostCard } from "@/components/posts/PostCard";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
+import { LazyImage } from "@/components/effects/Typewriter";
+import { db } from "@/lib/db";
+import { albums, photos } from "@/lib/db/schema";
 import { getSiteConfig } from "@/lib/site";
 import { getPublishedPosts, getSiteStats } from "@/lib/posts";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [config, { items: latest }, stats] = await Promise.all([
+  const [config, { items: latest }, stats, albumRows] = await Promise.all([
     getSiteConfig(),
     getPublishedPosts({ perPage: 6 }),
     getSiteStats(),
+    db.select().from(albums).orderBy(desc(albums.createdAt)).limit(1),
   ]);
+  const latestAlbum = albumRows[0] ?? null;
+  const photoCount = latestAlbum
+    ? (
+        await db
+          .select({ n: sql<number>`count(*)` })
+          .from(photos)
+          .where(eq(photos.albumId, latestAlbum.id))
+      )[0]?.n ?? 0
+    : 0;
 
   return (
     <PageTransition>
@@ -38,13 +53,16 @@ export default async function HomePage() {
             />
           </FadeIn>
           <FadeIn delay={0.22}>
-            <StatsRow
-              stats={[
-                { label: "文章", value: stats.posts, icon: <FileText className="h-5 w-5" /> },
-                { label: "总字数", value: stats.words, icon: <PenLine className="h-5 w-5" /> },
-                { label: "总阅读", value: stats.views, icon: <Eye className="h-5 w-5" /> },
-              ]}
-            />
+            <div className="flex flex-col gap-6">
+              <StatsRow
+                stats={[
+                  { label: "文章", value: stats.posts, icon: <FileText className="h-5 w-5" /> },
+                  { label: "总字数", value: stats.words, icon: <PenLine className="h-5 w-5" /> },
+                  { label: "总阅读", value: stats.views, icon: <Eye className="h-5 w-5" /> },
+                ]}
+              />
+              <WeatherCard />
+            </div>
           </FadeIn>
         </div>
 
@@ -68,6 +86,41 @@ export default async function HomePage() {
             <PostCard key={post.id} post={post} index={i} />
           ))}
         </div>
+
+        {/* 最新相册海报卡 */}
+        {latestAlbum && (
+          <FadeIn delay={0.1}>
+            <Link href="/albums" className="group mt-6 block">
+              <div className="glass-card glass-hover relative h-44 overflow-hidden md:h-56">
+                <LazyImage
+                  src={latestAlbum.cover || "/assets/photos/p1.svg"}
+                  alt={latestAlbum.title}
+                  fill
+                  sizes="100vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 md:p-6">
+                  <div className="min-w-0">
+                    <p className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-white/80">
+                      <Images className="h-3.5 w-3.5" />
+                      最新相册
+                    </p>
+                    <h2 className="font-serif text-xl font-bold text-white drop-shadow md:text-2xl">
+                      {latestAlbum.title}
+                    </h2>
+                    <p className="mt-0.5 truncate text-xs text-white/75 md:text-sm">
+                      {latestAlbum.description} · {Number(photoCount)} 张照片
+                    </p>
+                  </div>
+                  <span className="glass-button shrink-0 border-white/30 bg-white/15 !text-white hover:!bg-white/30">
+                    查看相册 →
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </FadeIn>
+        )}
       </div>
     </PageTransition>
   );

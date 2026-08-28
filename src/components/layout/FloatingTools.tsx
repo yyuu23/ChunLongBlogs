@@ -54,6 +54,7 @@ export function FloatingTools() {
               [
                 ["particles", "主题粒子"],
                 ["clickBurst", "点击爆破"],
+                ["selectionSparkle", "选中星光"],
                 ["splash", "启动屏"],
               ] as const
             ).map(([key, label]) => (

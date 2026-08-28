@@ -12,13 +12,22 @@ export interface EffectFlags {
   particles: boolean;
   clickBurst: boolean;
   splash: boolean;
+  selectionSparkle: boolean;
 }
 
-/** 粒子主题：auto = 亮色樱花/暗色萤火虫（默认），其余为强制指定 */
-export type ParticleTheme = "auto" | "sakura" | "firefly" | "leaf" | "snow" | "off";
+/** 粒子主题：auto = 亮色樱花/暗色萤火虫（默认），season = 按月份自动，其余为强制指定 */
+export type ParticleTheme =
+  | "auto"
+  | "season"
+  | "sakura"
+  | "firefly"
+  | "leaf"
+  | "snow"
+  | "off";
 
 export const PARTICLE_THEMES: { key: ParticleTheme; label: string; emoji: string }[] = [
   { key: "auto", label: "日夜自动", emoji: "🌗" },
+  { key: "season", label: "季节", emoji: "🌻" },
   { key: "sakura", label: "樱花", emoji: "🌸" },
   { key: "firefly", label: "萤火虫", emoji: "✨" },
   { key: "leaf", label: "落叶", emoji: "🍁" },
@@ -26,7 +35,12 @@ export const PARTICLE_THEMES: { key: ParticleTheme; label: string; emoji: string
   { key: "off", label: "关闭", emoji: "🚫" },
 ];
 
-const DEFAULTS: EffectFlags = { particles: true, clickBurst: true, splash: true };
+const DEFAULTS: EffectFlags = {
+  particles: true,
+  clickBurst: true,
+  splash: true,
+  selectionSparkle: true,
+};
 
 interface EffectCtx {
   effects: EffectFlags;
@@ -64,7 +78,7 @@ export function EffectProvider({ children }: { children: ReactNode }) {
       }
       // 尊重系统减少动态偏好
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        next = { particles: false, clickBurst: false, splash: false };
+        next = { particles: false, clickBurst: false, splash: false, selectionSparkle: false };
       }
       setEffects(next);
     } catch {}

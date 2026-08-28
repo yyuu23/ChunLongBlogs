@@ -6,6 +6,8 @@ import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { FloatingTools } from "@/components/layout/FloatingTools";
 import { SplashScreen } from "@/components/layout/SplashScreen";
 import { ThemeParticles, ClickEffect } from "@/components/effects/Effects";
+import { SelectionSparkle } from "@/components/effects/SelectionSparkle";
+import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { getSiteConfig } from "@/lib/site";
 
 /** 公开站点布局：背景三明治 + 粒子 + 导航 + 页脚 */
@@ -21,6 +23,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       />
       <ThemeParticles />
       <ClickEffect />
+      <SelectionSparkle />
+      <ReadingProgress />
       <SplashScreen siteName={config.siteName} avatar={config.avatar} />
 
       <Navbar siteName={config.siteName} avatar={config.avatar} />

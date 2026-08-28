@@ -17,6 +17,19 @@ export function Footer({ config }: { config: SiteConfig }) {
         <p>
           © {new Date().getFullYear()} {config.siteName} · Powered by Next.js
         </p>
+        {config.ccLicense && (
+          <a
+            href={`https://creativecommons.org/licenses/${config.ccLicense
+              .toLowerCase()
+              .split(/\s+/)
+              .join("/")}/`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block transition-colors hover:text-indigo-500"
+          >
+            CC {config.ccLicense}
+          </a>
+        )}
         <p className="mt-1 flex items-center justify-center gap-1">
           Made with <Heart className="h-3 w-3 text-pink-400" /> and React
         </p>

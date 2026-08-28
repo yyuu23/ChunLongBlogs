@@ -245,6 +245,10 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
           <span className="text-xs font-medium text-slate-500">页脚附加文字（可空）</span>
           <input value={config.footerText} onChange={(e) => set("footerText", e.target.value)} className={input} />
         </label>
+        <label className={label}>
+          <span className="text-xs font-medium text-slate-500">CC 协议（如 BY-NC-SA 4.0，留空隐藏）</span>
+          <input value={config.ccLicense} onChange={(e) => set("ccLicense", e.target.value)} className={input} />
+        </label>
         <label className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">关于页内容（Markdown）</span>
           <textarea

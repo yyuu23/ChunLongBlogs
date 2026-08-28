@@ -17,6 +17,7 @@ const LAYERS: Record<string, (props: { count?: number }) => React.ReactNode> = {
 /**
  * 主题粒子层：
  * - auto：亮色樱花 / 暗色萤火虫（默认，随日夜切换）
+ * - season：按月份自动（春樱 3-5 / 夏萤 6-8 / 秋叶 9-11 / 冬雪 12-2）
  * - 手动指定：樱花 / 萤火虫 / 落叶 / 雪
  * 切换时 1s 交叉淡化，旧层过渡完卸载
  */
@@ -28,6 +29,16 @@ export function ThemeParticles() {
   if (hydrated && effects.particles) {
     if (particleTheme === "auto") {
       active = theme === "dark" ? "firefly" : "sakura";
+    } else if (particleTheme === "season") {
+      const month = new Date().getMonth() + 1;
+      active =
+        month >= 3 && month <= 5
+          ? "sakura"
+          : month >= 6 && month <= 8
+            ? "firefly"
+            : month >= 9 && month <= 11
+              ? "leaf"
+              : "snow";
     } else if (particleTheme !== "off") {
       active = particleTheme;
     }

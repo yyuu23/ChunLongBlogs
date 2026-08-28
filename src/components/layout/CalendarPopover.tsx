@@ -4,12 +4,28 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { dayKind, dayName, dateKey, type DayKind } from "@/lib/holidays";
 
 const WEEK = ["一", "二", "三", "四", "五", "六", "日"];
-const key = (y: number, m: number, d: number) =>
-  `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-/** 导航栏日历：月历弹层，有文章的日期带主题色圆点，点击跳归档 */
+/** 角标样式：休（蓝）/ 工（橙） */
+function DayBadge({ kind }: { kind: DayKind }) {
+  if (kind === "holiday")
+    return (
+      <span className="absolute -right-0.5 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold leading-none text-white shadow-sm">
+        休
+      </span>
+    );
+  if (kind === "workday")
+    return (
+      <span className="absolute -right-0.5 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold leading-none text-white shadow-sm">
+        工
+      </span>
+    );
+  return null;
+}
+
+/** 导航栏日历：月历弹层，含法定节假日/调休标注 */
 export function CalendarPopover() {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => {
@@ -75,7 +91,7 @@ export function CalendarPopover() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18 }}
-            className="glass-card absolute right-0 top-12 z-50 w-72 p-4"
+            className="glass-card absolute right-0 top-12 z-50 w-80 p-4"
           >
             <div className="mb-3 flex items-center justify-between">
               <button onClick={prev} aria-label="上个月" className="glass-button !rounded-lg !p-1.5">
@@ -98,19 +114,34 @@ export function CalendarPopover() {
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((d, i) => {
                 if (d === null) return <span key={`e-${i}`} />;
-                const count = days[key(cursor.y, cursor.m, d)] ?? 0;
+                const kind = dayKind(cursor.y, cursor.m, d);
+                const count = days[dateKey(cursor.y, cursor.m, d)] ?? 0;
+                const holidayName = dayName(cursor.y, cursor.m, d);
+
+                // 配色：法定假=蓝色，调休=橙色，双休=柔和红，工作日=默认
+                const base =
+                  kind === "holiday"
+                    ? "text-blue-600 dark:text-blue-300 font-bold"
+                    : kind === "workday"
+                      ? "text-orange-600 dark:text-orange-300 font-semibold"
+                      : kind === "weekend"
+                        ? "text-rose-400 dark:text-rose-300"
+                        : "text-muted hover:bg-white/40 dark:hover:bg-white/10";
+                const todayCls = isToday(d) ? "bg-accent-gradient !text-white font-bold" : base;
+
                 const content = (
                   <span
-                    className={`relative flex h-8 w-8 items-center justify-center rounded-lg text-xs transition-colors ${
-                      isToday(d)
-                        ? "bg-accent-gradient font-bold text-white"
-                        : count > 0
-                          ? "bg-accent-soft font-medium text-accent"
-                          : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
-                    }`}
-                    title={count > 0 ? `${count} 篇文章` : undefined}
+                    className={`relative flex h-8 w-8 items-center justify-center rounded-lg text-xs transition-colors ${todayCls}`}
+                    title={[
+                      holidayName,
+                      kind === "holiday" ? "法定节假日" : kind === "workday" ? "调休补班" : undefined,
+                      count > 0 ? `${count} 篇文章` : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   >
                     {d}
+                    <DayBadge kind={kind} />
                     {count > 0 && !isToday(d) && (
                       <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent-solid" />
                     )}
@@ -119,15 +150,30 @@ export function CalendarPopover() {
                 return (
                   <span key={d} className="flex justify-center">
                     {count > 0 ? (
-                      <Link href="/archive" title={`${count} 篇文章`}>
-                        {content}
-                      </Link>
+                      <Link href="/archive">{content}</Link>
                     ) : (
                       content
                     )}
                   </span>
                 );
               })}
+            </div>
+
+            {/* 图例 */}
+            <div className="mt-3 flex items-center justify-center gap-4 border-t border-[var(--glass-border)] pt-2.5 text-[10px] text-muted">
+              <span className="flex items-center gap-1">
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white">休</span>
+                法定假
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold text-white">工</span>
+                调休补班
+              </span>
+              <span className="text-rose-400">双休</span>
+              <span className="flex items-center gap-1">
+                <span className="h-1 w-1 rounded-full bg-accent-solid" />
+                有文章
+              </span>
             </div>
           </motion.div>
         )}

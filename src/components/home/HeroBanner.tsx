@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, UserRound } from "lucide-react";
 import { LazyImage, Typewriter } from "@/components/effects/Typewriter";
@@ -11,12 +11,37 @@ import type { Banner as BannerType } from "@/lib/site";
 export function HeroBanner({ banners }: { banners: BannerType[] }) {
   const slides = banners.length ? banners : [];
   const [index, setIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stop = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const start = useCallback(() => {
+    stop();
+    if (slides.length < 2) return;
+    timerRef.current = setInterval(
+      () => setIndex((i) => (i + 1) % slides.length),
+      7000,
+    );
+  }, [slides.length, stop]);
 
   useEffect(() => {
-    if (slides.length < 2) return;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % slides.length), 7000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
+    start();
+    return stop;
+  }, [start, stop]);
+
+  /** 手动切换：选中的幻灯片立即显示，并重置自动轮播计时 */
+  const goTo = useCallback(
+    (i: number) => {
+      setIndex(i);
+      start();
+    },
+    [start],
+  );
 
   if (!slides.length) return null;
   const current = slides[index];
@@ -82,18 +107,22 @@ export function HeroBanner({ banners }: { banners: BannerType[] }) {
           </Link>
         </div>
 
-        {/* 指示点 */}
+        {/* 指示点：固定大小按钮包裹动画条，保证点击热区稳定 */}
         {slides.length > 1 && (
-          <div className="absolute bottom-5 flex gap-2">
+          <div className="absolute bottom-3 flex gap-1">
             {slides.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setIndex(i)}
-                aria-label={`第 ${i + 1} 张`}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  i === index ? "w-7 bg-white" : "w-3 bg-white/40 hover:bg-white/70"
-                }`}
-              />
+                onClick={() => goTo(i)}
+                aria-label={`切换到第 ${i + 1} 张照片`}
+                className="group flex h-7 w-8 cursor-pointer items-center justify-center"
+              >
+                <span
+                  className={`h-1.5 rounded-full transition-all duration-500 ${
+                    i === index ? "w-6 bg-white" : "w-2.5 bg-white/45 group-hover:bg-white/70"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         )}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Save, Loader2, CheckCircle2, Plus, X, Megaphone } from "lucide-react";
-import { saveSettings } from "@/app/admin/actions";
+import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles } from "lucide-react";
+import { saveSettings, rebuildEmbeddingsAction } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
 import type { SiteConfig } from "@/lib/site";
 
@@ -14,6 +14,17 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
   const [config, setConfig] = useState<SiteConfig>(initial);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [embedMsg, setEmbedMsg] = useState("");
+  const [embedBusy, setEmbedBusy] = useState(false);
+
+  const rebuildEmbeddings = async () => {
+    setEmbedBusy(true);
+    setEmbedMsg("");
+    const r = await rebuildEmbeddingsAction();
+    setEmbedBusy(false);
+    if ("error" in r && r.error) setEmbedMsg(`❌ ${r.error}`);
+    else if ("message" in r && r.message) setEmbedMsg(`✅ ${r.message}`);
+  };
 
   const set = <K extends keyof SiteConfig>(key: K, value: SiteConfig[K]) =>
     setConfig((c) => ({ ...c, [key]: value }));
@@ -253,6 +264,23 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
           <span className="text-xs font-medium text-slate-500">AI 小助手人设（system prompt，需在 .env 配置接口后才生效）</span>
           <textarea value={config.aiPersona} onChange={(e) => set("aiPersona", e.target.value)} rows={2} className={`resize-none ${input}`} />
         </label>
+        <div className={`${label} sm:col-span-2`}>
+          <span className="text-xs font-medium text-slate-500">AI 博客问答（RAG）向量索引</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={rebuildEmbeddings}
+              disabled={embedBusy}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-60"
+            >
+              {embedBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {embedBusy ? "重建中…" : "重建全部文章向量"}
+            </button>
+            {embedMsg && <span className="text-xs text-slate-500">{embedMsg}</span>}
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            配置 .env 的 EMBEDDING_API_KEY 后可启用语义检索（推荐智谱 embedding-3）；未配置时自动使用关键词检索，问答功能同样可用
+          </p>
+        </div>
         <label className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">关于页内容（Markdown）</span>
           <textarea

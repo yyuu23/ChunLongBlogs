@@ -82,7 +82,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                       <Clock3 className="h-3.5 w-3.5" />
                       {post.wordCount} 字 · 约 {post.readingTime} 分钟
                     </span>
-                    <ViewCounter slug={post.slug} initial={post.views} />
+                    <ViewCounter slug={post.slug} initial={post.views} postId={post.id} />
                   </div>
                   {post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">

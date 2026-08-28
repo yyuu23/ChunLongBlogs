@@ -152,3 +152,22 @@ LLM_MODEL=deepseek-chat
 - 后台「音乐馆」可上传本地音频或填任意直链
 - 「从网易云导入」填歌单 ID（网页版网易云地址栏 `id=` 后的数字），自动拉取歌单信息，音频走网易云官方外链；VIP 歌曲无法播放（前台会显示"音频不可用"），介意可在后台手动替换音频地址
 - 自带的演示音频是构建脚本生成的环境音（`npm run assets` 相关），可随意删除
+
+## 11. AI 博客问答（RAG，可选增强）
+
+小助手默认已支持基于博客文章的问答（关键词检索，无需任何配置）。想启用**语义检索**（能听懂"讲毛玻璃那篇"这类模糊问法），在 `.env` 追加智谱等 OpenAI 兼容的 embedding 配置后重启：
+
+```ini
+EMBEDDING_API_KEY=xxxx                        # 推荐 https://open.bigmodel.cn 的 embedding-3
+EMBEDDING_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+EMBEDDING_MODEL=embedding-3
+```
+
+然后到后台「站点设置 → AI 博客问答」点一次"重建全部文章向量"（以后每次保存文章会自动更新该篇向量）。向量存在 SQLite 里，无需独立向量数据库。
+
+## 12. 数据库增长说明（不用担心项目变大）
+
+访客等级/成就、留声星等数据都存在服务器上的 `data/db.sqlite` 单文件里：
+- 该文件已被 .gitignore 排除，**GitHub 仓库体积永远不会因此增长**
+- 都是纯文本小行：十万级留声星/访客进度也只占几十 MB
+- 第 5 节的每日备份已覆盖它；迁移服务器时把 `data/` 和 `public/uploads/` 一起拷走即可

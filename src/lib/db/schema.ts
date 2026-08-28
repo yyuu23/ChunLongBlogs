@@ -121,3 +121,29 @@ export const songs = sqliteTable("songs", {
   duration: integer("duration").notNull().default(0), // 秒
   sort: integer("sort").notNull().default(0),
 });
+
+/** RAG 向量索引（文章切块的嵌入，JSON 存 SQLite，无需独立向量库） */
+export const embeddings = sqliteTable("embeddings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  refType: text("ref_type").notNull().default("post"),
+  refId: integer("ref_id").notNull(),
+  chunk: text("chunk").notNull(),
+  vector: text("vector").notNull(), // JSON number[]
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+/** 匿名访客的游戏化进度（等级/经验/统计），服务端永久保存 */
+export const visitors = sqliteTable("visitors", {
+  id: text("id").primaryKey(), // 匿名 UUID（localStorage 生成）
+  xp: integer("xp").notNull().default(0),
+  stats: text("stats").notNull().default("{}"), // JSON：各类行为计数
+  lastSeen: integer("last_seen", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+/** 访客留声星：一句话化作天空中永久的星 */
+export const stars = sqliteTable("stars", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  content: text("content").notNull(),
+  visitorId: text("visitor_id").notNull().default(""),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});

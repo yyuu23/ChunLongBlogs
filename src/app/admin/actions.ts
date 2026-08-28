@@ -130,6 +130,13 @@ export async function savePost(input: PostInput) {
   }
 
   revalidateAll();
+  // 已发布文章自动更新向量索引（失败不影响保存）
+  if (input.status === "published") {
+    try {
+      const { rebuildPostEmbeddings } = await import("@/lib/rag");
+      void rebuildPostEmbeddings(postId).catch(() => {});
+    } catch {}
+  }
   return { ok: true as const, id: postId, slug };
 }
 
@@ -435,6 +442,22 @@ export async function importNetease(playlistId: string) {
 }
 
 /* ============ 站点配置 ============ */
+
+/** 重建全部文章的 RAG 向量索引（后台按钮） */
+export async function rebuildEmbeddingsAction() {
+  await guard();
+  const { rebuildPostEmbeddings, embeddingConfigured } = await import("@/lib/rag");
+  if (!embeddingConfigured()) {
+    return { error: "未配置 EMBEDDING_API_KEY（当前问答走关键词检索，功能可用但语义匹配较弱）" };
+  }
+  try {
+    const r = await rebuildPostEmbeddings();
+    if ("error" in r && r.error) return { error: r.error };
+    return { ok: true as const, message: `已为 ${r.posts} 篇文章生成 ${r.chunks} 个向量块` };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "重建失败" };
+  }
+}
 
 export async function saveSettings(config: SiteConfig) {
   await guard();

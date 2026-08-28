@@ -8,6 +8,7 @@ import { Search, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { LogoEgg } from "@/components/effects/LogoEgg";
 import { CalendarPopover } from "@/components/layout/CalendarPopover";
+import { trackEvent } from "@/lib/track";
 
 const LINKS = [
   { href: "/", label: "首页" },
@@ -44,6 +45,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
     if (logoClicks.current.length >= 7) {
       logoClicks.current = [];
       setEggTrigger((n) => n + 1);
+      trackEvent("find_egg");
     }
   };
 

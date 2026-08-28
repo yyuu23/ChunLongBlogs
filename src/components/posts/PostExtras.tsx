@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Eye } from "lucide-react";
+import { trackEvent } from "@/lib/track";
 import type { GiscusConfig } from "@/lib/site";
 
 /** 阅读量上报 + 展示（同一会话对同一文章只计一次） */
-export function ViewCounter({ slug, initial }: { slug: string; initial: number }) {
+export function ViewCounter({ slug, initial, postId }: { slug: string; initial: number; postId?: number }) {
   const [views, setViews] = useState(initial);
   const posted = useRef(false);
 
@@ -17,6 +18,7 @@ export function ViewCounter({ slug, initial }: { slug: string; initial: number }
       if (sessionStorage.getItem(key) === "1") return;
       sessionStorage.setItem(key, "1");
     } catch {}
+    trackEvent("read_post", { postId });
     fetch(`/api/posts/${slug}/view`, { method: "POST" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {

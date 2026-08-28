@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { trackEvent } from "@/lib/track";
 import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 
 export interface PlayerSong {
@@ -107,6 +108,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.src = song.url;
     void audio.play().catch(() => setFailed(true));
     recordRecent(song);
+    trackEvent("play_music", { title: song.title });
   }, []);
 
   const play = useCallback(

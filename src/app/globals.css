@@ -775,3 +775,9 @@ html.splash-seen .splash-overlay {
   0%, 100% { transform: scaleY(0.4); }
   50% { transform: scaleY(1); }
 }
+
+/* 六边形成就徽章 */
+.hex-badge {
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-solid) 45%, transparent);
+}

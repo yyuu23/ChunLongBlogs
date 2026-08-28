@@ -1,5 +1,6 @@
 "use client";
 
+import { trackEvent } from "@/lib/track";
 import {
   createContext,
   useCallback,
@@ -45,6 +46,7 @@ export function AccentProvider({ children }: { children: ReactNode }) {
 
   const setAccent = useCallback((a: AccentKey) => {
     setAccentState(a);
+    trackEvent("switch_accent", { accent: a });
     document.documentElement.dataset.accent = a;
     try {
       localStorage.setItem("cl-accent", a);

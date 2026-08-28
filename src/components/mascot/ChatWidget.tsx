@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, SendHorizonal, Loader2 } from "lucide-react";
+import { trackEvent } from "@/lib/track";
 
 interface Msg {
   role: "user" | "assistant";
@@ -30,6 +31,7 @@ export function ChatWidget() {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
+    trackEvent("use_chat");
     const next: Msg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setBusy(true);

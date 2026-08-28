@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Serif_SC } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
-import { ThemeProvider, themeInitScript } from "@/components/providers/ThemeProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { EffectProvider } from "@/components/providers/EffectProvider";
 import { getSiteConfig } from "@/lib/site";
 
@@ -38,9 +38,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-/** 首帧脚本：主题初始化 + 启动屏"已看过"判断，避免闪烁 */
+/** 首帧脚本：主题初始化（localStorage/系统偏好）+ 启动屏"已看过"判断，避免闪烁 */
 const initScript = `
-${themeInitScript}
+(function(){try{
+  var t = localStorage.getItem('cl-theme');
+  if(!t){ t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+  if(t === 'dark'){ document.documentElement.classList.add('dark'); }
+  document.documentElement.style.colorScheme = t;
+}catch(e){}})();
 (function(){try{
   var seen = sessionStorage.getItem('cl-splash-seen')==='1';
   var eff = localStorage.getItem('cl-effects');

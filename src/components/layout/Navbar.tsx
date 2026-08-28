@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/archive", label: "归档" },
   { href: "/moments", label: "说说" },
   { href: "/albums", label: "相册" },
+  { href: "/lab", label: "实验室" },
   { href: "/friends", label: "友链" },
   { href: "/about", label: "关于" },
 ];

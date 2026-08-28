@@ -1,34 +1,72 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { useEffects } from "@/components/providers/EffectProvider";
-import { Sakura, Fireflies } from "./Particles";
+import { useEffects, type ParticleTheme } from "@/components/providers/EffectProvider";
+import { Sakura, Fireflies, Leaves, Snow } from "./Particles";
 
-/** 主题粒子层：亮色樱花 / 暗色萤火虫，1s 交叉淡化切换 */
+type ActiveParticle = Exclude<ParticleTheme, "auto" | "off"> | null;
+
+const LAYERS: Record<string, (props: { count?: number }) => React.ReactNode> = {
+  sakura: Sakura,
+  firefly: Fireflies,
+  leaf: Leaves,
+  snow: Snow,
+};
+
+/**
+ * 主题粒子层：
+ * - auto：亮色樱花 / 暗色萤火虫（默认，随日夜切换）
+ * - 手动指定：樱花 / 萤火虫 / 落叶 / 雪
+ * 切换时 1s 交叉淡化，旧层过渡完卸载
+ */
 export function ThemeParticles() {
   const { theme } = useTheme();
-  const { effects, hydrated } = useEffects();
-  const isDark = theme === "dark";
+  const { effects, particleTheme, hydrated } = useEffects();
 
-  if (!hydrated || !effects.particles) return null;
+  let active: ActiveParticle = null;
+  if (hydrated && effects.particles) {
+    if (particleTheme === "auto") {
+      active = theme === "dark" ? "firefly" : "sakura";
+    } else if (particleTheme !== "off") {
+      active = particleTheme;
+    }
+  }
+
+  // 只挂载当前层与过渡中的旧层
+  const mountedRef = useRef<Set<string>>(new Set(active ? [active] : []));
+  const [mounted, setMounted] = useState<Set<string>>(mountedRef.current);
+
+  useEffect(() => {
+    const next = new Set<string>(active ? [active] : []);
+    // 保留旧层用于交叉淡化
+    for (const key of mountedRef.current) next.add(key);
+    mountedRef.current = next;
+    setMounted(next);
+    const timer = setTimeout(() => {
+      const only = new Set<string>(active ? [active] : []);
+      mountedRef.current = only;
+      setMounted(only);
+    }, 1100);
+    return () => clearTimeout(timer);
+  }, [active]);
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[1] transition-opacity duration-1000"
-        style={{ opacity: isDark ? 0 : 1 }}
-        aria-hidden
-      >
-        <Sakura />
-      </div>
-      <div
-        className="fixed inset-0 z-[1] transition-opacity duration-1000"
-        style={{ opacity: isDark ? 1 : 0 }}
-        aria-hidden
-      >
-        <Fireflies />
-      </div>
+      {(Object.keys(LAYERS) as Array<keyof typeof LAYERS>).map((key) => {
+        if (!mounted.has(key)) return null;
+        const Layer = LAYERS[key]!;
+        return (
+          <div
+            key={key}
+            className="fixed inset-0 z-[1] transition-opacity duration-1000"
+            style={{ opacity: active === key ? 1 : 0 }}
+            aria-hidden
+          >
+            <Layer />
+          </div>
+        );
+      })}
     </>
   );
 }

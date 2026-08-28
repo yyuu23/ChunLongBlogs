@@ -55,7 +55,7 @@ export function Fireflies({ count = 30 }: { count?: number }) {
         floatAnim: ["float-1", "float-2", "float-3"][i % 3],
         floatDuration: rand(9, 18),
         floatDelay: -rand(0, 18),
-        hue: Math.random() > 0.7 ? "firefly" : "firefly firefly-warm",
+        hue: Math.random() > 0.7 ? "firefly firefly-warm" : "firefly firefly",
       })),
     [count],
   );
@@ -76,6 +76,76 @@ export function Fireflies({ count = 30 }: { count?: number }) {
             animationDelay: `${f.breatheDelay}s, ${f.floatDelay}s`,
             animationTimingFunction: "ease-in-out, ease-in-out",
             animationIterationCount: "infinite, infinite",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** 秋日落叶 */
+export function Leaves({ count = 20 }: { count?: number }) {
+  const leaves = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        left: rand(0, 100),
+        duration: rand(9, 16),
+        delay: -rand(0, 16),
+        sway: rand(-10, 10),
+        size: rand(10, 18),
+      })),
+    [count],
+  );
+
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+      {leaves.map((l, i) => (
+        <span
+          key={i}
+          className="leaf"
+          style={{
+            left: `${l.left}vw`,
+            width: l.size,
+            height: l.size,
+            ["--sway" as string]: `${l.sway}vw`,
+            animationDuration: `${l.duration}s`,
+            animationDelay: `${l.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** 冬雪 */
+export function Snow({ count = 40 }: { count?: number }) {
+  const flakes = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        left: rand(0, 100),
+        duration: rand(10, 20),
+        delay: -rand(0, 20),
+        sway: rand(-6, 6),
+        size: rand(3, 8),
+        opacity: rand(0.5, 0.95),
+      })),
+    [count],
+  );
+
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+      {flakes.map((f, i) => (
+        <span
+          key={i}
+          className="snowflake"
+          style={{
+            left: `${f.left}vw`,
+            width: f.size,
+            height: f.size,
+            ["--sway" as string]: `${f.sway}vw`,
+            ["--flake-opacity" as string]: f.opacity,
+            animationDuration: `${f.duration}s`,
+            animationDelay: `${f.delay}s`,
           }}
         />
       ))}

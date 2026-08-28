@@ -3,13 +3,17 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useEffects } from "@/components/providers/EffectProvider";
+import {
+  useEffects,
+  PARTICLE_THEMES,
+  type ParticleTheme,
+} from "@/components/providers/EffectProvider";
 
 /** 返回顶部 + 特效设置面板（右下角悬浮按钮组） */
 export function FloatingTools() {
   const [showTop, setShowTop] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const { effects, toggle } = useEffects();
+  const { effects, toggle, particleTheme, setParticleTheme } = useEffects();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 500);
@@ -26,9 +30,26 @@ export function FloatingTools() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="glass-card w-52 p-4"
+            className="glass-card w-56 p-4"
           >
-            <p className="mb-3 text-xs font-semibold tracking-widest text-muted">特效设置</p>
+            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">粒子主题</p>
+            <div className="mb-4 grid grid-cols-3 gap-1.5">
+              {PARTICLE_THEMES.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setParticleTheme(t.key as ParticleTheme)}
+                  className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] transition-all ${
+                    particleTheme === t.key
+                      ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow"
+                      : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
+                  }`}
+                >
+                  <span className="text-sm leading-none">{t.emoji}</span>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">特效开关</p>
             {(
               [
                 ["particles", "主题粒子"],
@@ -38,7 +59,6 @@ export function FloatingTools() {
             ).map(([key, label]) => (
               <label key={key} className="flex cursor-pointer items-center justify-between py-1.5 text-sm">
                 {label}
-                {/* 简易开关 */}
                 <span
                   onClick={(e) => {
                     e.preventDefault();

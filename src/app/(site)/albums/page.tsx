@@ -26,7 +26,7 @@ export default async function AlbumsPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto w-[min(96%,64rem)] pb-8">
+      <div className="mx-auto w-[min(96%,72rem)] pb-8">
         <header className="mb-8 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-r from-pink-400 to-rose-400 text-white">
             <Images className="h-5 w-5" />
@@ -34,7 +34,7 @@ export default async function AlbumsPage() {
           <div>
             <h1 className="font-serif text-3xl font-black">相册</h1>
             <p className="text-sm text-muted">
-              {albumRows.length} 本相册 · {photoRows.length} 张照片 · 点击查看大图
+              {albumRows.length} 本相册 · {photoRows.length} 张照片 · 点击相册展开照片墙
             </p>
           </div>
         </header>

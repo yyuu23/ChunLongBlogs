@@ -200,10 +200,12 @@ async function main() {
     { albumId: album1.id, url: "/assets/photos/p2.svg", caption: "午后", sort: 2 },
     { albumId: album1.id, url: "/assets/photos/p3.svg", caption: "黄昏", sort: 3 },
     { albumId: album1.id, url: "/assets/photos/p4.svg", caption: "夜色", sort: 4 },
+    { albumId: album1.id, url: "/assets/photos/p7.svg", caption: "转角", sort: 5 },
+    { albumId: album1.id, url: "/assets/photos/p8.svg", caption: "归途", sort: 6 },
     { albumId: album2.id, url: "/assets/photos/p5.svg", caption: "出发", sort: 1 },
     { albumId: album2.id, url: "/assets/photos/p6.svg", caption: "途中小憩", sort: 2 },
-    { albumId: album2.id, url: "/assets/photos/p7.svg", caption: "转角", sort: 3 },
-    { albumId: album2.id, url: "/assets/photos/p8.svg", caption: "归途", sort: 4 },
+    { albumId: album2.id, url: "/assets/photos/p3.svg", caption: "侧光", sort: 3 },
+    { albumId: album2.id, url: "/assets/photos/p1.svg", caption: "回望", sort: 4 },
   ];
   await db.insert(photos).values(photoRows);
 

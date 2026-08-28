@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Search, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { LogoEgg } from "@/components/effects/LogoEgg";
+import { CalendarPopover } from "@/components/layout/CalendarPopover";
 
 const LINKS = [
   { href: "/", label: "首页" },
@@ -126,6 +127,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                 className="glass-input w-40 border-0 bg-transparent py-1 pl-6 focus:!shadow-none"
               />
             </div>
+            <div className="hidden md:block"><CalendarPopover /></div>
             <button
               onClick={toggle}
               aria-label="切换主题"

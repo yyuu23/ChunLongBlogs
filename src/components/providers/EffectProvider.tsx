@@ -13,6 +13,7 @@ export interface EffectFlags {
   clickBurst: boolean;
   splash: boolean;
   selectionSparkle: boolean;
+  mascot: boolean;
 }
 
 /** 粒子主题：auto = 亮色樱花/暗色萤火虫（默认），season = 按月份自动，其余为强制指定 */
@@ -40,6 +41,7 @@ const DEFAULTS: EffectFlags = {
   clickBurst: true,
   splash: true,
   selectionSparkle: true,
+  mascot: true,
 };
 
 interface EffectCtx {
@@ -78,7 +80,7 @@ export function EffectProvider({ children }: { children: ReactNode }) {
       }
       // 尊重系统减少动态偏好
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        next = { particles: false, clickBurst: false, splash: false, selectionSparkle: false };
+        next = { particles: false, clickBurst: false, splash: false, selectionSparkle: false, mascot: false };
       }
       setEffects(next);
     } catch {}

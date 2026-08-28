@@ -77,6 +77,7 @@ export function FloatingTools() {
                 ["clickBurst", "点击爆破"],
                 ["selectionSparkle", "选中星光"],
                 ["splash", "启动屏"],
+                ["mascot", "看板娘"],
               ] as const
             ).map(([key, label]) => (
               <label key={key} className="flex cursor-pointer items-center justify-between py-1.5 text-sm">

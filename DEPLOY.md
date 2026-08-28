@@ -2,13 +2,36 @@
 
 适用：自己的服务器（Linux）+ 域名 + Nginx 反代。整个站点是**一个 Node 进程 + 一个 SQLite 文件**，无需数据库服务。
 
-## 1. 服务器环境
+## 0. 先搞清楚现状：本地运行 & 数据库是什么
 
-- Node.js ≥ 20（推荐 20 LTS / 22）：`curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs`
-- pm2：`npm i -g pm2`
-- Nginx
+**你现在跑的是本地版。** 在你电脑上执行的是 `npm run build` + `npm run start`，Next.js 以生产模式跑在 `http://localhost:3000`，只有你自己能访问。公网部署就是把同样的东西放到有公网 IP 的服务器上跑，并用 Nginx 把域名指过去。
 
-## 2. 拉取代码与安装
+**数据库是 SQLite，不需要安装任何数据库软件。** 和 MySQL/PostgreSQL 那种"独立数据库服务"不同：
+
+| | MySQL 那类 | 本项目 SQLite |
+|---|---|---|
+| 安装 | 要装服务端、建账号、建库 | **什么都不用装**，Node 直接读写文件 |
+| 数据存在哪 | 数据库服务里 | 项目目录的 `data/db.sqlite` 一个文件 |
+| 启动/连接 | 要单独启动、配连接串 | 随网站进程自动可用 |
+| 备份 | 导出 dump | **复制那一个文件** |
+| 适合量级 | 高并发多用户 | 个人博客绰绰有余（读性能每秒几十万次） |
+
+所以你的服务器上**只需要装：Node.js、pm2、Nginx**，没有 MySQL 这一步。哪天真想换 MySQL/PostgreSQL，Drizzle ORM 抽象了数据库操作，改配置加迁移即可，代码不用大改。
+
+**服务器安装清单（全部就这三样）：**
+
+```bash
+# 1. Node.js ≥ 20（Debian/Ubuntu）
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs
+
+# 2. pm2（让网站常驻后台、开机自启）
+npm i -g pm2
+
+# 3. Nginx（反向代理 + HTTPS 证书）
+apt install -y nginx
+```
+
+## 1. 拉取代码与安装
 
 ```bash
 cd /opt
@@ -17,7 +40,7 @@ cd chunlong-blog
 npm ci
 ```
 
-## 3. 配置环境变量
+## 2. 配置环境变量
 
 ```bash
 cp .env.example .env
@@ -33,7 +56,7 @@ AUTH_SECRET=<node -e "console.log(require('crypto').randomBytes(48).toString('ba
 SITE_URL=https://你的域名
 ```
 
-## 4. 初始化数据库并启动
+## 3. 初始化数据库并启动
 
 ```bash
 npm run db:push     # 建表
@@ -45,7 +68,7 @@ pm2 save
 
 > 升级：`git pull && npm ci && npm run db:push && npm run build && pm2 restart chunlong-blog`
 
-## 5. Nginx 反代（80/443 + 证书）
+## 4. Nginx 反代（80/443 + 证书）
 
 ```nginx
 server {
@@ -81,7 +104,7 @@ apt install -y certbot python3-certbot-nginx
 certbot --nginx -d chunlong.me
 ```
 
-## 6. 备份
+## 5. 备份
 
 数据全部在两个地方：
 
@@ -95,13 +118,13 @@ certbot --nginx -d chunlong.me
 
 恢复：解压覆盖后 `pm2 restart chunlong-blog`。
 
-## 7. 开启评论（giscus，可选）
+## 6. 开启评论（giscus，可选）
 
 1. GitHub 上为本仓库开启 Discussions
 2. 安装 [giscus app](https://github.com/apps/giscus) 到仓库
 3. 到 [giscus.app](https://giscus.app/zh-CN) 生成配置，把 `repo / repoId / category / categoryId` 四个值填进博客后台「站点设置」
 
-## 8. 站内统计（可选，二期）
+## 7. 站内统计（可选，二期）
 
 推荐自托管 [umami](https://umami.is/)（Docker 一行起），在后台「站点设置 → 页脚附加文字」之外的模板里注入脚本即可。
 

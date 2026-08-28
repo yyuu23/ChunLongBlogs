@@ -38,6 +38,12 @@ body {
   color: var(--text-main);
   font-family: var(--font-sans);
   min-height: 100dvh;
+  /* 兜底背景：正常情况被 fixed 背景层完全覆盖，仅在极端情况避免露白 */
+  background: #e9ecf8;
+}
+
+.dark body {
+  background: #0b1020;
 }
 
 ::selection {

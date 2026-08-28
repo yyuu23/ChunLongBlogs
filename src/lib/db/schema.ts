@@ -1,0 +1,101 @@
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+
+const ts = { withTimezone: false, mode: "timestamp_ms" } as const;
+
+export const adminUsers = sqliteTable("admin_users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const categories = sqliteTable("categories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  color: text("color").notNull().default("#6366f1"),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const tags = sqliteTable("tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+});
+
+export const posts = sqliteTable("posts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description").notNull().default(""),
+  content: text("content").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  categoryId: integer("category_id").references(() => categories.id, {
+    onDelete: "set null",
+  }),
+  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
+  views: integer("views").notNull().default(0),
+  wordCount: integer("word_count").notNull().default(0),
+  readingTime: integer("reading_time").notNull().default(1),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  publishedAt: integer("published_at", ts),
+});
+
+export const postTags = sqliteTable(
+  "post_tags",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.tagId] })],
+);
+
+export const moments = sqliteTable("moments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  content: text("content").notNull(),
+  images: text("images").notNull().default("[]"), // JSON: string[]
+  mood: text("mood").notNull().default(""), // emoji
+  location: text("location").notNull().default(""),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const friendLinks = sqliteTable("friend_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  avatar: text("avatar").notNull().default(""),
+  description: text("description").notNull().default(""),
+  sort: integer("sort").notNull().default(0),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const albums = sqliteTable("albums", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const photos = sqliteTable("photos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  albumId: integer("album_id")
+    .notNull()
+    .references(() => albums.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  caption: text("caption").notNull().default(""),
+  sort: integer("sort").notNull().default(0),
+});
+
+export const siteConfigs = sqliteTable("site_configs", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // JSON
+  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});

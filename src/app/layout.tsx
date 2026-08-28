@@ -4,6 +4,7 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { EffectProvider } from "@/components/providers/EffectProvider";
+import { AccentProvider } from "@/components/providers/AccentProvider";
 import { getSiteConfig } from "@/lib/site";
 
 const geistSans = Geist({
@@ -47,6 +48,10 @@ const initScript = `
   document.documentElement.style.colorScheme = t;
 }catch(e){}})();
 (function(){try{
+  var a = localStorage.getItem('cl-accent');
+  if(a){ document.documentElement.dataset.accent = a; }
+}catch(e){}})();
+(function(){try{
   var seen = sessionStorage.getItem('cl-splash-seen')==='1';
   var eff = localStorage.getItem('cl-effects');
   var splashOn = eff ? (JSON.parse(eff).splash !== false) : true;
@@ -73,7 +78,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh">
         <ThemeProvider>
-          <EffectProvider>{children}</EffectProvider>
+          <AccentProvider>
+            <EffectProvider>{children}</EffectProvider>
+          </AccentProvider>
         </ThemeProvider>
       </body>
     </html>

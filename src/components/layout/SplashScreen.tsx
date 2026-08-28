@@ -95,7 +95,7 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
             {/* 进度条 */}
             <div className="h-1 w-44 overflow-hidden rounded-full bg-white/50 dark:bg-slate-800">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-pink-400"
+                className="h-full rounded-full bg-accent-gradient"
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
                 transition={{ duration: 1.5, ease: "easeInOut" }}

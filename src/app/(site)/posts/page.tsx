@@ -35,9 +35,9 @@ export default async function PostsPage({ searchParams }: PageProps) {
   const params: Record<string, string | undefined> = { category, tag, q };
   const chipBase =
     "rounded-full border px-3 py-1 text-xs transition-all";
-  const chipOff = "border-transparent bg-indigo-400/10 text-muted hover:text-indigo-500";
+  const chipOff = "border-transparent bg-accent-soft text-muted hover-text-accent";
   const chipOn =
-    "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow";
+    "border-transparent bg-accent-gradient text-white shadow";
 
   return (
     <PageTransition>

@@ -37,8 +37,8 @@ export function ViewSwitch({
             aria-label="网格视图"
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
               view === "grid"
-                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow"
-                : "text-muted hover:text-indigo-500"
+                ? "bg-accent-gradient text-white shadow"
+                : "text-muted hover-text-accent"
             }`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
@@ -49,8 +49,8 @@ export function ViewSwitch({
             aria-label="列表视图"
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
               view === "list"
-                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow"
-                : "text-muted hover:text-indigo-500"
+                ? "bg-accent-gradient text-white shadow"
+                : "text-muted hover-text-accent"
             }`}
           >
             <List className="h-3.5 w-3.5" />

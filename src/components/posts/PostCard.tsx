@@ -77,7 +77,7 @@ export function PostCard({
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-indigo-400/60 to-pink-400/60" />
+                  <div className="h-full w-full bg-accent-br-gradient opacity-60" />
                 )}
                 {post.isPinned && (
                   <span className="absolute left-3 top-3 z-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-0.5 text-xs font-semibold text-white shadow">
@@ -94,7 +94,7 @@ export function PostCard({
                 )}
               </div>
               <div className="flex flex-1 flex-col gap-2.5 p-5">
-                <h2 className="font-serif text-lg font-bold leading-snug transition-colors group-hover:text-indigo-500 dark:group-hover:text-indigo-300">
+                <h2 className="font-serif text-lg font-bold leading-snug transition-colors group-hover:text-[var(--accent-text)]">
                   {post.title}
                 </h2>
                 <p className="line-clamp-2 flex-1 text-sm leading-relaxed text-muted">
@@ -119,7 +119,7 @@ export function PostCard({
                     {post.tags.map((t) => (
                       <span
                         key={t.id}
-                        className="rounded-full bg-indigo-400/10 px-2 py-0.5 text-[11px] text-indigo-500 dark:text-indigo-300"
+                        className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent"
                       >
                         #{t.name}
                       </span>
@@ -140,7 +140,7 @@ export function PostCard({
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-indigo-400/60 to-pink-400/60" />
+                  <div className="h-full w-full bg-accent-br-gradient opacity-60" />
                 )}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-2 py-1 pr-2">
@@ -159,7 +159,7 @@ export function PostCard({
                     </span>
                   )}
                 </div>
-                <h2 className="font-serif text-lg font-bold leading-snug transition-colors group-hover:text-indigo-500 dark:group-hover:text-indigo-300">
+                <h2 className="font-serif text-lg font-bold leading-snug transition-colors group-hover:text-[var(--accent-text)]">
                   {post.title}
                 </h2>
                 <p className="line-clamp-2 text-sm leading-relaxed text-muted">
@@ -179,7 +179,7 @@ export function PostCard({
                     {post.views}
                   </span>
                   {post.tags.slice(0, 3).map((t) => (
-                    <span key={t.id} className="text-indigo-500 dark:text-indigo-300">
+                    <span key={t.id} className="text-accent">
                       #{t.name}
                     </span>
                   ))}

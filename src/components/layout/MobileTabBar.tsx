@@ -26,7 +26,7 @@ export function MobileTabBar() {
       <button
         onClick={toggle}
         aria-label="切换主题"
-        className="relative -mt-6 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/40 transition-transform active:scale-90"
+        className="relative -mt-6 flex h-12 w-12 items-center justify-center rounded-full bg-accent-br-gradient text-white accent-glow transition-transform active:scale-90"
       >
         {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>
@@ -51,11 +51,11 @@ function TabItem({
       {active && (
         <motion.span
           layoutId="tab-indicator"
-          className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400"
+          className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent-gradient"
         />
       )}
-      <Icon className={`h-5 w-5 ${active ? "text-indigo-500 dark:text-indigo-300" : "text-muted"}`} />
-      <span className={`text-[10px] ${active ? "text-indigo-500 dark:text-indigo-300" : "text-muted"}`}>
+      <Icon className={`h-5 w-5 ${active ? "text-accent" : "text-muted"}`} />
+      <span className={`text-[10px] ${active ? "text-accent" : "text-muted"}`}>
         {tab.label}
       </span>
     </Link>

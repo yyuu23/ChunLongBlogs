@@ -44,17 +44,17 @@ export default async function PostDetailPage({ params }: PageProps) {
       <article className="mx-auto w-[min(96%,72rem)] pb-8">
         {/* 面包屑 */}
         <nav className="mb-5 flex items-center gap-1.5 text-xs text-muted">
-          <Link href="/" className="inline-flex items-center gap-1 hover:text-indigo-500">
+          <Link href="/" className="inline-flex items-center gap-1 hover-text-accent">
             <Home className="h-3.5 w-3.5" /> 首页
           </Link>
           <ChevronRight className="h-3 w-3" />
-          <Link href="/posts" className="hover:text-indigo-500">文章</Link>
+          <Link href="/posts" className="hover-text-accent">文章</Link>
           {post.category && (
             <>
               <ChevronRight className="h-3 w-3" />
               <Link
                 href={`/posts?category=${post.category.slug}`}
-                className="hover:text-indigo-500"
+                className="hover-text-accent"
               >
                 {post.category.name}
               </Link>
@@ -90,7 +90,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                         <Link
                           key={t.id}
                           href={`/posts?tag=${t.slug}`}
-                          className="rounded-full bg-indigo-400/10 px-2.5 py-1 text-xs text-indigo-500 transition-colors hover:bg-indigo-400/20 dark:text-indigo-300"
+                          className="rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent transition-opacity hover:opacity-80"
                         >
                           # {t.name}
                         </Link>

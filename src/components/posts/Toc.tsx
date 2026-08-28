@@ -42,8 +42,8 @@ export function Toc({ items }: { items: TocItem[] }) {
                 item.depth === 3 ? "pl-5" : "pl-3"
               } ${
                 active === item.id
-                  ? "border-indigo-500 bg-indigo-400/10 font-medium text-indigo-500 dark:text-indigo-300"
-                  : "border-transparent text-muted hover:border-indigo-300 hover:text-indigo-400"
+                  ? "border-accent bg-accent-soft font-medium text-accent"
+                  : "border-transparent text-muted hover:border-accent hover:text-[var(--accent-text)]"
               }`}
             >
               {item.text}

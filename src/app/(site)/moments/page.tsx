@@ -33,7 +33,7 @@ export default async function MomentsPage() {
                   <span className="absolute -left-5 top-5 h-3 w-3 rounded-full bg-gradient-to-r from-pink-400 to-indigo-400 ring-4 ring-white/50 dark:ring-slate-900/50" />
                   <div className="glass-card p-5">
                     <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                      <span className="font-medium text-indigo-500 dark:text-indigo-300">
+                      <span className="font-medium text-accent">
                         {m.mood || "💭"}
                       </span>
                       <time dateTime={new Date(m.createdAt).toISOString()} title={formatDateTime(m.createdAt)}>

@@ -121,7 +121,7 @@ export function StatsRow({
           transition={{ delay: i * 0.08, duration: 0.45 }}
           className="glass-card glass-hover flex flex-col items-center gap-1 px-2 py-4"
         >
-          <span className="text-indigo-500 dark:text-indigo-300">{s.icon}</span>
+          <span className="text-accent">{s.icon}</span>
           <span className="text-xl font-bold md:text-2xl">
             <CountUp value={s.value} suffix={s.suffix} />
           </span>

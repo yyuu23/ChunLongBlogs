@@ -7,10 +7,10 @@ export function Footer({ config }: { config: SiteConfig }) {
     <footer className="relative z-10 mt-16 pb-24 md:pb-8">
       <div className="mx-auto w-[min(96%,72rem)] px-2 text-center text-sm text-muted">
         <div className="mb-3 flex items-center justify-center gap-4">
-          <Link href="/feed" aria-label="RSS" className="transition-colors hover:text-indigo-500">
+          <Link href="/feed" aria-label="RSS" className="transition-colors hover-text-accent">
             <Rss className="h-4 w-4" />
           </Link>
-          <Link href="/admin" aria-label="后台" className="transition-colors hover:text-indigo-500">
+          <Link href="/admin" aria-label="后台" className="transition-colors hover-text-accent">
             <Lock className="h-4 w-4" />
           </Link>
         </div>
@@ -25,7 +25,7 @@ export function Footer({ config }: { config: SiteConfig }) {
               .join("/")}/`}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 inline-block transition-colors hover:text-indigo-500"
+            className="mt-1 inline-block transition-colors hover-text-accent"
           >
             CC {config.ccLicense}
           </a>

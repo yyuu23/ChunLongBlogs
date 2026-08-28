@@ -11,9 +11,18 @@ import rehypeStringify from "rehype-stringify";
 import GithubSlugger from "github-slugger";
 
 const prettyCodeOptions: PrettyCodeOptions = {
+  // 多主题输出 CSS 变量（--shiki-light/-dark + 各 accent 组），前端按 data-accent 切换
   theme: {
     light: "github-light",
     dark: "github-dark-dimmed",
+    "rose-light": "rose-pine-dawn",
+    "rose-dark": "rose-pine-moon",
+    "emerald-light": "vitesse-light",
+    "emerald-dark": "vitesse-dark",
+    "amber-light": "one-light",
+    "amber-dark": "one-dark-pro",
+    "cyan-light": "min-light",
+    "cyan-dark": "min-dark",
   },
   keepBackground: false,
 };

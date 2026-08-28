@@ -24,7 +24,7 @@ export default async function ArchivePage() {
     <PageTransition>
       <div className="mx-auto w-[min(96%,48rem)] pb-8">
         <header className="mb-8 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-400 to-purple-400 text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent-gradient text-white">
             <ArchiveIcon className="h-5 w-5" />
           </span>
           <div>
@@ -38,7 +38,7 @@ export default async function ArchivePage() {
             <section key={year}>
               <FadeIn>
                 <h2 className="relative mb-4 flex items-baseline gap-3 font-serif text-2xl font-bold">
-                  <span className="absolute -left-6 h-3.5 w-3.5 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 ring-4 ring-white/50 dark:ring-slate-900/50" />
+                  <span className="absolute -left-6 h-3.5 w-3.5 rounded-full bg-accent-gradient ring-4 ring-white/50 dark:ring-slate-900/50" />
                   {year}
                   <span className="text-sm font-normal text-muted">
                     {byYear.get(year)!.length} 篇
@@ -55,7 +55,7 @@ export default async function ArchivePage() {
                       <span className="shrink-0 font-mono text-xs text-muted">
                         {formatDate(p.publishedAt ?? p.createdAt)}
                       </span>
-                      <span className="min-w-0 flex-1 truncate font-medium transition-colors group-hover:text-indigo-500 dark:group-hover:text-indigo-300">
+                      <span className="min-w-0 flex-1 truncate font-medium transition-colors group-hover:text-[var(--accent-text)]">
                         {p.title}
                       </span>
                       {p.category && (

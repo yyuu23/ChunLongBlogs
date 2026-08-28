@@ -137,7 +137,7 @@ function AlbumCard({
             </motion.div>
           ))}
           {/* 数量徽标 */}
-          <div className="absolute -bottom-2 right-0 z-20 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-2.5 py-0.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/30">
+          <div className="absolute -bottom-2 right-0 z-20 rounded-full bg-accent-gradient accent-glow px-2.5 py-0.5 text-xs font-bold text-white">
             {album.photos.length} 张
           </div>
         </motion.div>

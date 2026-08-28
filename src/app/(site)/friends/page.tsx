@@ -56,7 +56,7 @@ export default async function FriendsPage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 font-serif font-bold transition-colors group-hover:text-indigo-500 dark:group-hover:text-indigo-300">
+                  <p className="flex items-center gap-1.5 font-serif font-bold transition-colors group-hover-text-accent dark:group-hover:text-indigo-300">
                     {f.name}
                     <Link2 className="h-3.5 w-3.5 text-muted transition-transform group-hover:rotate-12" />
                   </p>

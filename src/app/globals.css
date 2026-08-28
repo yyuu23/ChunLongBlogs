@@ -10,14 +10,47 @@
 
 /* ================= 基础 ================= */
 
-:root {
+:root,
+html[data-accent="violet"] {
   --glass-bg: rgba(255, 255, 255, 0.45);
   --glass-bg-strong: rgba(255, 255, 255, 0.62);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
   --text-main: #1e293b;
   --text-muted: #64748b;
+  --accent-from: #6366f1;
+  --accent-to: #a855f7;
+  --accent-solid: #6366f1;
+  --accent-text: #6366f1;
   color-scheme: light;
+}
+
+html[data-accent="rose"] {
+  --accent-from: #f43f5e;
+  --accent-to: #ec4899;
+  --accent-solid: #e11d48;
+  --accent-text: #e11d48;
+}
+
+html[data-accent="emerald"] {
+  --accent-from: #10b981;
+  --accent-to: #0d9488;
+  --accent-solid: #059669;
+  --accent-text: #059669;
+}
+
+html[data-accent="amber"] {
+  --accent-from: #f59e0b;
+  --accent-to: #f97316;
+  --accent-solid: #d97706;
+  --accent-text: #b45309;
+}
+
+html[data-accent="cyan"] {
+  --accent-from: #06b6d4;
+  --accent-to: #3b82f6;
+  --accent-solid: #0891b2;
+  --accent-text: #0e7490;
 }
 
 .dark {
@@ -28,6 +61,23 @@
   --text-main: #e2e8f0;
   --text-muted: #94a3b8;
   color-scheme: dark;
+}
+
+.dark[data-accent="violet"],
+.dark[data-accent="cyan"] {
+  --accent-text: #818cf8;
+}
+
+.dark[data-accent="rose"] {
+  --accent-text: #fb7185;
+}
+
+.dark[data-accent="emerald"] {
+  --accent-text: #34d399;
+}
+
+.dark[data-accent="amber"] {
+  --accent-text: #fbbf24;
 }
 
 html {
@@ -47,12 +97,8 @@ body {
 }
 
 ::selection {
-  background: rgba(129, 140, 248, 0.35);
+  background: color-mix(in srgb, var(--accent-solid) 35%, transparent);
   color: inherit;
-}
-
-.dark ::selection {
-  background: rgba(167, 139, 250, 0.4);
 }
 
 /* 自定义滚动条 */
@@ -64,11 +110,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--accent-solid) 40%, transparent);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
+  background: color-mix(in srgb, var(--accent-solid) 65%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -177,6 +223,46 @@ body {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+/* ================= 主题色工具类（跟随 data-accent） ================= */
+
+.bg-accent-gradient {
+  background-image: linear-gradient(to right, var(--accent-from), var(--accent-to));
+}
+
+.bg-accent-br-gradient {
+  background-image: linear-gradient(to bottom right, var(--accent-from), var(--accent-to));
+}
+
+.text-accent {
+  color: var(--accent-text);
+}
+
+.bg-accent-solid {
+  background-color: var(--accent-solid);
+}
+
+.bg-accent-soft {
+  background: color-mix(in srgb, var(--accent-solid) 11%, transparent);
+}
+
+.hover-text-accent:hover {
+  color: var(--accent-text);
+}
+
+.accent-glow {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-solid) 30%, transparent);
+}
+
+.border-accent {
+  border-color: var(--accent-solid);
+}
+
+.accent-page-active {
+  background-image: linear-gradient(to right, var(--accent-from), var(--accent-to));
+  color: #fff;
+  border-color: transparent;
 }
 
 /* ================= 关键帧 ================= */
@@ -465,13 +551,10 @@ body {
   margin: 0.9em 0;
 }
 .md a {
-  color: #6366f1;
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(99, 102, 241, 0.4);
-}
-.dark .md a {
-  color: #a5b4fc;
+  text-decoration-color: color-mix(in srgb, var(--accent-solid) 45%, transparent);
 }
 .md a:hover {
   text-decoration-color: currentColor;
@@ -494,13 +577,13 @@ body {
   margin: 0.35em 0;
 }
 .md li::marker {
-  color: #818cf8;
+  color: var(--accent-text);
 }
 .md blockquote {
   margin: 1.2em 0;
   padding: 0.6em 1.2em;
-  border-left: 4px solid rgba(129, 140, 248, 0.6);
-  background: rgba(129, 140, 248, 0.08);
+  border-left: 4px solid color-mix(in srgb, var(--accent-solid) 60%, transparent);
+  background: color-mix(in srgb, var(--accent-solid) 8%, transparent);
   border-radius: 0.4em;
   color: var(--text-muted);
 }
@@ -521,13 +604,10 @@ body {
 .md code:not(pre code) {
   font-family: var(--font-mono);
   font-size: 0.86em;
-  background: rgba(129, 140, 248, 0.13);
-  color: #6d5ae0;
+  background: color-mix(in srgb, var(--accent-solid) 13%, transparent);
+  color: var(--accent-text);
   padding: 0.15em 0.45em;
   border-radius: 0.4em;
-}
-.dark .md code:not(pre code) {
-  color: #c4b5fd;
 }
 
 /* 代码块（Shiki 双主题） */
@@ -548,13 +628,36 @@ body {
   font-family: var(--font-mono);
   display: block;
 }
-.md .shiki,
-.md .shiki span {
+/* 多主题模式下 rehype-pretty-code 不再输出 .shiki 类，颜色全部由这里按主题挑选 */
+.md pre code span[data-line] span {
   color: var(--shiki-light);
 }
-.dark .md .shiki,
-.dark .md .shiki span {
+.dark .md pre code span[data-line] span {
   color: var(--shiki-dark);
+}
+html[data-accent="rose"] .md pre code span[data-line] span {
+  color: var(--shiki-rose-light);
+}
+html[data-accent="rose"].dark .md pre code span[data-line] span {
+  color: var(--shiki-rose-dark);
+}
+html[data-accent="emerald"] .md pre code span[data-line] span {
+  color: var(--shiki-emerald-light);
+}
+html[data-accent="emerald"].dark .md pre code span[data-line] span {
+  color: var(--shiki-emerald-dark);
+}
+html[data-accent="amber"] .md pre code span[data-line] span {
+  color: var(--shiki-amber-light);
+}
+html[data-accent="amber"].dark .md pre code span[data-line] span {
+  color: var(--shiki-amber-dark);
+}
+html[data-accent="cyan"] .md pre code span[data-line] span {
+  color: var(--shiki-cyan-light);
+}
+html[data-accent="cyan"].dark .md pre code span[data-line] span {
+  color: var(--shiki-cyan-dark);
 }
 .md pre[data-line-numbers] {
   counter-reset: line;
@@ -576,12 +679,12 @@ body {
   text-align: left;
 }
 .md th {
-  background: rgba(129, 140, 248, 0.12);
+  background: color-mix(in srgb, var(--accent-solid) 12%, transparent);
   font-weight: 600;
   white-space: nowrap;
 }
 .md tr:hover td {
-  background: rgba(129, 140, 248, 0.05);
+  background: color-mix(in srgb, var(--accent-solid) 5%, transparent);
 }
 
 /* GitHub 风格提示框（remark-github-blockquote-alert） */

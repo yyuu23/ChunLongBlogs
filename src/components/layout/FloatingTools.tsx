@@ -8,12 +8,14 @@ import {
   PARTICLE_THEMES,
   type ParticleTheme,
 } from "@/components/providers/EffectProvider";
+import { ACCENTS, useAccent } from "@/components/providers/AccentProvider";
 
 /** 返回顶部 + 特效设置面板（右下角悬浮按钮组） */
 export function FloatingTools() {
   const [showTop, setShowTop] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const { effects, toggle, particleTheme, setParticleTheme } = useEffects();
+  const { accent, setAccent } = useAccent();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 500);
@@ -30,8 +32,27 @@ export function FloatingTools() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="glass-card w-56 p-4"
+            className="glass-card w-60 p-4"
           >
+            <p className="mb-2 text-xs font-semibold tracking-widest text-muted">主题色</p>
+            <div className="mb-4 flex justify-between px-0.5">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.key}
+                  onClick={() => setAccent(a.key)}
+                  title={a.label}
+                  aria-label={`主题色：${a.label}`}
+                  className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                    accent === a.key ? "scale-110" : ""
+                  }`}
+                  style={{
+                    background: `linear-gradient(135deg, ${a.from}, ${a.to})`,
+                    boxShadow: accent === a.key ? `0 0 0 2px ${a.from}` : undefined,
+                  }}
+                />
+              ))}
+            </div>
+
             <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">粒子主题</p>
             <div className="mb-4 grid grid-cols-3 gap-1.5">
               {PARTICLE_THEMES.map((t) => (
@@ -40,7 +61,7 @@ export function FloatingTools() {
                   onClick={() => setParticleTheme(t.key as ParticleTheme)}
                   className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] transition-all ${
                     particleTheme === t.key
-                      ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow"
+                      ? "bg-accent-gradient text-white shadow"
                       : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
                   }`}
                 >
@@ -66,7 +87,7 @@ export function FloatingTools() {
                     toggle(key);
                   }}
                   className={`relative h-5 w-9 rounded-full transition-colors ${
-                    effects[key] ? "bg-indigo-500" : "bg-slate-300 dark:bg-slate-700"
+                    effects[key] ? "bg-accent-solid" : "bg-slate-300 dark:bg-slate-700"
                   }`}
                 >
                   <span

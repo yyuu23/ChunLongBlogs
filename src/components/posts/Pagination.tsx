@@ -50,7 +50,7 @@ export function Pagination({
           href={href(p)}
           aria-current={p === page ? "page" : undefined}
           className={`glass-button !px-3.5 text-xs ${
-            p === page ? "!bg-gradient-to-r !from-indigo-500 !to-purple-500 !text-white" : ""
+            p === page ? "accent-page-active" : ""
           }`}
         >
           {p}

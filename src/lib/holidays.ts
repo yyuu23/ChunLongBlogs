@@ -86,3 +86,79 @@ name("国庆·中秋连休调休", "2026-09-30");
 export function dayName(y: number, m: number, d: number): string | undefined {
   return NAMES[dateKey(y, m, d)];
 }
+
+/* ============ 远程数据源（holiday-cn 开源数据集，逐年文件）============
+ * 国务院每年 10-11 月发布次年安排后，该数据集数天内更新；
+ * 本地表覆盖 2024-2026，之后年份自动联网获取并缓存，无需改代码。 */
+
+export interface YearRule {
+  kind: DayKind;
+  name?: string;
+}
+
+interface RemoteDay {
+  name?: string;
+  date?: string;
+  isOffDay?: boolean;
+}
+
+const remoteCache = new Map<number, { at: number; rules: Record<string, YearRule> }>();
+const REMOTE_TTL = 7 * 24 * 3600 * 1000; // 成功缓存 7 天
+const REMOTE_FAIL_TTL = 24 * 3600 * 1000; // 失败/空数据缓存 1 天（避免频繁探测）
+
+/** 本地表中该年份是否有数据 */
+function localYearCovered(y: number) {
+  const prefix = `${y}-`;
+  return Object.keys(TABLE).some((k) => k.startsWith(prefix));
+}
+
+/** 拉取一年的远程规则（holiday-cn），失败返回 null */
+async function fetchRemoteYear(y: number): Promise<Record<string, YearRule> | null> {
+  const urls = [
+    `https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/${y}.json`,
+    `https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/${y}.json`,
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) continue;
+      const data = (await res.json()) as { year?: number; days?: RemoteDay[] };
+      if (data.year !== y || !Array.isArray(data.days)) continue;
+      const rules: Record<string, YearRule> = {};
+      for (const day of data.days) {
+        if (!day.date) continue;
+        // isOffDay=true 法定假；false 调休补班
+        rules[day.date] = {
+          kind: day.isOffDay ? "holiday" : "workday",
+          name: day.name,
+        };
+      }
+      return rules;
+    } catch {
+      // 换下一个源
+    }
+  }
+  return null;
+}
+
+/** 取某年完整规则：本地表优先，未覆盖年份联网补充（带缓存） */
+export async function getYearRules(y: number): Promise<Record<string, YearRule>> {
+  // 本地有数据的年份直接用（最可靠，含调休名）
+  if (localYearCovered(y)) {
+    const rules: Record<string, YearRule> = {};
+    for (const [k, kind] of Object.entries(TABLE)) {
+      if (k.startsWith(`${y}-`)) rules[k] = { kind, name: NAMES[k] };
+    }
+    return rules;
+  }
+
+  const cached = remoteCache.get(y);
+  if (cached && Date.now() - cached.at < (Object.keys(cached.rules).length ? REMOTE_TTL : REMOTE_FAIL_TTL)) {
+    return cached.rules;
+  }
+
+  const remote = await fetchRemoteYear(y);
+  const rules = remote ?? {};
+  remoteCache.set(y, { at: Date.now(), rules });
+  return rules;
+}

@@ -4,9 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { dayKind, dayName, dateKey, type DayKind } from "@/lib/holidays";
+import type { DayKind } from "@/lib/holidays";
 
 const WEEK = ["一", "二", "三", "四", "五", "六", "日"];
+
+interface MonthHolidays {
+  [dateKey: string]: { kind: DayKind; name?: string };
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const keyOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
 /** 角标样式：休（蓝）/ 工（橙） */
 function DayBadge({ kind }: { kind: DayKind }) {
@@ -25,7 +32,7 @@ function DayBadge({ kind }: { kind: DayKind }) {
   return null;
 }
 
-/** 导航栏日历：月历弹层，含法定节假日/调休标注 */
+/** 导航栏日历：月历弹层，法定假/调休/双休标注（数据来自 API：本地规则表 + holiday-cn 自动联网） */
 export function CalendarPopover() {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(() => {
@@ -33,15 +40,23 @@ export function CalendarPopover() {
     return { y: n.getFullYear(), m: n.getMonth() + 1 };
   });
   const [days, setDays] = useState<Record<string, number>>({});
+  const [holidays, setHolidays] = useState<MonthHolidays>({});
   const wrapRef = useRef<HTMLDivElement>(null);
   const today = new Date();
 
-  // 打开时拉取当月数据
   useEffect(() => {
     if (!open) return;
     fetch(`/api/calendar?year=${cursor.y}&month=${cursor.m}`)
       .then((r) => r.json())
-      .then((d: { days?: Record<string, number> }) => setDays(d.days ?? {}))
+      .then(
+        (d: {
+          days?: Record<string, number>;
+          holidays?: MonthHolidays;
+        }) => {
+          setDays(d.days ?? {});
+          setHolidays(d.holidays ?? {});
+        },
+      )
       .catch(() => {});
   }, [open, cursor]);
 
@@ -60,7 +75,6 @@ export function CalendarPopover() {
   const next = () =>
     setCursor((c) => (c.m === 12 ? { y: c.y + 1, m: 1 } : { ...c, m: c.m + 1 }));
 
-  // 月历网格：周一起始，前置补空
   const firstDay = new Date(cursor.y, cursor.m - 1, 1);
   const daysInMonth = new Date(cursor.y, cursor.m, 0).getDate();
   const lead = (firstDay.getDay() + 6) % 7;
@@ -114,11 +128,14 @@ export function CalendarPopover() {
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((d, i) => {
                 if (d === null) return <span key={`e-${i}`} />;
-                const kind = dayKind(cursor.y, cursor.m, d);
-                const count = days[dateKey(cursor.y, cursor.m, d)] ?? 0;
-                const holidayName = dayName(cursor.y, cursor.m, d);
+                const dateKey = keyOf(cursor.y, cursor.m, d);
+                const rule = holidays[dateKey];
+                const kind: DayKind =
+                  rule?.kind ??
+                  (new Date(cursor.y, cursor.m - 1, d).getDay() % 6 === 0 ? "weekend" : "work");
+                const count = days[dateKey] ?? 0;
 
-                // 配色：法定假=蓝色，调休=橙色，双休=柔和红，工作日=默认
+                // 配色：法定假=蓝，调休=橙，双休=柔和红，工作日=默认
                 const base =
                   kind === "holiday"
                     ? "text-blue-600 dark:text-blue-300 font-bold"
@@ -133,7 +150,7 @@ export function CalendarPopover() {
                   <span
                     className={`relative flex h-8 w-8 items-center justify-center rounded-lg text-xs transition-colors ${todayCls}`}
                     title={[
-                      holidayName,
+                      rule?.name,
                       kind === "holiday" ? "法定节假日" : kind === "workday" ? "调休补班" : undefined,
                       count > 0 ? `${count} 篇文章` : undefined,
                     ]
@@ -149,11 +166,7 @@ export function CalendarPopover() {
                 );
                 return (
                   <span key={d} className="flex justify-center">
-                    {count > 0 ? (
-                      <Link href="/archive">{content}</Link>
-                    ) : (
-                      content
-                    )}
+                    {count > 0 ? <Link href="/archive">{content}</Link> : content}
                   </span>
                 );
               })}

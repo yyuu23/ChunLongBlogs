@@ -99,3 +99,25 @@ export const siteConfigs = sqliteTable("site_configs", {
   value: text("value").notNull(), // JSON
   updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+export const playlists = sqliteTable("playlists", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const songs = sqliteTable("songs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  playlistId: integer("playlist_id")
+    .notNull()
+    .references(() => playlists.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  artist: text("artist").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  url: text("url").notNull().default(""), // 本地路径/直链/网易云外链
+  lrc: text("lrc").notNull().default(""),
+  duration: integer("duration").notNull().default(0), // 秒
+  sort: integer("sort").notNull().default(0),
+});

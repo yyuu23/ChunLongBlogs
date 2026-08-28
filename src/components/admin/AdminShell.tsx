@@ -10,6 +10,7 @@ import {
   MessageCircleHeart,
   Users,
   Images,
+  Music2,
   Settings,
   LogOut,
   Menu,
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/admin/moments", label: "说说管理", icon: MessageCircleHeart },
   { href: "/admin/friends", label: "友链管理", icon: Users },
   { href: "/admin/albums", label: "相册管理", icon: Images },
+  { href: "/admin/music", label: "音乐馆", icon: Music2 },
   { href: "/admin/settings", label: "站点设置", icon: Settings },
 ];
 

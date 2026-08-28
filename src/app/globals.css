@@ -769,3 +769,9 @@ html[data-accent="cyan"].dark .md pre code span[data-line] span {
 html.splash-seen .splash-overlay {
   display: none !important;
 }
+
+/* 播放条音量均衡动画 */
+@keyframes equalize {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}

@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/moments", label: "说说" },
   { href: "/albums", label: "相册" },
   { href: "/lab", label: "实验室" },
+  { href: "/music", label: "音乐" },
   { href: "/friends", label: "友链" },
   { href: "/about", label: "关于" },
 ];

@@ -12,8 +12,10 @@ import {
   friendLinks,
   moments,
   photos,
+  playlists,
   postTags,
   posts,
+  songs,
   siteConfigs,
   tags,
 } from "../src/lib/db/schema";
@@ -35,6 +37,8 @@ async function main() {
   // —— 清空（保留表结构）——
   await db.run(sql`PRAGMA foreign_keys = OFF`);
   for (const t of [
+    "songs",
+    "playlists",
     "post_tags",
     "photos",
     "albums",
@@ -208,6 +212,45 @@ async function main() {
     { albumId: album2.id, url: "/assets/photos/p1.svg", caption: "回望", sort: 4 },
   ];
   await db.insert(photos).values(photoRows);
+
+  // —— 音乐馆（演示音频为脚本生成的免版权环境音）——
+  const [demoPlaylist] = await db
+    .insert(playlists)
+    .values({
+      title: "写作 BGM · 环境音",
+      description: "内置演示音频（服务器生成），正式音乐请在后台上传或从网易云导入",
+      cover: "/assets/bg/bg-3.svg",
+    })
+    .returning();
+  await db.insert(songs).values([
+    {
+      playlistId: demoPlaylist.id,
+      title: "晨光",
+      artist: "ChunLong Blog",
+      cover: "/assets/bg/bg-1.svg",
+      url: "/music/morning-light.wav",
+      duration: 20,
+      sort: 1,
+    },
+    {
+      playlistId: demoPlaylist.id,
+      title: "漂浮",
+      artist: "ChunLong Blog",
+      cover: "/assets/bg/bg-2.svg",
+      url: "/music/floating.wav",
+      duration: 22,
+      sort: 2,
+    },
+    {
+      playlistId: demoPlaylist.id,
+      title: "星尘",
+      artist: "ChunLong Blog",
+      cover: "/assets/bg/bg-4.svg",
+      url: "/music/stardust.wav",
+      duration: 24,
+      sort: 3,
+    },
+  ]);
 
   // —— 站点配置 ——
   await saveSiteConfig(DEFAULT_SITE_CONFIG);

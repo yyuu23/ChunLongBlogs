@@ -12,8 +12,10 @@ import {
   friendLinks,
   moments,
   photos,
+  playlists,
   postTags,
   posts,
+  songs,
   tags,
 } from "@/lib/db/schema";
 import { createSession, destroySession, getSession } from "@/lib/auth";
@@ -309,6 +311,127 @@ export async function deletePhoto(id: number) {
   await guard();
   await db.delete(photos).where(eq(photos.id, id));
   revalidateAll();
+}
+
+/* ============ 音乐馆 ============ */
+
+export async function savePlaylist(input: {
+  id?: number;
+  title: string;
+  description: string;
+  cover: string;
+}) {
+  await guard();
+  if (!input.title.trim()) return { error: "标题不能为空" };
+  const values = { title: input.title.trim(), description: input.description ?? "", cover: input.cover ?? "" };
+  if (input.id) {
+    await db.update(playlists).set(values).where(eq(playlists.id, input.id));
+  } else {
+    await db.insert(playlists).values(values);
+  }
+  revalidateAll();
+  return { ok: true as const };
+}
+
+export async function deletePlaylist(id: number) {
+  await guard();
+  await db.delete(playlists).where(eq(playlists.id, id));
+  revalidateAll();
+}
+
+export async function saveSong(input: {
+  id?: number;
+  playlistId: number;
+  title: string;
+  artist: string;
+  cover: string;
+  url: string;
+  lrc: string;
+  duration?: number;
+}) {
+  await guard();
+  if (!input.title.trim() || !input.url.trim()) return { error: "歌名与音频地址不能为空" };
+  const values = {
+    playlistId: input.playlistId,
+    title: input.title.trim(),
+    artist: input.artist ?? "",
+    cover: input.cover ?? "",
+    url: input.url.trim(),
+    lrc: input.lrc ?? "",
+    duration: input.duration ?? 0,
+  };
+  if (input.id) {
+    await db.update(songs).set(values).where(eq(songs.id, input.id));
+  } else {
+    const maxSort = (await db.select({ sort: songs.sort }).from(songs).where(eq(songs.playlistId, input.playlistId))).reduce((m, r) => Math.max(m, r.sort), 0);
+    await db.insert(songs).values({ ...values, sort: maxSort + 1 });
+  }
+  revalidateAll();
+  return { ok: true as const };
+}
+
+export async function deleteSong(id: number) {
+  await guard();
+  await db.delete(songs).where(eq(songs.id, id));
+  revalidateAll();
+}
+
+/** 网易云歌单导入：拉取元数据，音频走官方外链（非 VIP 可直接播放） */
+export async function importNetease(playlistId: string) {
+  await guard();
+  const pid = playlistId.trim();
+  if (!/^\d+$/.test(pid)) return { error: "请输入数字歌单 ID" };
+  try {
+    const res = await fetch(`https://music.163.com/api/playlist/detail?id=${pid}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+        Referer: "https://music.163.com/",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return { error: `网易云接口请求失败（${res.status}）` };
+    const data = (await res.json()) as {
+      playlist?: {
+        name?: string;
+        coverImgUrl?: string;
+        tracks?: Array<{
+          id: number;
+          name: string;
+          artists?: Array<{ name?: string }>;
+          album?: { picUrl?: string };
+          lMusic?: { playTime?: number };
+        }>;
+      };
+    };
+    const pl = data.playlist;
+    if (!pl?.tracks?.length) return { error: "歌单为空或接口返回结构变化" };
+
+    const [row] = await db
+      .insert(playlists)
+      .values({
+        title: pl.name || `网易云歌单 ${pid}`,
+        description: `从网易云导入（${pl.tracks.length} 首）`,
+        cover: pl.coverImgUrl ?? "",
+      })
+      .returning();
+
+    await db.insert(songs).values(
+      pl.tracks.slice(0, 100).map((t, i) => ({
+        playlistId: row.id,
+        title: t.name,
+        artist: (t.artists ?? []).map((a) => a.name).filter(Boolean).join(" / "),
+        cover: t.album?.picUrl ?? "",
+        url: `https://music.163.com/song/media/outer/url?id=${t.id}.mp3`,
+        duration: Math.round((t.lMusic?.playTime ?? 0) / 1000),
+        sort: i + 1,
+      })),
+    );
+    revalidateAll();
+    return { ok: true as const, count: pl.tracks.length };
+  } catch (e) {
+    return { error: e instanceof Error ? `导入失败：${e.message}` : "导入失败" };
+  }
 }
 
 /* ============ 站点配置 ============ */

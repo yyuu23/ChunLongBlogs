@@ -8,6 +8,7 @@ import { SplashScreen } from "@/components/layout/SplashScreen";
 import { ThemeParticles, ClickEffect } from "@/components/effects/Effects";
 import { SelectionSparkle } from "@/components/effects/SelectionSparkle";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
+import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { getSiteConfig } from "@/lib/site";
 
 /** 公开站点布局：背景三明治 + 粒子 + 导航 + 页脚 */
@@ -29,9 +30,11 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
 
       <Navbar siteName={config.siteName} avatar={config.avatar} />
 
-      <main className="relative z-10 flex-1 pt-20 md:pt-24">{children}</main>
+      <PlayerProvider>
+        <main className="relative z-10 flex-1 pt-20 md:pt-24">{children}</main>
+        <Footer config={config} />
+      </PlayerProvider>
 
-      <Footer config={config} />
       <MobileTabBar />
       <FloatingTools />
     </>

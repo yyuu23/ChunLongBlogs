@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Loader2, SendHorizonal, Lock, Sparkles } from "lucide-react";
 import { fetchProgress, getVisitorId, trackEvent, type PlayerProgress } from "@/lib/track";
 import { ACHIEVEMENTS } from "@/lib/achievements";
-import type { MomentItem, StarItem } from "@/components/lab/LabScene";
+import type { MomentItem, StarItem, PlanetCounts } from "@/components/lab/LabScene";
 
 /** three.js 场景只在客户端加载（WebGL 不能 SSR） */
 const LabScene = dynamic(() => import("@/components/lab/LabScene"), {
@@ -18,7 +18,15 @@ const LabScene = dynamic(() => import("@/components/lab/LabScene"), {
   ),
 });
 
-export function LabClient({ moments, initialStars }: { moments: MomentItem[]; initialStars: StarItem[] }) {
+export function LabClient({
+  moments,
+  initialStars,
+  counts,
+}: {
+  moments: MomentItem[];
+  initialStars: StarItem[];
+  counts: PlanetCounts;
+}) {
   const [stars, setStars] = useState<StarItem[]>(initialStars);
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [starInput, setStarInput] = useState("");
@@ -52,7 +60,7 @@ export function LabClient({ moments, initialStars }: { moments: MomentItem[]; in
       if (data.star) {
         setStars((s) => [{ ...data.star!, date: new Date().toLocaleDateString("zh-CN") }, ...s].slice(0, 80));
         setStarInput("");
-        setStarMsg("✨ 你的星已升上夜空，找找看（金色那颗）");
+        setStarMsg("✨ 你的星已汇入小行星带，拖动视角找找它");
         trackEvent("leave_star");
       } else {
         setStarMsg(`❌ ${data.error ?? "失败"}`);
@@ -67,7 +75,7 @@ export function LabClient({ moments, initialStars }: { moments: MomentItem[]; in
   return (
     <div className="flex flex-col gap-5">
       <div className="relative h-[min(78vh,46rem)] w-full overflow-hidden rounded-[2rem] bg-[radial-gradient(ellipse_at_center,#1e1b4b_0%,#0b1020_55%,#05070f_100%)] shadow-2xl">
-        <LabScene moments={moments} stars={stars} />
+        <LabScene moments={moments} stars={stars} counts={counts} />
 
         {/* 等级 HUD */}
         {progress && (

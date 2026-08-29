@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, MeshDistortMaterial, OrbitControls, Stars, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -19,98 +20,197 @@ export interface StarItem {
   date: string;
 }
 
-/** 从 CSS 变量读取当前主题色 */
-function useAccentColors() {
-  return useMemo(() => {
-    const style = getComputedStyle(document.documentElement);
-    const from = new THREE.Color(style.getPropertyValue("--accent-from").trim() || "#6366f1");
-    const to = new THREE.Color(style.getPropertyValue("--accent-to").trim() || "#a855f7");
-    return { from, to };
-  }, []);
+export interface PlanetCounts {
+  notes: number;
+  posts: number;
+  sound: number;
 }
 
-/** 星星/瓶子的确定性伪随机（同一 id 永远同一位置） */
+/* ============ 行星配置（按《行星体系设计说明》v1）============
+ * 轨道半径 = 内容亲疏温度（内=私人高频，外=沉淀元信息）
+ * 公转周期 = 更新频率（周更最快 → 年更最慢） */
+const PLANETS_BASE = [
+  { id: "notes", label: "随笔", sub: "正在想的", href: "/moments", orbit: 62, r: 9, tone: "warm", period: 20, phase: 0.1 },
+  { id: "memory", label: "回忆", sub: "回忆瓶", href: null, orbit: 92, r: 10, tone: "warm", period: 30, phase: 1.4 },
+  { id: "posts", label: "文章", sub: "", href: "/posts", orbit: 122, r: 11, tone: "neutral", period: 38, phase: 2.9 },
+  // 小行星带 141-163：访客留声星
+  { id: "sound", label: "声音", sub: "留声屋", href: "/music", orbit: 192, r: 13, tone: "cool", period: 46, phase: 4.2 },
+  { id: "works", label: "项目", sub: "作品集", href: "https://github.com/yyuu23", orbit: 222, r: 14, tone: "cool", period: 52, phase: 5.5 },
+  { id: "about", label: "关于", sub: "时间线", href: "/about", orbit: 252, r: 10, tone: "cold", period: 60, phase: 0.8, ring: true },
+] as const;
+
+type PlanetDef = (typeof PLANETS_BASE)[number] & { ring?: boolean };
+const PLANETS: PlanetDef[] = PLANETS_BASE.map((p) => ({ ...p }));
+
+type ToneKey = (typeof PLANETS)[number]["tone"];
+const TONE: Record<ToneKey, { fill: string; glow: string; label: string }> = {
+  warm: { fill: "#BA7517", glow: "#FAC775", label: "暖 · 高频 · 个人" },
+  neutral: { fill: "#378ADD", glow: "#85B7EB", label: "中性 · 主力产出" },
+  cool: { fill: "#534AB7", glow: "#AFA9EC", label: "冷 · 沉淀 · 专业" },
+  cold: { fill: "#5F5E5A", glow: "#B4B2A9", label: "最冷 · 元信息" },
+};
+
+/** 确定性伪随机 */
 function hash01(seed: number, salt: number) {
   const x = Math.sin(seed * 127.1 + salt * 311.7) * 43758.5453;
   return x - Math.floor(x);
 }
 
-/* ============ 自定义 shader 闪烁光点 ============ */
-function BlinkingPoints({ count = 320 }: { count?: number }) {
-  const matRef = useRef<THREE.ShaderMaterial>(null);
-  const { from, to } = useAccentColors();
-
-  const geo = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const pha = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      const r = 6 + Math.random() * 9;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-      pha[i] = Math.random();
-    }
-    return { pos, pha };
-  }, [count]);
-
-  const uniforms = useMemo(
-    () => ({ uTime: { value: 0 }, uColorA: { value: from }, uColorB: { value: to } }),
-    [from, to],
-  );
+/* ============ 行星 ============ */
+function Planet({
+  def,
+  count,
+  onClick,
+}: {
+  def: (typeof PLANETS)[number];
+  count?: number;
+  onClick: () => void;
+}) {
+  const orbitGroup = useRef<THREE.Group>(null);
+  const body = useRef<THREE.Mesh>(null);
+  const tone = TONE[def.tone];
+  const isGas = def.id === "sound" || def.id === "works";
 
   useFrame((state) => {
-    if (matRef.current) matRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    const t = state.clock.elapsedTime;
+    if (orbitGroup.current) {
+      orbitGroup.current.rotation.y = (t * Math.PI * 2) / def.period + def.phase;
+    }
+    if (body.current) body.current.rotation.y = t * 0.4;
   });
 
   return (
-    <points>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[geo.pos, 3]} />
-        <bufferAttribute attach="attributes-aPhase" args={[geo.pha, 1]} />
-      </bufferGeometry>
-      <shaderMaterial
-        ref={matRef}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        vertexShader={`
-          attribute float aPhase;
-          uniform float uTime;
-          varying float vA;
-          void main() {
-            vA = 0.3 + 0.7 * (0.5 + 0.5 * sin(uTime * 1.6 + aPhase * 6.28318));
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = (2.0 + 2.5 * vA) * (280.0 / -mv.z);
-            gl_Position = projectionMatrix * mv;
-          }
-        `}
-        fragmentShader={`
-          uniform vec3 uColorA;
-          uniform vec3 uColorB;
-          varying float vA;
-          void main() {
-            vec2 uv = gl_PointCoord - 0.5;
-            float d = length(uv);
-            if (d > 0.5) discard;
-            float alpha = smoothstep(0.5, 0.05, d) * vA;
-            gl_FragColor = vec4(mix(uColorA, uColorB, vA), alpha);
-          }
-        `}
-      />
-    </points>
+    <group ref={orbitGroup}>
+      <mesh
+        ref={body}
+        position={[def.orbit, 0, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onPointerOver={() => (document.body.style.cursor = "pointer")}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <sphereGeometry args={[def.r, 32, 32]} />
+        <meshStandardMaterial
+          color={tone.fill}
+          emissive={tone.glow}
+          emissiveIntensity={0.25}
+          roughness={isGas ? 0.45 : 0.9}
+          metalness={isGas ? 0.25 : 0.05}
+        />
+        {/* 气态巨行星：横向条纹 */}
+        {isGas &&
+          [1.25, 1.5].map((k, i) => (
+            <mesh key={i} scale={[1, 0.06, 1]}>
+              <torusGeometry args={[def.r * k, def.r * 0.16, 8, 48]} />
+              <meshBasicMaterial color={tone.glow} transparent opacity={0.28} />
+            </mesh>
+          ))}
+        {/* 带环行星（关于）：视觉句号 */}
+        {def.ring && (
+          <mesh rotation={[Math.PI / 2.4, 0, 0.3]}>
+            <torusGeometry args={[def.r * 1.75, def.r * 0.22, 2, 64]} />
+            <meshBasicMaterial color={tone.glow} transparent opacity={0.45} side={THREE.DoubleSide} />
+          </mesh>
+        )}
+      </mesh>
+
+      {/* 标签：跟随行星公转；hover 才显示数量 */}
+      <Html position={[def.orbit, def.r + 7, 0]} center distanceFactor={150}>
+        <button
+          onClick={onClick}
+          className="group flex cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-white"
+          style={{ pointerEvents: "auto" }}
+          title={`${tone.label}${count != null ? ` · ${count} 条` : ""}`}
+        >
+          <span className="whitespace-nowrap text-sm font-bold tracking-wide drop-shadow">
+            {def.label}
+          </span>
+          {def.sub && (
+            <span className="whitespace-nowrap text-[9px] tracking-widest text-white/45">{def.sub}</span>
+          )}
+          <span className="mt-0.5 hidden text-[9px] text-white/60 group-hover:block">
+            {count != null ? `${count} 条` : "前往 →"}
+          </span>
+        </button>
+      </Html>
+    </group>
   );
 }
 
-/* ============ 点击晶体触发的粒子爆发 ============ */
+/** 轨道线（受音乐律动微微起伏） */
+function OrbitRing({ radius, tone, playing }: { radius: number; tone: ToneKey; playing: boolean }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (!ref.current) return;
+    const t = state.clock.elapsedTime;
+    const wob = playing ? 1 + 0.012 * Math.sin(t * Math.PI * 3.6) : 1;
+    ref.current.scale.set(wob, 1, wob);
+  });
+  return (
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[radius - 0.5, radius + 0.5, 160]} />
+      <meshBasicMaterial
+        color={TONE[tone].glow}
+        transparent
+        opacity={0.16}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
+/* ============ 恒星（音乐律动的全局氛围层核心） ============ */
+function Sun({ onClick }: { onClick: () => void }) {
+  const core = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  const { playing } = usePlayer() ?? {};
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (core.current && matRef.current) {
+      const pulse = playing
+        ? 0.045 * Math.sin(t * Math.PI * 3.6) + 0.025 * Math.sin(t * Math.PI * 1.8 + 1.3)
+        : 0.015 * Math.sin(t * Math.PI * 0.5);
+      core.current.scale.setScalar(1 + pulse);
+      matRef.current.emissiveIntensity = playing
+        ? 0.55 + 0.45 * Math.abs(Math.sin(t * Math.PI * 1.8))
+        : 0.45 + 0.1 * Math.sin(t);
+    }
+  });
+
+  return (
+    <Float speed={1.2} rotationIntensity={0.2} floatIntensity={0.6}>
+      <mesh
+        ref={core}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onPointerOver={() => (document.body.style.cursor = "pointer")}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <sphereGeometry args={[18, 48, 48]} />
+        <MeshDistortMaterial
+          color="#fbbf24"
+          emissive="#f97316"
+          emissiveIntensity={0.5}
+          roughness={0.4}
+          distort={0.22}
+          speed={2.6}
+        />
+      </mesh>
+    </Float>
+  );
+}
+
+/* ============ 点击恒星的星屑爆发 ============ */
 function Burst({ onDone }: { onDone: () => void }) {
-  const count = 140;
+  const count = 160;
   const matRef = useRef<THREE.PointsMaterial>(null);
   const pointsRef = useRef<THREE.Points>(null);
   const start = useRef<number | null>(null);
-  const { from, to } = useAccentColors();
 
   const burstGeo = useMemo(() => {
     const pos = new Float32Array(count * 3);
@@ -118,7 +218,7 @@ function Burst({ onDone }: { onDone: () => void }) {
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const speed = 2.5 + Math.random() * 3.5;
+      const speed = 18 + Math.random() * 26;
       d[i * 3] = Math.sin(phi) * Math.cos(theta) * speed;
       d[i * 3 + 1] = Math.sin(phi) * Math.sin(theta) * speed;
       d[i * 3 + 2] = Math.cos(phi) * speed;
@@ -128,7 +228,7 @@ function Burst({ onDone }: { onDone: () => void }) {
 
   useFrame((state) => {
     if (start.current === null) start.current = state.clock.elapsedTime;
-    const t = (state.clock.elapsedTime - start.current) / 1.2;
+    const t = (state.clock.elapsedTime - start.current) / 1.4;
     if (t >= 1) {
       onDone();
       return;
@@ -147,184 +247,15 @@ function Burst({ onDone }: { onDone: () => void }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[burstGeo.pos, 3]} />
       </bufferGeometry>
-      <pointsMaterial
-        ref={matRef}
-        size={0.12}
-        color={from.clone().lerp(to, 0.5)}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
+      <pointsMaterial ref={matRef} size={1.6} color="#ffd27d" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   );
 }
 
-/* ============ 中央晶体：音乐律动 ============ */
-function Crystal({ onClick }: { onClick: () => void }) {
-  const shellRef = useRef<THREE.Mesh>(null);
-  const coreRef = useRef<THREE.Mesh>(null);
-  const matRef = useRef<THREE.MeshStandardMaterial>(null);
-  const { from, to } = useAccentColors();
-  const player = usePlayer();
-  const playing = player?.playing ?? false;
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    if (shellRef.current) {
-      shellRef.current.rotation.y += delta * 0.15;
-      shellRef.current.rotation.x += delta * 0.05;
-    }
-    if (coreRef.current && matRef.current) {
-      // 播放中：多层正弦伪节拍脉冲；暂停：慢呼吸
-      const pulse = playing
-        ? 0.05 * Math.sin(t * Math.PI * 3.6) +
-          0.03 * Math.sin(t * Math.PI * 1.8 + 1.3) +
-          0.02 * Math.sin(t * Math.PI * 7.2 + 0.5)
-        : 0.02 * Math.sin(t * Math.PI * 0.5);
-      coreRef.current.scale.setScalar(1 + pulse);
-      matRef.current.emissiveIntensity = playing
-        ? 0.35 + 0.4 * Math.abs(Math.sin(t * Math.PI * 1.8))
-        : 0.3 + 0.08 * Math.sin(t);
-    }
-  });
-
-  return (
-    <group>
-      <Float speed={1.6} rotationIntensity={0.5} floatIntensity={1.1}>
-        <mesh
-          ref={coreRef}
-          onClick={onClick}
-          onPointerOver={() => (document.body.style.cursor = "pointer")}
-          onPointerOut={() => (document.body.style.cursor = "auto")}
-        >
-          <sphereGeometry args={[1.7, 64, 64]} />
-          <MeshDistortMaterial
-            color={to}
-            emissive={from}
-            emissiveIntensity={0.35}
-            roughness={0.12}
-            metalness={0.55}
-            distort={0.38}
-            speed={2.2}
-          />
-        </mesh>
-      </Float>
-      <mesh ref={shellRef}>
-        <icosahedronGeometry args={[2.9, 1]} />
-        <meshBasicMaterial color={from} wireframe transparent opacity={0.14} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ============ 回忆瓶书架：每只瓶子装一条说说 ============ */
-function GlassBottle({
-  moment,
-  position,
-  onOpen,
-}: {
-  moment: MomentItem;
-  position: [number, number, number];
-  onOpen: (m: MomentItem) => void;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const { from } = useAccentColors();
-
-  useFrame((state) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = state.clock.elapsedTime * 0.3 + moment.id;
-    }
-  });
-
-  return (
-    <group
-      ref={groupRef}
-      position={position}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(moment);
-      }}
-      onPointerOver={() => (document.body.style.cursor = "pointer")}
-      onPointerOut={() => (document.body.style.cursor = "auto")}
-    >
-      <mesh>
-        <cylinderGeometry args={[0.22, 0.26, 0.72, 12]} />
-        <meshPhysicalMaterial
-          color={from}
-          transparent
-          opacity={0.45}
-          roughness={0.05}
-          transmission={0.6}
-          thickness={0.5}
-        />
-      </mesh>
-      <mesh position={[0, 0.48, 0]}>
-        <cylinderGeometry args={[0.09, 0.16, 0.28, 10]} />
-        <meshPhysicalMaterial color={from} transparent opacity={0.5} roughness={0.05} />
-      </mesh>
-      <mesh position={[0, 0.66, 0]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.1, 10]} />
-        <meshStandardMaterial color="#8a6d4f" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, -0.1, 0]}>
-        <sphereGeometry args={[0.12, 8, 8]} />
-        <meshBasicMaterial color="#ffd27d" />
-      </mesh>
-    </group>
-  );
-}
-
-function BottleShelf({ moments, onOpen }: { moments: MomentItem[]; onOpen: (m: MomentItem) => void }) {
-  const { from } = useAccentColors();
-  const n = moments.length;
-  if (!n) return null;
-  const perRow = Math.min(n, 5);
-  const startX = -(perRow - 1) * 0.525;
-  const shelfWidth = perRow * 1.05 + 0.4;
-
-  return (
-    <group position={[-3.6, 2.4, -1.6]} rotation={[0, 0.55, 0]}>
-      {/* 隔板 */}
-      {n <= 5 ? (
-        <mesh>
-          <boxGeometry args={[shelfWidth, 0.08, 0.7]} />
-          <meshStandardMaterial color="#6b5138" roughness={0.85} />
-        </mesh>
-      ) : (
-        <>
-          <mesh>
-            <boxGeometry args={[shelfWidth, 0.08, 0.7]} />
-            <meshStandardMaterial color="#6b5138" roughness={0.85} />
-          </mesh>
-          <mesh position={[0, -1.15, 0]}>
-            <boxGeometry args={[shelfWidth, 0.08, 0.7]} />
-            <meshStandardMaterial color="#6b5138" roughness={0.85} />
-          </mesh>
-        </>
-      )}
-      {/* 瓶子 */}
-      {moments.slice(0, 8).map((m, i) => {
-        const row = i < 5 ? 0 : 1;
-        const col = row === 0 ? i : i - 5;
-        const rowLen = row === 0 ? Math.min(n, 5) : Math.min(n - 5, 3);
-        const rowStart = -(Math.min(rowLen, 5) - 1) * 0.525;
-        return (
-          <GlassBottle
-            key={m.id}
-            moment={m}
-            position={[rowStart + col * 1.05, row === 0 ? 0.44 : -0.71, 0]}
-            onOpen={onOpen}
-          />
-        );
-      })}
-      <pointLight position={[0, 0.6, 1]} intensity={6} distance={6} color={from} />
-    </group>
-  );
-}
-
-/* ============ 留声星：访客的话化作永久的星 ============ */
-function StarField({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) => void }) {
+/* ============ 小行星带 = 访客留声星（141-163 环带） ============ */
+function StarBelt({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) => void }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const count = stars.length;
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -332,14 +263,10 @@ function StarField({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem)
     if (!meshRef.current || !count) return;
     stars.forEach((s, i) => {
       const a = hash01(s.id, 1) * Math.PI * 2;
-      const b = Math.acos(2 * hash01(s.id, 2) - 1);
-      const r = 7.5 + hash01(s.id, 3) * 6;
-      dummy.position.set(
-        r * Math.sin(b) * Math.cos(a),
-        r * Math.cos(b) * 0.7 + 1.5,
-        r * Math.sin(b) * Math.sin(a),
-      );
-      dummy.scale.setScalar(0.09 + hash01(s.id, 4) * 0.08);
+      const r = 141 + hash01(s.id, 3) * 22;
+      const y = (hash01(s.id, 2) - 0.5) * 8;
+      dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+      dummy.scale.setScalar(1.3 + hash01(s.id, 4) * 1.1);
       dummy.rotation.set(hash01(s.id, 5) * Math.PI, hash01(s.id, 6) * Math.PI, 0);
       dummy.updateMatrix();
       meshRef.current?.setMatrixAt(i, dummy.matrix);
@@ -348,31 +275,34 @@ function StarField({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem)
   }, [stars, dummy, count]);
 
   useFrame((state) => {
-    if (!meshRef.current) return;
-    meshRef.current.rotation.y = state.clock.elapsedTime * 0.02;
-    const mat = meshRef.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 1.2 + 0.5 * Math.sin(state.clock.elapsedTime * 2);
+    if (groupRef.current) groupRef.current.rotation.y = state.clock.elapsedTime * 0.02;
+    if (meshRef.current) {
+      const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 1.2 + 0.5 * Math.sin(state.clock.elapsedTime * 2);
+    }
   });
 
   if (!count) return null;
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, count]}
-      onClick={(e) => {
-        const id = e.instanceId;
-        if (id != null && stars[id]) {
-          e.stopPropagation();
-          onOpen(stars[id]);
-        }
-      }}
-      onPointerOver={() => (document.body.style.cursor = "pointer")}
-      onPointerOut={() => (document.body.style.cursor = "auto")}
-    >
-      <octahedronGeometry args={[1, 0]} />
-      <meshStandardMaterial color="#ffe9a8" emissive="#ffc95e" emissiveIntensity={1.4} />
-    </instancedMesh>
+    <group ref={groupRef}>
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, count]}
+        onClick={(e) => {
+          const id = e.instanceId;
+          if (id != null && stars[id]) {
+            e.stopPropagation();
+            onOpen(stars[id]);
+          }
+        }}
+        onPointerOver={() => (document.body.style.cursor = "pointer")}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color="#ffe9a8" emissive="#ffc95e" emissiveIntensity={1.4} />
+      </instancedMesh>
+    </group>
   );
 }
 
@@ -380,61 +310,77 @@ function StarField({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem)
 export default function LabScene({
   moments,
   stars,
+  counts,
 }: {
   moments: MomentItem[];
   stars: StarItem[];
+  counts: PlanetCounts;
 }) {
+  const router = useRouter();
   const [bursts, setBursts] = useState<number[]>([]);
-  const [openMoment, setOpenMoment] = useState<MomentItem | null>(null);
   const [openStar, setOpenStar] = useState<StarItem | null>(null);
+  const [memoryIdx, setMemoryIdx] = useState<number | null>(null);
+  const { playing } = usePlayer() ?? {};
+
+  const openPlanet = (def: (typeof PLANETS)[number]) => {
+    if (def.id === "memory") {
+      setMemoryIdx(moments.length ? 0 : null);
+      return;
+    }
+    const href = def.href as string | null;
+    if (!href) return;
+    if (href.startsWith("http")) window.open(href, "_blank");
+    else router.push(href);
+  };
+
+  const countOf = (id: string): number | undefined =>
+    id === "notes" ? counts.notes : id === "posts" ? counts.posts : id === "sound" ? counts.sound : undefined;
+
+  const moment = memoryIdx != null ? moments[memoryIdx] : null;
 
   return (
     <Canvas
       dpr={[1, 1.75]}
-      camera={{ position: [0, 1.2, 9.5], fov: 55 }}
+      camera={{ position: [0, 170, 430], fov: 42 }}
       gl={{ antialias: true, alpha: true }}
     >
-      <ambientLight intensity={0.5} />
-      <pointLight position={[6, 6, 6]} intensity={60} color="#ffffff" />
-      <pointLight position={[-6, -4, -6]} intensity={30} color="#7c6cf5" />
-      <Stars radius={90} depth={40} count={2200} factor={3.6} saturation={0.4} fade speed={0.6} />
-      <BlinkingPoints />
-      <Crystal onClick={() => setBursts((b) => [...b, Date.now()])} />
+      <ambientLight intensity={0.35} />
+      <pointLight position={[0, 0, 0]} intensity={900} distance={800} color="#ffd9a0" />
+
+      <Stars radius={600} depth={120} count={2600} factor={8} saturation={0.35} fade speed={0.5} />
+
+      {/* 恒星 + 点击爆发 */}
+      <Sun onClick={() => setBursts((b) => [...b, Date.now()])} />
       {bursts.map((id) => (
         <Burst key={id} onDone={() => setBursts((b) => b.filter((x) => x !== id))} />
       ))}
-      <BottleShelf moments={moments} onOpen={setOpenMoment} />
-      <StarField stars={stars} onOpen={setOpenStar} />
 
-      <Html position={[0, 3.1, 0]} center distanceFactor={11}>
+      {/* 行星 + 轨道 */}
+      {PLANETS.map((def) => (
+        <group key={def.id}>
+          <OrbitRing radius={def.orbit} tone={def.tone} playing={!!playing} />
+          <Planet def={def} count={countOf(def.id)} onClick={() => openPlanet(def)} />
+        </group>
+      ))}
+
+      {/* 小行星带：留声星 */}
+      <StarBelt stars={stars} onOpen={setOpenStar} />
+
+      {/* 标题 */}
+      <Html position={[0, 58, 0]} center distanceFactor={170}>
         <div style={{ pointerEvents: "none", textAlign: "center", userSelect: "none" }}>
-          <p className="font-serif text-2xl font-black tracking-widest text-white drop-shadow-lg">
+          <p className="font-serif text-3xl font-black tracking-[0.3em] text-white drop-shadow-lg">
             CHUNLONG LAB
           </p>
-          <p className="mt-1 text-xs tracking-widest text-white/60">点晶体爆星屑 · 点瓶子看回忆 · 点金星读心愿</p>
+          <p className="mt-1 text-xs tracking-[0.25em] text-white/50">
+            行星即内容 · 越近越私人 · 转得越快更新越勤
+          </p>
         </div>
       </Html>
 
-      {openMoment && (
-        <Html position={[0, 1.2, 4]} center distanceFactor={10}>
-          <div className="w-64 rounded-2xl border border-white/20 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
-            <div className="mb-1 flex items-center justify-between text-xs text-white/50">
-              <span>
-                {openMoment.mood || "💭"} {openMoment.date}
-              </span>
-              <button onClick={() => setOpenMoment(null)} className="rounded-full px-2 hover:text-white">
-                ✕
-              </button>
-            </div>
-            <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
-              {openMoment.content}
-            </p>
-          </div>
-        </Html>
-      )}
-
+      {/* 留声星弹卡 */}
       {openStar && (
-        <Html position={[0, 1.2, 4]} center distanceFactor={10}>
+        <Html position={[0, 44, 0]} center distanceFactor={150}>
           <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
               <span>✦ 留声星 · {openStar.date}</span>
@@ -447,14 +393,46 @@ export default function LabScene({
         </Html>
       )}
 
+      {/* 回忆行星弹卡（可翻阅） */}
+      {moment && (
+        <Html position={[0, 44, 0]} center distanceFactor={150}>
+          <div className="w-72 rounded-2xl border border-white/20 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
+            <div className="mb-1 flex items-center justify-between text-xs text-white/50">
+              <span>
+                {moment.mood || "💭"} {moment.date} · 回忆瓶 {(memoryIdx ?? 0) + 1}/{moments.length}
+              </span>
+              <button onClick={() => setMemoryIdx(null)} className="rounded-full px-2 hover:text-white">
+                ✕
+              </button>
+            </div>
+            <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
+              {moment.content}
+            </p>
+            <div className="mt-2 flex justify-between">
+              <button
+                onClick={() => setMemoryIdx((i) => (i == null ? null : (i - 1 + moments.length) % moments.length))}
+                className="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+              >
+                ‹ 上一段
+              </button>
+              <button
+                onClick={() => setMemoryIdx((i) => (i == null ? null : (i + 1) % moments.length))}
+                className="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+              >
+                下一段 ›
+              </button>
+            </div>
+          </div>
+        </Html>
+      )}
+
       <OrbitControls
         enablePan={false}
-        autoRotate
-        autoRotateSpeed={0.7}
         enableDamping
         dampingFactor={0.08}
-        minDistance={4.5}
-        maxDistance={22}
+        minDistance={140}
+        maxDistance={760}
+        maxPolarAngle={Math.PI * 0.62}
       />
     </Canvas>
   );

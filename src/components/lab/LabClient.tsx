@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useProgress } from "@react-three/drei";
 import { Loader2, SendHorizonal, Lock, Sparkles } from "lucide-react";
 import { fetchProgress, getVisitorId, trackEvent, type PlayerProgress } from "@/lib/track";
 import { ACHIEVEMENTS } from "@/lib/achievements";
@@ -32,6 +33,9 @@ export function LabClient({
   const [starInput, setStarInput] = useState("");
   const [starBusy, setStarBusy] = useState(false);
   const [starMsg, setStarMsg] = useState("");
+
+  /** 真实贴图约 1.2MB，加载期间给个进度，别让人以为卡住了 */
+  const { active: texLoading, progress: texProgress } = useProgress();
 
   useEffect(() => {
     // 进实验室计经验 + 拉取进度
@@ -121,9 +125,15 @@ export function LabClient({
           {starMsg && <p className="mt-1.5 text-center text-xs text-white/70">{starMsg}</p>}
         </div>
 
-        <p className="pointer-events-none absolute right-4 top-4 text-xs tracking-widest text-white/40">
-          拖拽旋转 · 滚轮缩放
-        </p>
+        <div className="absolute right-4 top-4 flex flex-col items-end gap-1.5">
+          {texLoading && (
+            <p className="flex items-center gap-1 text-[11px] tabular-nums text-white/60">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              加载行星贴图 {Math.round(texProgress)}%
+            </p>
+          )}
+          <p className="text-[11px] tracking-widest text-white/35">拖拽旋转 · 滚轮缩放</p>
+        </div>
       </div>
 
       {/* 成就徽章墙 */}

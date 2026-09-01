@@ -1,146 +1,86 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, OrbitControls, Stars, Html } from "@react-three/drei";
+import { Float, OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/components/music/PlayerProvider";
+import {
+  PLANETS,
+  BELT,
+  TONE,
+  ROMAN,
+  hash01,
+  type PlanetDef,
+  type ToneKey,
+  type MomentItem,
+  type StarItem,
+  type PlanetCounts,
+} from "./planetConfig";
+import RealisticSystem, { Atmosphere, SunMaterial } from "./RealisticPlanets";
+import DeepSpace from "./DeepSpace";
 
-export interface MomentItem {
-  id: number;
-  content: string;
-  mood: string;
-  date: string;
-}
+export type { MomentItem, StarItem, PlanetCounts };
 
-export interface StarItem {
-  id: number;
-  content: string;
-  date: string;
-}
-
-export interface PlanetCounts {
-  notes: number;
-  posts: number;
-  sound: number;
-}
-
-/* ============ 行星配置（按《行星体系设计说明》v1）============
- * 轨道半径 = 内容亲疏温度（内=私人高频，外=沉淀元信息）
- * 公转周期 = 更新频率（周更最快 → 年更最慢） */
-const PLANETS_BASE = [
-  { id: "notes", label: "随笔", sub: "正在想的", href: "/moments", orbit: 62, r: 9, tone: "warm", period: 20, phase: 0.1 },
-  { id: "memory", label: "回忆", sub: "回忆瓶", href: null, orbit: 92, r: 10, tone: "warm", period: 30, phase: 1.4 },
-  { id: "posts", label: "文章", sub: "", href: "/posts", orbit: 122, r: 11, tone: "neutral", period: 38, phase: 2.9 },
-  // 小行星带 141-163：访客留声星
-  { id: "sound", label: "声音", sub: "留声屋", href: "/music", orbit: 192, r: 13, tone: "cool", period: 46, phase: 4.2 },
-  { id: "works", label: "项目", sub: "作品集", href: "https://github.com/yyuu23", orbit: 222, r: 14, tone: "cool", period: 52, phase: 5.5 },
-  { id: "about", label: "关于", sub: "时间线", href: "/about", orbit: 252, r: 10, tone: "cold", period: 60, phase: 0.8, ring: true },
-] as const;
-
-type PlanetDef = (typeof PLANETS_BASE)[number] & { ring?: boolean };
-const PLANETS: PlanetDef[] = PLANETS_BASE.map((p) => ({ ...p }));
-
-type ToneKey = (typeof PLANETS)[number]["tone"];
-const TONE: Record<ToneKey, { fill: string; glow: string; label: string }> = {
-  warm: { fill: "#BA7517", glow: "#FAC775", label: "暖 · 高频 · 个人" },
-  neutral: { fill: "#378ADD", glow: "#85B7EB", label: "中性 · 主力产出" },
-  cool: { fill: "#534AB7", glow: "#AFA9EC", label: "冷 · 沉淀 · 专业" },
-  cold: { fill: "#5F5E5A", glow: "#B4B2A9", label: "最冷 · 元信息" },
-};
-
-/** 确定性伪随机 */
-function hash01(seed: number, salt: number) {
-  const x = Math.sin(seed * 127.1 + salt * 311.7) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-/* ============ 行星 ============ */
-function Planet({
+/* ============ 行星标签 ============ */
+function PlanetLabel({
   def,
   count,
   onClick,
 }: {
-  def: (typeof PLANETS)[number];
+  def: PlanetDef;
   count?: number;
   onClick: () => void;
 }) {
   const orbitGroup = useRef<THREE.Group>(null);
-  const body = useRef<THREE.Mesh>(null);
   const tone = TONE[def.tone];
-  const isGas = def.id === "sound" || def.id === "works";
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (orbitGroup.current) {
       orbitGroup.current.rotation.y = (t * Math.PI * 2) / def.period + def.phase;
     }
-    if (body.current) body.current.rotation.y = t * 0.4;
   });
 
   return (
-    <group ref={orbitGroup}>
-      <mesh
-        ref={body}
-        position={[def.orbit, 0, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onPointerOver={() => (document.body.style.cursor = "pointer")}
-        onPointerOut={() => (document.body.style.cursor = "auto")}
-      >
-        <sphereGeometry args={[def.r, 32, 32]} />
-        <meshStandardMaterial
-          color={tone.fill}
-          emissive={tone.glow}
-          emissiveIntensity={0.25}
-          roughness={isGas ? 0.45 : 0.9}
-          metalness={isGas ? 0.25 : 0.05}
-        />
-        {/* 气态巨行星：横向条纹 */}
-        {isGas &&
-          [1.25, 1.5].map((k, i) => (
-            <mesh key={i} scale={[1, 0.06, 1]}>
-              <torusGeometry args={[def.r * k, def.r * 0.16, 8, 48]} />
-              <meshBasicMaterial color={tone.glow} transparent opacity={0.28} />
-            </mesh>
-          ))}
-        {/* 带环行星（关于）：视觉句号 */}
-        {def.ring && (
-          <mesh rotation={[Math.PI / 2.4, 0, 0.3]}>
-            <torusGeometry args={[def.r * 1.75, def.r * 0.22, 2, 64]} />
-            <meshBasicMaterial color={tone.glow} transparent opacity={0.45} side={THREE.DoubleSide} />
-          </mesh>
-        )}
-      </mesh>
-
-      {/* 标签：跟随行星公转；hover 才显示数量 */}
-      <Html position={[def.orbit, def.r + 7, 0]} center distanceFactor={150}>
-        <button
-          onClick={onClick}
-          className="group flex cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-white"
-          style={{ pointerEvents: "auto" }}
-          title={`${tone.label}${count != null ? ` · ${count} 条` : ""}`}
-        >
-          <span className="whitespace-nowrap text-sm font-bold tracking-wide drop-shadow">
-            {def.label}
-          </span>
-          {def.sub && (
-            <span className="whitespace-nowrap text-[9px] tracking-widest text-white/45">{def.sub}</span>
-          )}
-          <span className="mt-0.5 hidden text-[9px] text-white/60 group-hover:block">
-            {count != null ? `${count} 条` : "前往 →"}
-          </span>
-        </button>
-      </Html>
+    <group rotation={[THREE.MathUtils.degToRad(def.incl), 0, 0]}>
+      <group ref={orbitGroup}>
+        <Html position={[def.orbit, def.r + 7, 0]} center distanceFactor={190}>
+          <button
+            onClick={onClick}
+            className="group flex cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-white"
+            style={{ pointerEvents: "auto" }}
+            title={`${def.name} · ${tone.label}${count != null ? ` · ${count} 条` : ""}`}
+          >
+            <span className="whitespace-nowrap text-sm font-bold tracking-wide drop-shadow">
+              {def.label}
+            </span>
+            <span className="whitespace-nowrap text-[9px] tracking-widest text-white/45">
+              {def.name} · {ROMAN[def.order]}
+            </span>
+            <span className="mt-0.5 hidden text-[9px] text-white/60 group-hover:block">
+              {count != null ? `${count} 条` : def.href ? "前往 →" : "点击查看"}
+            </span>
+          </button>
+        </Html>
+      </group>
     </group>
   );
 }
 
 /** 轨道线（受音乐律动微微起伏） */
-function OrbitRing({ radius, tone, playing }: { radius: number; tone: ToneKey; playing: boolean }) {
+function OrbitRing({
+  radius,
+  incl,
+  tone,
+  playing,
+}: {
+  radius: number;
+  incl: number;
+  tone: ToneKey;
+  playing: boolean;
+}) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame((state) => {
     if (!ref.current) return;
@@ -149,35 +89,31 @@ function OrbitRing({ radius, tone, playing }: { radius: number; tone: ToneKey; p
     ref.current.scale.set(wob, 1, wob);
   });
   return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[radius - 0.5, radius + 0.5, 160]} />
-      <meshBasicMaterial
-        color={TONE[tone].glow}
-        transparent
-        opacity={0.16}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group rotation={[THREE.MathUtils.degToRad(incl), 0, 0]}>
+      <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[radius - 0.5, radius + 0.5, 160]} />
+        <meshBasicMaterial
+          color={TONE[tone].glow}
+          transparent
+          opacity={0.16}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 }
 
 /* ============ 恒星（音乐律动的全局氛围层核心） ============ */
 function Sun({ onClick }: { onClick: () => void }) {
   const core = useRef<THREE.Mesh>(null);
-  const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const { playing } = usePlayer() ?? {};
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    if (core.current && matRef.current) {
-      const pulse = playing
-        ? 0.045 * Math.sin(t * Math.PI * 3.6) + 0.025 * Math.sin(t * Math.PI * 1.8 + 1.3)
-        : 0.015 * Math.sin(t * Math.PI * 0.5);
-      core.current.scale.setScalar(1 + pulse);
-      matRef.current.emissiveIntensity = playing
-        ? 0.55 + 0.45 * Math.abs(Math.sin(t * Math.PI * 1.8))
-        : 0.45 + 0.1 * Math.sin(t);
-    }
+    const pulse = playing
+      ? 0.045 * Math.sin(t * Math.PI * 3.6) + 0.025 * Math.sin(t * Math.PI * 1.8 + 1.3)
+      : 0.015 * Math.sin(t * Math.PI * 0.5);
+    if (core.current) core.current.scale.setScalar(1 + pulse);
   });
 
   return (
@@ -191,15 +127,12 @@ function Sun({ onClick }: { onClick: () => void }) {
         onPointerOver={() => (document.body.style.cursor = "pointer")}
         onPointerOut={() => (document.body.style.cursor = "auto")}
       >
-        <sphereGeometry args={[18, 48, 48]} />
-        <MeshDistortMaterial
-          color="#fbbf24"
-          emissive="#f97316"
-          emissiveIntensity={0.5}
-          roughness={0.4}
-          distort={0.22}
-          speed={2.6}
-        />
+        <sphereGeometry args={[18, 64, 48]} />
+        {/* 程序化米粒组织 + 边缘变暗 */}
+        <SunMaterial />
+        {/* 日冕：两层加性光晕。自带发光，不参与昼夜受光，所以 sunLit=false */}
+        <Atmosphere radius={18 * 1.38} color="#ffb45a" intensity={1.0} power={2.2} sunLit={false} />
+        <Atmosphere radius={18 * 2.6} color="#ff8a3d" intensity={0.34} power={3.0} sunLit={false} />
       </mesh>
     </Float>
   );
@@ -252,7 +185,7 @@ function Burst({ onDone }: { onDone: () => void }) {
   );
 }
 
-/* ============ 小行星带 = 访客留声星（141-163 环带） ============ */
+/* ============ 小行星带 = 访客留声星（火星与木星之间） ============ */
 function StarBelt({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) => void }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -263,8 +196,8 @@ function StarBelt({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) 
     if (!meshRef.current || !count) return;
     stars.forEach((s, i) => {
       const a = hash01(s.id, 1) * Math.PI * 2;
-      const r = 141 + hash01(s.id, 3) * 22;
-      const y = (hash01(s.id, 2) - 0.5) * 8;
+      const r = BELT.inner + hash01(s.id, 3) * (BELT.outer - BELT.inner);
+      const y = (hash01(s.id, 2) - 0.5) * BELT.spread;
       dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
       dummy.scale.setScalar(1.3 + hash01(s.id, 4) * 1.1);
       dummy.rotation.set(hash01(s.id, 5) * Math.PI, hash01(s.id, 6) * Math.PI, 0);
@@ -322,8 +255,8 @@ export default function LabScene({
   const [memoryIdx, setMemoryIdx] = useState<number | null>(null);
   const { playing } = usePlayer() ?? {};
 
-  const openPlanet = (def: (typeof PLANETS)[number]) => {
-    if (def.id === "memory") {
+  const openPlanet = (def: PlanetDef) => {
+    if (def.id === "mars") {
       setMemoryIdx(moments.length ? 0 : null);
       return;
     }
@@ -334,20 +267,26 @@ export default function LabScene({
   };
 
   const countOf = (id: string): number | undefined =>
-    id === "notes" ? counts.notes : id === "posts" ? counts.posts : id === "sound" ? counts.sound : undefined;
+    id === "mercury" ? counts.notes : id === "earth" ? counts.posts : id === "uranus" ? counts.sound : undefined;
 
   const moment = memoryIdx != null ? moments[memoryIdx] : null;
 
   return (
     <Canvas
       dpr={[1, 1.75]}
-      camera={{ position: [0, 170, 430], fov: 42 }}
+      camera={{ position: [0, 250, 620], fov: 42, near: 1, far: 4000 }}
       gl={{ antialias: true, alpha: true }}
     >
-      <ambientLight intensity={0.35} />
-      <pointLight position={[0, 0, 0]} intensity={900} distance={800} color="#ffd9a0" />
+      {/* 深空：星云背景球 + 三层星点 */}
+      <DeepSpace />
 
-      <Stars radius={600} depth={120} count={2600} factor={8} saturation={0.35} fade speed={0.5} />
+      {/* 恒星是唯一光源。
+          decay 远小于真实的 2：按 1/d² 衰减的话，海王星收到的光只有水星的 1/6000，
+          外圈会糊成一团黑。0.35 保留了"越远越暗"的观感，又不至于看不见。 */}
+      <pointLight position={[0, 0, 0]} intensity={22} decay={0.35} color="#fff3dc" />
+      {/* 极弱环境光 = 星光与行星际背景辐射，只用来勾出夜半球的轮廓，
+          给太高会把晨昏线冲平 —— 昼夜就白做了 */}
+      <ambientLight intensity={0.05} color="#93a9ff" />
 
       {/* 恒星 + 点击爆发 */}
       <Sun onClick={() => setBursts((b) => [...b, Date.now()])} />
@@ -355,32 +294,37 @@ export default function LabScene({
         <Burst key={id} onDone={() => setBursts((b) => b.filter((x) => x !== id))} />
       ))}
 
-      {/* 行星 + 轨道 */}
+      {/* 轨道线 + 标签 */}
       {PLANETS.map((def) => (
         <group key={def.id}>
-          <OrbitRing radius={def.orbit} tone={def.tone} playing={!!playing} />
-          <Planet def={def} count={countOf(def.id)} onClick={() => openPlanet(def)} />
+          <OrbitRing radius={def.orbit} incl={def.incl} tone={def.tone} playing={!!playing} />
+          <PlanetLabel def={def} count={countOf(def.id)} onClick={() => openPlanet(def)} />
         </group>
       ))}
+
+      {/* 八颗真实行星：NASA 贴图 + 昼夜晨昏线 + 夜面城市灯光 + 大气边缘光 + 环 */}
+      <Suspense fallback={null}>
+        <RealisticSystem onOpen={openPlanet} />
+      </Suspense>
 
       {/* 小行星带：留声星 */}
       <StarBelt stars={stars} onOpen={setOpenStar} />
 
       {/* 标题 */}
-      <Html position={[0, 58, 0]} center distanceFactor={170}>
+      <Html position={[0, 108, 0]} center distanceFactor={230}>
         <div style={{ pointerEvents: "none", textAlign: "center", userSelect: "none" }}>
           <p className="font-serif text-3xl font-black tracking-[0.3em] text-white drop-shadow-lg">
             CHUNLONG LAB
           </p>
           <p className="mt-1 text-xs tracking-[0.25em] text-white/50">
-            行星即内容 · 越近越私人 · 转得越快更新越勤
+            八颗行星 · 越近越私人 · 转得越快更新越勤
           </p>
         </div>
       </Html>
 
       {/* 留声星弹卡 */}
       {openStar && (
-        <Html position={[0, 44, 0]} center distanceFactor={150}>
+        <Html position={[0, 78, 0]} center distanceFactor={170}>
           <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
               <span>✦ 留声星 · {openStar.date}</span>
@@ -395,7 +339,7 @@ export default function LabScene({
 
       {/* 回忆行星弹卡（可翻阅） */}
       {moment && (
-        <Html position={[0, 44, 0]} center distanceFactor={150}>
+        <Html position={[0, 78, 0]} center distanceFactor={170}>
           <div className="w-72 rounded-2xl border border-white/20 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-white/50">
               <span>
@@ -430,8 +374,8 @@ export default function LabScene({
         enablePan={false}
         enableDamping
         dampingFactor={0.08}
-        minDistance={140}
-        maxDistance={760}
+        minDistance={60}
+        maxDistance={1200}
         maxPolarAngle={Math.PI * 0.62}
       />
     </Canvas>

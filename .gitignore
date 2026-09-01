@@ -51,3 +51,7 @@ next-env.d.ts
 !/public/uploads/.gitkeep
 
 # drizzle output snapshots can be committed; keep migrations in repo
+
+# local dev server logs
+server.log
+server-dev-check.log

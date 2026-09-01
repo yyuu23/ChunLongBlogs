@@ -79,6 +79,12 @@ export function Mascot() {
         model.scale.set(0.13);
         model.anchor.set(0.5, 1);
         model.position.set(130, 340);
+        // pixi-live2d-display 的基类来自 @pixi/*@6（其 peer 依赖），与站点使用的
+        // pixi.js@7 是两份模块。v7 的命中测试会调用 isInteractive()（仅 v7 有），
+        // 挂在 v7 舞台上的 v6 对象会在鼠标划过画布时抛 TypeError。看板娘的点击/
+        // 拖拽由下方 DOM 指针事件处理，这里直接让模型不参与 pixi 事件命中。
+        model.eventMode = "none";
+        model.interactiveChildren = false;
         app.stage.addChild(model);
 
         // 点击命中区：随机动作 + 台词

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Eye, Clock3 } from "lucide-react";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { useT } from "@/components/providers/LocaleProvider";
 import type { PostListItem } from "@/lib/posts";
 import { formatDate } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function PostCard({
   index?: number;
   variant?: "grid" | "list";
 }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [glare, setGlare] = useState({ x: 50, y: 50, opacity: 0 });
 
@@ -81,7 +83,7 @@ export function PostCard({
                 )}
                 {post.isPinned && (
                   <span className="absolute left-3 top-3 z-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-0.5 text-xs font-semibold text-white shadow">
-                    置顶
+                    {t("posts.pinned")}
                   </span>
                 )}
                 {post.category && (
@@ -107,7 +109,7 @@ export function PostCard({
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Clock3 className="h-3.5 w-3.5" />
-                    {post.readingTime} 分钟 · {post.wordCount} 字
+                    {t("posts.readingMeta", { m: post.readingTime, w: post.wordCount })}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Eye className="h-3.5 w-3.5" />
@@ -147,7 +149,7 @@ export function PostCard({
                 <div className="flex items-center gap-2">
                   {post.isPinned && (
                     <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-2 py-0.5 text-[11px] font-semibold text-white">
-                      置顶
+                      {t("posts.pinned")}
                     </span>
                   )}
                   {post.category && (
@@ -172,7 +174,7 @@ export function PostCard({
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Clock3 className="h-3.5 w-3.5" />
-                    {post.readingTime} 分钟
+                    {t("posts.readingTimeOnly", { m: post.readingTime })}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Eye className="h-3.5 w-3.5" />

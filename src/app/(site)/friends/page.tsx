@@ -6,14 +6,20 @@ import { GithubIcon, BilibiliIcon, GiteeIcon } from "@/components/ui/BrandIcons"
 import { db } from "@/lib/db";
 import { friendLinks } from "@/lib/db/schema";
 import { getSiteConfig } from "@/lib/site";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "友链" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("friends.title") };
+}
 
 export default async function FriendsPage() {
-  const [friends, config] = await Promise.all([
+  const [friends, config, { t }] = await Promise.all([
     db.select().from(friendLinks).orderBy(asc(friendLinks.sort), asc(friendLinks.id)),
     getSiteConfig(),
+    getT(),
   ]);
 
   const social =
@@ -24,15 +30,15 @@ export default async function FriendsPage() {
     <PageTransition>
       <div className="mx-auto w-[min(96%,60rem)] pb-8">
         <header className="mb-8 text-center">
-          <h1 className="font-serif text-3xl font-black">友链</h1>
+          <h1 className="font-serif text-3xl font-black">{t("friends.title")}</h1>
           <p className="mt-1 text-sm text-muted">
-            海内存知己，天涯若比邻 ·{" "}
+            {t("friends.subtitle")} ·{" "}
             <a
               href={social}
               className="inline-flex items-center gap-1 text-indigo-500 hover:underline dark:text-indigo-300"
             >
               <Mail className="h-3.5 w-3.5" />
-              申请友链
+              {t("friends.apply")}
             </a>
           </p>
         </header>
@@ -76,7 +82,7 @@ export default async function FriendsPage() {
               <BilibiliIcon className="h-5 w-5" />
               <GiteeIcon className="h-5 w-5" />
             </div>
-            <p>互换友链请邮件联系，附上站点名称、链接、头像与简介</p>
+            <p>{t("friends.applyHint")}</p>
           </div>
         </FadeIn>
       </div>

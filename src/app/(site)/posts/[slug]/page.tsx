@@ -10,6 +10,7 @@ import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
 import { renderMarkdown, extractToc } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,9 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const [{ slug }, { t }] = await Promise.all([params, getT()]);
   const post = await getPostBySlug(slug);
-  if (!post) return { title: "文章不存在" };
+  if (!post) return { title: t("posts.notFound") };
   return {
     title: post.title,
     description: post.description,
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PostDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const [post, config] = await Promise.all([getPostBySlug(slug), getSiteConfig()]);
+  const [post, config, { t }] = await Promise.all([getPostBySlug(slug), getSiteConfig(), getT()]);
   if (!post || post.status !== "published") notFound();
 
   const [html, neighbors] = await Promise.all([
@@ -45,10 +46,10 @@ export default async function PostDetailPage({ params }: PageProps) {
         {/* 面包屑 */}
         <nav className="mb-5 flex items-center gap-1.5 text-xs text-muted">
           <Link href="/" className="inline-flex items-center gap-1 hover-text-accent">
-            <Home className="h-3.5 w-3.5" /> 首页
+            <Home className="h-3.5 w-3.5" /> {t("nav.home")}
           </Link>
           <ChevronRight className="h-3 w-3" />
-          <Link href="/posts" className="hover-text-accent">文章</Link>
+          <Link href="/posts" className="hover-text-accent">{t("nav.posts")}</Link>
           {post.category && (
             <>
               <ChevronRight className="h-3 w-3" />
@@ -80,7 +81,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Clock3 className="h-3.5 w-3.5" />
-                      {post.wordCount} 字 · 约 {post.readingTime} 分钟
+                      {t("posts.wordMinute", { w: post.wordCount, m: post.readingTime })}
                     </span>
                     <ViewCounter slug={post.slug} initial={post.views} postId={post.id} />
                   </div>
@@ -128,7 +129,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                     <Link href={`/posts/${neighbors.prev.slug}`} className="glass-card glass-hover group flex items-center gap-3 p-4 text-sm">
                       <ArrowLeft className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:-translate-x-1" />
                       <div className="min-w-0">
-                        <p className="text-xs text-muted">上一篇</p>
+                        <p className="text-xs text-muted">{t("posts.prevPost")}</p>
                         <p className="truncate font-medium">{neighbors.prev.title}</p>
                       </div>
                     </Link>
@@ -138,7 +139,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                   {neighbors.next && (
                     <Link href={`/posts/${neighbors.next.slug}`} className="glass-card glass-hover group flex items-center justify-end gap-3 p-4 text-right text-sm">
                       <div className="min-w-0">
-                        <p className="text-xs text-muted">下一篇</p>
+                        <p className="text-xs text-muted">{t("posts.nextPost")}</p>
                         <p className="truncate font-medium">{neighbors.next.title}</p>
                       </div>
                       <ArrowRight className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1" />
@@ -151,7 +152,7 @@ export default async function PostDetailPage({ params }: PageProps) {
             {/* 评论 */}
             <FadeIn delay={0.15}>
               <section className="mt-8">
-                <h2 className="mb-4 font-serif text-lg font-bold">评论</h2>
+                <h2 className="mb-4 font-serif text-lg font-bold">{t("posts.comments")}</h2>
                 <GiscusComments config={config.giscus} />
               </section>
             </FadeIn>

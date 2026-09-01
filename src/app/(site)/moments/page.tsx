@@ -6,22 +6,30 @@ import { LazyImage } from "@/components/effects/Typewriter";
 import { db } from "@/lib/db";
 import { moments as momentsTable } from "@/lib/db/schema";
 import { relativeTime, formatDateTime } from "@/lib/utils";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "说说" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("moments.title") };
+}
 
 export default async function MomentsPage() {
-  const items = await db
-    .select()
-    .from(momentsTable)
-    .orderBy(desc(momentsTable.createdAt));
+  const [items, { t, locale }] = await Promise.all([
+    db
+      .select()
+      .from(momentsTable)
+      .orderBy(desc(momentsTable.createdAt)),
+    getT(),
+  ]);
 
   return (
     <PageTransition>
       <div className="mx-auto w-[min(96%,42rem)] pb-8">
         <header className="mb-8 text-center">
-          <h1 className="font-serif text-3xl font-black">说说</h1>
-          <p className="mt-1 text-sm text-muted">碎片的想法，不值得成文，但值得记录</p>
+          <h1 className="font-serif text-3xl font-black">{t("moments.title")}</h1>
+          <p className="mt-1 text-sm text-muted">{t("moments.subtitle")}</p>
         </header>
 
         <div className="relative flex flex-col gap-5 pl-5 before:absolute before:bottom-2 before:left-[6px] before:top-2 before:w-px before:bg-gradient-to-b before:from-pink-400/60 before:via-indigo-400/40 before:to-transparent">
@@ -37,7 +45,7 @@ export default async function MomentsPage() {
                         {m.mood || "💭"}
                       </span>
                       <time dateTime={new Date(m.createdAt).toISOString()} title={formatDateTime(m.createdAt)}>
-                        {relativeTime(m.createdAt)}
+                        {relativeTime(m.createdAt, locale)}
                       </time>
                       {m.location && (
                         <span className="inline-flex items-center gap-1">
@@ -59,7 +67,7 @@ export default async function MomentsPage() {
                       >
                         {images.map((src) => (
                           <div key={src} className="relative aspect-square overflow-hidden rounded-xl">
-                            <LazyImage src={src} alt="配图" fill sizes="200px" className="object-cover" />
+                            <LazyImage src={src} alt={t("moments.imageAlt")} fill sizes="200px" className="object-cover" />
                           </div>
                         ))}
                       </div>

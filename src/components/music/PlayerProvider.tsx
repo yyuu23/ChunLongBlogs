@@ -13,6 +13,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { trackEvent } from "@/lib/track";
 import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
+import { useT } from "@/components/providers/LocaleProvider";
 
 export interface PlayerSong {
   id: number;
@@ -211,6 +212,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 /** 底部迷你播放条：封面旋转 + 进度 + 控制按钮（与页面路由无关，音乐不断） */
 function MiniPlayer({ failed }: { failed: boolean }) {
   const p = usePlayer();
+  const t = useT();
   if (!p?.current) return null;
 
   return (
@@ -243,7 +245,7 @@ function MiniPlayer({ failed }: { failed: boolean }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium leading-tight">{p.current.title}</p>
           <p className="truncate text-[11px] text-muted">
-            {failed ? "⚠️ 音频不可用（可能为版权限制）" : p.current.artist || "未知歌手"}
+            {failed ? t("music.audioUnavailable") : p.current.artist || t("music.unknownArtist")}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <span className="w-8 text-right text-[10px] tabular-nums text-muted">{fmt(p.progress)}</span>
@@ -255,34 +257,34 @@ function MiniPlayer({ failed }: { failed: boolean }) {
               value={p.progress}
               onChange={(e) => p.seek(Number(e.target.value))}
               className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-white/40 accent-[var(--accent-solid)] dark:bg-white/15"
-              aria-label="播放进度"
+              aria-label={t("music.progressBar")}
             />
             <span className="w-8 text-[10px] tabular-nums text-muted">{fmt(p.duration)}</span>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <button onClick={p.prev} aria-label="上一首" className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
+          <button onClick={p.prev} aria-label={t("music.prevTrack")} className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
             <SkipBack className="h-4 w-4" />
           </button>
           <button
             onClick={p.toggle}
-            aria-label={p.playing ? "暂停" : "播放"}
+            aria-label={p.playing ? t("music.pause") : t("music.play")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-gradient text-white shadow"
           >
             {p.playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
-          <button onClick={p.next} aria-label="下一首" className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
+          <button onClick={p.next} aria-label={t("music.nextTrack")} className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
             <SkipForward className="h-4 w-4" />
           </button>
           <button
             onClick={() => p.setMuted(!p.muted)}
-            aria-label="静音"
+            aria-label={t("music.mute")}
             className="hidden rounded-full p-2 text-muted hover:text-[var(--accent-text)] sm:block"
           >
             {p.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
-          <button onClick={p.close} aria-label="关闭播放器" className="rounded-full p-2 text-muted hover:text-rose-400">
+          <button onClick={p.close} aria-label={t("music.closePlayer")} className="rounded-full p-2 text-muted hover:text-rose-400">
             <X className="h-4 w-4" />
           </button>
         </div>

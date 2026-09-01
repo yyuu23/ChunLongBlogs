@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
+import { getLocale } from "@/lib/i18n/server";
 import {
   EMPTY_STATS,
   XP_RULES,
@@ -71,6 +72,7 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
 
 /** POST /api/player —— body: { visitorId, event, payload? } */
 export async function POST(request: Request) {
+  const locale = await getLocale();
   const body = (await request.json().catch(() => null)) as {
     visitorId?: string;
     event?: XpEvent;
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
     xp,
     gained,
     level: lvl.level,
-    title: levelTitle(lvl.level),
+    title: levelTitle(lvl.level, locale),
     progress: lvl.progress,
     tier: lvl.tier,
     achievements: unlockedAchievements(stats),
@@ -126,6 +128,7 @@ export async function POST(request: Request) {
 
 /** GET /api/player?visitorId=xxx —— 查询进度 */
 export async function GET(request: Request) {
+  const locale = await getLocale();
   const { searchParams } = new URL(request.url);
   const visitorId = (searchParams.get("visitorId") ?? "").trim();
   if (!visitorId) return NextResponse.json({ error: "invalid" }, { status: 400 });
@@ -137,7 +140,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       xp: 0,
       level: lvl.level,
-      title: levelTitle(1),
+      title: levelTitle(1, locale),
       progress: 0,
       tier: lvl.tier,
       achievements: [],
@@ -149,7 +152,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     xp: row.xp,
     level: lvl.level,
-    title: levelTitle(lvl.level),
+    title: levelTitle(lvl.level, locale),
     progress: lvl.progress,
     tier: lvl.tier,
     achievements: unlockedAchievements(stats),

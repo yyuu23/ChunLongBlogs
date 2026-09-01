@@ -12,15 +12,17 @@ import { db } from "@/lib/db";
 import { albums, photos } from "@/lib/db/schema";
 import { getSiteConfig } from "@/lib/site";
 import { getPublishedPosts, getSiteStats } from "@/lib/posts";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [config, { items: latest }, stats, albumRows] = await Promise.all([
+  const [config, { items: latest }, stats, albumRows, { t }] = await Promise.all([
     getSiteConfig(),
     getPublishedPosts({ perPage: 6 }),
     getSiteStats(),
     db.select().from(albums).orderBy(desc(albums.createdAt)).limit(1),
+    getT(),
   ]);
   const latestAlbum = albumRows[0] ?? null;
   const photoCount = latestAlbum
@@ -56,9 +58,9 @@ export default async function HomePage() {
             <div className="flex flex-col gap-6">
               <StatsRow
                 stats={[
-                  { label: "文章", value: stats.posts, icon: <FileText className="h-5 w-5" /> },
-                  { label: "总字数", value: stats.words, icon: <PenLine className="h-5 w-5" /> },
-                  { label: "总阅读", value: stats.views, icon: <Eye className="h-5 w-5" /> },
+                  { label: t("home.statsPosts"), value: stats.posts, icon: <FileText className="h-5 w-5" /> },
+                  { label: t("home.statsWords"), value: stats.words, icon: <PenLine className="h-5 w-5" /> },
+                  { label: t("home.statsViews"), value: stats.views, icon: <Eye className="h-5 w-5" /> },
                 ]}
               />
               <WeatherCard />
@@ -70,13 +72,13 @@ export default async function HomePage() {
           <div className="mt-4 flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-serif text-xl font-bold">
               <BookOpenText className="h-5 w-5 text-indigo-500" />
-              最新文章
+              {t("home.latestPosts")}
             </h2>
             <Link
               href="/posts"
               className="text-sm text-muted transition-colors hover:text-indigo-500"
             >
-              查看全部 →
+              {t("common.viewAll")} →
             </Link>
           </div>
         </FadeIn>
@@ -104,17 +106,17 @@ export default async function HomePage() {
                   <div className="min-w-0">
                     <p className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-white/80">
                       <Images className="h-3.5 w-3.5" />
-                      最新相册
+                      {t("home.latestAlbums")}
                     </p>
                     <h2 className="font-serif text-xl font-bold text-white drop-shadow md:text-2xl">
                       {latestAlbum.title}
                     </h2>
                     <p className="mt-0.5 truncate text-xs text-white/75 md:text-sm">
-                      {latestAlbum.description} · {Number(photoCount)} 张照片
+                      {latestAlbum.description} · {t("home.albumPhotosCount", { n: Number(photoCount) })}
                     </p>
                   </div>
                   <span className="glass-button shrink-0 border-white/30 bg-white/15 !text-white hover:!bg-white/30">
-                    查看相册 →
+                    {t("home.viewAlbums")}
                   </span>
                 </div>
               </div>

@@ -17,6 +17,8 @@
  *   倾角  取各行星真实值（天王星 97.77° 侧躺，所以它的环是竖着的）
  */
 
+import type { LText } from "@/lib/i18n/config";
+
 export interface MomentItem {
   id: number;
   content: string;
@@ -50,12 +52,11 @@ export interface PlanetDef {
   id: PlanetId;
   /** 距日顺序 1–8，用于显示罗马数字 */
   order: number;
-  /** 真实行星名 */
-  name: string;
-  en: string;
-  /** 内容栏目名（主标签） */
-  label: string;
-  sub: string;
+  /** 真实行星名（多语） */
+  name: LText;
+  /** 内容栏目名（主标签，多语） */
+  label: LText;
+  sub: LText;
   href: string | null;
   orbit: number;
   r: number;
@@ -71,44 +72,68 @@ export interface PlanetDef {
 
 export const PLANETS: PlanetDef[] = [
   {
-    id: "mercury", order: 1, name: "水星", en: "Mercury",
-    label: "说说", sub: "正在想的", href: "/moments",
+    id: "mercury", order: 1,
+    name: { zh: "水星", en: "Mercury", ja: "水星", ko: "수성" },
+    label: { zh: "说说", en: "Moments", ja: "つぶやき", ko: "모먼트" },
+    sub: { zh: "正在想的", en: "What's on my mind", ja: "いま考えていること", ko: "지금 떠오른 생각" },
+    href: "/moments",
     orbit: 62, r: 8.2, tone: "warm", period: 22, phase: 0.6, incl: 7.0,
   },
   {
-    id: "venus", order: 2, name: "金星", en: "Venus",
-    label: "相册", sub: "光影暂存", href: "/albums",
+    id: "venus", order: 2,
+    name: { zh: "金星", en: "Venus", ja: "金星", ko: "금성" },
+    label: { zh: "相册", en: "Albums", ja: "アルバム", ko: "앨범" },
+    sub: { zh: "光影暂存", en: "Light & shadow stash", ja: "光と影のストック", ko: "빛과 그림자 보관함" },
+    href: "/albums",
     orbit: 100, r: 10.8, tone: "warm", period: 31, phase: 2.2, incl: 3.4,
   },
   {
-    id: "earth", order: 3, name: "地球", en: "Earth",
-    label: "文章", sub: "主力产出", href: "/posts",
+    id: "earth", order: 3,
+    name: { zh: "地球", en: "Earth", ja: "地球", ko: "지구" },
+    label: { zh: "文章", en: "Posts", ja: "記事", ko: "글" },
+    sub: { zh: "主力产出", en: "Main output", ja: "メインのアウトプット", ko: "메인 아웃풋" },
+    href: "/posts",
     orbit: 122, r: 11, tone: "neutral", period: 38, phase: 4.1, incl: 0,
   },
   {
-    id: "mars", order: 4, name: "火星", en: "Mars",
-    label: "回忆", sub: "回忆瓶", href: null,
+    id: "mars", order: 4,
+    name: { zh: "火星", en: "Mars", ja: "火星", ko: "화성" },
+    label: { zh: "回忆", en: "Memories", ja: "思い出", ko: "추억" },
+    sub: { zh: "回忆瓶", en: "Memory bottle", ja: "思い出ボトル", ko: "추억 병" },
+    href: null,
     orbit: 148, r: 9.1, tone: "warm", period: 46, phase: 5.6, incl: 1.85,
   },
   // 小行星带 170–193：访客留声星（真实太阳系里就在火星与木星之间）
   {
-    id: "jupiter", order: 5, name: "木星", en: "Jupiter",
-    label: "项目", sub: "作品集", href: "https://github.com/yyuu23",
+    id: "jupiter", order: 5,
+    name: { zh: "木星", en: "Jupiter", ja: "木星", ko: "목성" },
+    label: { zh: "项目", en: "Projects", ja: "プロジェクト", ko: "프로젝트" },
+    sub: { zh: "作品集", en: "Portfolio", ja: "作品集", ko: "작품집" },
+    href: "https://github.com/yyuu23",
     orbit: 224, r: 21, tone: "cool", period: 72, phase: 1.2, incl: 1.3,
   },
   {
-    id: "saturn", order: 6, name: "土星", en: "Saturn",
-    label: "关于", sub: "时间线", href: "/about",
+    id: "saturn", order: 6,
+    name: { zh: "土星", en: "Saturn", ja: "土星", ko: "토성" },
+    label: { zh: "关于", en: "About", ja: "about", ko: "소개" },
+    sub: { zh: "时间线", en: "Timeline", ja: "タイムライン", ko: "타임라인" },
+    href: "/about",
     orbit: 262, r: 20, tone: "cool", period: 96, phase: 3.3, incl: 2.49, ring: true,
   },
   {
-    id: "uranus", order: 7, name: "天王星", en: "Uranus",
-    label: "音乐", sub: "留声屋", href: "/music",
+    id: "uranus", order: 7,
+    name: { zh: "天王星", en: "Uranus", ja: "天王星", ko: "천왕성" },
+    label: { zh: "音乐", en: "Music", ja: "ミュージック", ko: "음악" },
+    sub: { zh: "留声屋", en: "Sound house", ja: "蓄音室", ko: "축음기 방" },
+    href: "/music",
     orbit: 320, r: 16.6, tone: "cold", period: 140, phase: 0.4, incl: 0.77, ring: true,
   },
   {
-    id: "neptune", order: 8, name: "海王星", en: "Neptune",
-    label: "归档", sub: "时间沉淀", href: "/archive",
+    id: "neptune", order: 8,
+    name: { zh: "海王星", en: "Neptune", ja: "海王星", ko: "해왕성" },
+    label: { zh: "归档", en: "Archive", ja: "アーカイブ", ko: "아카이브" },
+    sub: { zh: "时间沉淀", en: "Sediment of time", ja: "時間の堆積", ko: "시간의 퇴적물" },
+    href: "/archive",
     orbit: 372, r: 16.5, tone: "cold", period: 200, phase: 2.8, incl: 1.77,
   },
 ];
@@ -117,11 +142,23 @@ export const PLANETS: PlanetDef[] = [
 export const BELT = { inner: 170, outer: 193, spread: 7 };
 
 export type ToneKey = "warm" | "neutral" | "cool" | "cold";
-export const TONE: Record<ToneKey, { fill: string; glow: string; label: string }> = {
-  warm: { fill: "#BA7517", glow: "#FAC775", label: "暖 · 个人 · 高频" },
-  neutral: { fill: "#378ADD", glow: "#85B7EB", label: "中性 · 主力产出" },
-  cool: { fill: "#534AB7", glow: "#AFA9EC", label: "冷 · 沉淀 · 专业" },
-  cold: { fill: "#5F5E5A", glow: "#B4B2A9", label: "最冷 · 元信息 · 归档" },
+export const TONE: Record<ToneKey, { fill: string; glow: string; label: LText }> = {
+  warm: {
+    fill: "#BA7517", glow: "#FAC775",
+    label: { zh: "暖 · 个人 · 高频", en: "Warm · Personal · Frequent", ja: "暖かい · 個人 · 高頻度", ko: "따뜻함 · 개인 · 자주" },
+  },
+  neutral: {
+    fill: "#378ADD", glow: "#85B7EB",
+    label: { zh: "中性 · 主力产出", en: "Neutral · Main output", ja: "中立 · メイン産出", ko: "중립 · 메인 아웃풋" },
+  },
+  cool: {
+    fill: "#534AB7", glow: "#AFA9EC",
+    label: { zh: "冷 · 沉淀 · 专业", en: "Cool · Curated · Professional", ja: "クール · 蓄積 · 専門的", ko: "차분함 · 선별 · 전문" },
+  },
+  cold: {
+    fill: "#5F5E5A", glow: "#B4B2A9",
+    label: { zh: "最冷 · 元信息 · 归档", en: "Coldest · Meta · Archive", ja: "最も冷たい · メタ情報 · アーカイブ", ko: "가장 차가움 · 메타 · 아카이브" },
+  },
 };
 
 /** 罗马数字，给行星标签用 */

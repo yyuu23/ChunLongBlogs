@@ -5,8 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DayKind } from "@/lib/holidays";
-
-const WEEK = ["一", "二", "三", "四", "五", "六", "日"];
+import { useLocale, useT } from "@/components/providers/LocaleProvider";
 
 interface MonthHolidays {
   [dateKey: string]: { kind: DayKind; name?: string };
@@ -17,16 +16,17 @@ const keyOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
 /** 角标样式：休（蓝）/ 工（橙） */
 function DayBadge({ kind }: { kind: DayKind }) {
+  const t = useT();
   if (kind === "holiday")
     return (
       <span className="absolute -right-0.5 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold leading-none text-white shadow-sm">
-        休
+        {t("calendar.holidayBadge")}
       </span>
     );
   if (kind === "workday")
     return (
       <span className="absolute -right-0.5 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold leading-none text-white shadow-sm">
-        工
+        {t("calendar.workdayBadge")}
       </span>
     );
   return null;
@@ -37,6 +37,8 @@ function DayBadge({ kind }: { kind: DayKind }) {
  * 日视图（左右翻月）→ 点击标题 → 年内选月 → 点击年份标题 → 十年区间选年
  */
 export function CalendarPopover() {
+  const t = useT();
+  const { tArr } = useLocale();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"days" | "months" | "years">("days");
   const [cursor, setCursor] = useState(() => {
@@ -104,7 +106,7 @@ export function CalendarPopover() {
     <div ref={wrapRef} className="relative">
       <button
         onClick={openPanel}
-        aria-label="日历"
+        aria-label={t("calendar.ariaCalendar")}
         className="glass-button !rounded-full !p-2.5"
       >
         <CalendarDays className="h-4 w-4" />
@@ -127,7 +129,7 @@ export function CalendarPopover() {
                   else if (view === "months") setCursor((c) => ({ ...c, y: c.y - 1 }));
                   else setCursor((c) => ({ ...c, y: c.y - 10 }));
                 }}
-                aria-label="上一个"
+                aria-label={t("calendar.ariaPrev")}
                 className="glass-button !rounded-lg !p-1.5"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -136,10 +138,10 @@ export function CalendarPopover() {
               <button
                 onClick={() => setView((v) => (v === "days" ? "months" : "years"))}
                 className="rounded-lg px-2.5 py-1 text-sm font-semibold transition-colors hover:bg-white/40 dark:hover:bg-white/10"
-                title={view === "days" ? "点击选择月份" : view === "months" ? "点击选择年份" : undefined}
+                title={view === "days" ? t("calendar.pickMonth") : view === "months" ? t("calendar.pickYear") : undefined}
               >
-                {view === "days" && `${cursor.y} 年 ${cursor.m} 月`}
-                {view === "months" && `${cursor.y} 年`}
+                {view === "days" && t("calendar.monthYearTitle", { y: cursor.y, m: cursor.m })}
+                {view === "months" && t("calendar.yearTitle", { y: cursor.y })}
                 {view === "years" && `${decadeStart} - ${decadeStart + 11}`}
               </button>
 
@@ -149,7 +151,7 @@ export function CalendarPopover() {
                   else if (view === "months") setCursor((c) => ({ ...c, y: c.y + 1 }));
                   else setCursor((c) => ({ ...c, y: c.y + 10 }));
                 }}
-                aria-label="下一个"
+                aria-label={t("calendar.ariaNext")}
                 className="glass-button !rounded-lg !p-1.5"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -170,7 +172,7 @@ export function CalendarPopover() {
                 {view === "days" && (
                   <>
                     <div className="mb-1 grid grid-cols-7 text-center text-[10px] text-muted">
-                      {WEEK.map((w) => (
+                      {tArr("calendar.weekdays").map((w) => (
                         <span key={w}>{w}</span>
                       ))}
                     </div>
@@ -200,11 +202,11 @@ export function CalendarPopover() {
                             title={[
                               rule?.name,
                               kind === "holiday"
-                                ? "法定节假日"
+                                ? t("calendar.legalTitle")
                                 : kind === "workday"
-                                  ? "调休补班"
+                                  ? t("calendar.makeupTitle")
                                   : undefined,
-                              count > 0 ? `${count} 篇文章` : undefined,
+                              count > 0 ? t("calendar.postsInDay", { count }) : undefined,
                             ]
                               .filter(Boolean)
                               .join(" · ")}
@@ -225,17 +227,17 @@ export function CalendarPopover() {
                     </div>
                     <div className="mt-3 flex items-center justify-center gap-4 border-t border-[var(--glass-border)] pt-2.5 text-[10px] text-muted">
                       <span className="flex items-center gap-1">
-                        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white">休</span>
-                        法定假
+                        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white">{t("calendar.holidayBadge")}</span>
+                        {t("calendar.legendLegal")}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold text-white">工</span>
-                        调休
+                        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-bold text-white">{t("calendar.workdayBadge")}</span>
+                        {t("calendar.legendMakeup")}
                       </span>
-                      <span className="text-rose-400">双休</span>
+                      <span className="text-rose-400">{t("calendar.legendWeekend")}</span>
                       <span className="flex items-center gap-1">
                         <span className="h-1 w-1 rounded-full bg-accent-solid" />
-                        有文章
+                        {t("calendar.legendPosts")}
                       </span>
                     </div>
                   </>
@@ -262,7 +264,7 @@ export function CalendarPopover() {
                                 : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
                           }`}
                         >
-                          {m} 月
+                          {t("calendar.monthTitle", { m })}
                         </button>
                       );
                     })}
@@ -300,7 +302,7 @@ export function CalendarPopover() {
 
             {view !== "days" && (
               <p className="mt-1 text-center text-[10px] text-muted opacity-70">
-                点击标题可返回上一级 · 再次点击月份查看日历
+                {t("calendar.drillHint")}
               </p>
             )}
           </motion.div>

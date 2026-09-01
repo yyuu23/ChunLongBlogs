@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getT } from "@/lib/i18n/server";
 
-/** 分页导航（保留当前筛选参数） */
-export function Pagination({
+/** 分页导航（保留当前筛选参数；语言随 cookie） */
+export async function Pagination({
   page,
   perPage,
   total,
@@ -13,6 +14,7 @@ export function Pagination({
   total: number;
   params: Record<string, string | undefined>;
 }) {
+  const { t } = await getT();
   const pages = Math.max(1, Math.ceil(total / perPage));
   if (pages <= 1) return null;
 
@@ -34,7 +36,7 @@ export function Pagination({
   return (
     <nav className="mt-10 flex items-center justify-center gap-1.5">
       {page > 1 && (
-        <Link href={href(page - 1)} aria-label="上一页" className="glass-button !p-2.5">
+        <Link href={href(page - 1)} aria-label={t("posts.pagePrev")} className="glass-button !p-2.5">
           <ChevronLeft className="h-4 w-4" />
         </Link>
       )}
@@ -63,7 +65,7 @@ export function Pagination({
         </>
       )}
       {page < pages && (
-        <Link href={href(page + 1)} aria-label="下一页" className="glass-button !p-2.5">
+        <Link href={href(page + 1)} aria-label={t("posts.pageNext")} className="glass-button !p-2.5">
           <ChevronRight className="h-4 w-4" />
         </Link>
       )}

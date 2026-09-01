@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { TocItem } from "@/lib/markdown";
+import { useT } from "@/components/providers/LocaleProvider";
 
 /** 文章目录：滚动高亮当前章节 + 平滑滚动定位 */
 export function Toc({ items }: { items: TocItem[] }) {
+  const t = useT();
   const [active, setActive] = useState<string>("");
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function Toc({ items }: { items: TocItem[] }) {
 
   return (
     <nav className="glass-card max-h-[70vh] overflow-y-auto p-5 text-sm">
-      <p className="mb-3 text-xs font-semibold tracking-widest text-muted">目录</p>
+      <p className="mb-3 text-xs font-semibold tracking-widest text-muted">{t("posts.toc")}</p>
       <ul className="flex flex-col gap-1">
         {items.map((item) => (
           <li key={item.id}>

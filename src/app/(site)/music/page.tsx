@@ -5,14 +5,20 @@ import { PageTransition } from "@/components/effects/PageTransition";
 import { MusicClient, type MusicPlaylist } from "@/components/music/MusicClient";
 import { db } from "@/lib/db";
 import { playlists, songs } from "@/lib/db/schema";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "音乐馆" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("music.title") };
+}
 
 export default async function MusicPage() {
-  const [plRows, songRows] = await Promise.all([
+  const [plRows, songRows, { t }] = await Promise.all([
     db.select().from(playlists).orderBy(asc(playlists.createdAt)),
     db.select().from(songs).orderBy(asc(songs.sort), asc(songs.id)),
+    getT(),
   ]);
 
   const data: MusicPlaylist[] = plRows.map((p) => ({
@@ -40,8 +46,8 @@ export default async function MusicPage() {
             <Headphones className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="font-serif text-3xl font-black">音乐馆</h1>
-            <p className="text-sm text-muted">歌单 · 最近播放 · 切换页面音乐不断</p>
+            <h1 className="font-serif text-3xl font-black">{t("music.title")}</h1>
+            <p className="text-sm text-muted">{t("music.subtitle")}</p>
           </div>
         </header>
         <MusicClient playlists={data} />

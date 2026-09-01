@@ -5,10 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, UserRound } from "lucide-react";
 import { LazyImage, Typewriter } from "@/components/effects/Typewriter";
+import { useT } from "@/components/providers/LocaleProvider";
 import type { Banner as BannerType } from "@/lib/site";
 
 /** 首页大图轮播：交叉淡入 + Ken Burns + 打字机副标题 */
 export function HeroBanner({ banners }: { banners: BannerType[] }) {
+  const t = useT();
   const slides = banners.length ? banners : [];
   const [index, setIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -96,14 +98,14 @@ export function HeroBanner({ banners }: { banners: BannerType[] }) {
             className="glass-button border-white/40 bg-white/25 text-white hover:!bg-white/35"
           >
             <BookOpen className="h-4 w-4" />
-            开始阅读
+            {t("home.startReading")}
           </Link>
           <Link
             href="/about"
             className="glass-button border-white/30 bg-white/10 text-white hover:!bg-white/20"
           >
             <UserRound className="h-4 w-4" />
-            关于我
+            {t("home.aboutMe")}
           </Link>
         </div>
 
@@ -114,7 +116,7 @@ export function HeroBanner({ banners }: { banners: BannerType[] }) {
               <button
                 key={i}
                 onClick={() => goTo(i)}
-                aria-label={`切换到第 ${i + 1} 张照片`}
+                aria-label={t("home.bannerAria", { i: i + 1 })}
                 className="group flex h-7 w-8 cursor-pointer items-center justify-center"
               >
                 <span

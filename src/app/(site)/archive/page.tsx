@@ -5,12 +5,17 @@ import { PageTransition } from "@/components/effects/PageTransition";
 import { FadeIn } from "@/components/effects/PageTransition";
 import { getArchive } from "@/lib/posts";
 import { formatDate } from "@/lib/utils";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "归档" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("archive.title") };
+}
 
 export default async function ArchivePage() {
-  const posts = await getArchive();
+  const [posts, { t }] = await Promise.all([getArchive(), getT()]);
 
   // 年 → 月 两级分组（均倒序）
   const byYear = new Map<number, Map<number, typeof posts>>();
@@ -33,8 +38,8 @@ export default async function ArchivePage() {
             <ArchiveIcon className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="font-serif text-3xl font-black">归档</h1>
-            <p className="text-sm text-muted">共 {posts.length} 篇 · 时间是最好的索引</p>
+            <h1 className="font-serif text-3xl font-black">{t("archive.title")}</h1>
+            <p className="text-sm text-muted">{t("archive.subtitle", { n: posts.length })}</p>
           </div>
         </header>
 
@@ -48,8 +53,8 @@ export default async function ArchivePage() {
                 <FadeIn>
                   <h2 className="relative mb-4 flex items-baseline gap-3 font-serif text-2xl font-bold">
                     <span className="absolute -left-6 h-3.5 w-3.5 rounded-full bg-accent-gradient ring-4 ring-white/50 dark:ring-slate-900/50" />
-                    {year}
-                    <span className="text-sm font-normal text-muted">{yearTotal} 篇</span>
+                    {t("archive.yearTitle", { y: year })}
+                    <span className="text-sm font-normal text-muted">{t("archive.yearTotal", { n: yearTotal })}</span>
                   </h2>
                 </FadeIn>
 
@@ -59,9 +64,9 @@ export default async function ArchivePage() {
                       <h3 className="relative mb-2 flex items-center gap-2 pl-1 text-sm font-bold tracking-widest text-muted">
                         {/* 时间轴上的月份短刻度 */}
                         <span className="absolute -left-6 top-1/2 h-px w-2.5 -translate-y-1/2 bg-accent-solid" />
-                        {month} 月
+                        {t("archive.monthTitle", { m: month })}
                         <span className="text-[11px] font-normal opacity-70">
-                          {months.get(month)!.length} 篇
+                          {t("archive.monthTotal", { n: months.get(month)!.length })}
                         </span>
                         <span className="h-px flex-1 bg-[var(--glass-border)]" />
                       </h3>

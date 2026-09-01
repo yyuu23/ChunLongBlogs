@@ -1,3 +1,6 @@
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { DICTIONARIES, translate } from "@/lib/i18n";
+
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -29,15 +32,19 @@ export function formatDateTime(d: Date | string | number | null | undefined) {
   ).padStart(2, "0")}`;
 }
 
-export function relativeTime(d: Date | string | number) {
+export function relativeTime(
+  d: Date | string | number,
+  locale: Locale = DEFAULT_LOCALE,
+) {
   const diff = Date.now() - new Date(d).getTime();
   const min = 60_000,
     hour = 3_600_000,
     day = 86_400_000;
-  if (diff < min) return "刚刚";
-  if (diff < hour) return `${Math.floor(diff / min)} 分钟前`;
-  if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
-  if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`;
+  const dict = DICTIONARIES[locale];
+  if (diff < min) return translate(dict, "time.justNow");
+  if (diff < hour) return translate(dict, "time.minutesAgo", { n: Math.floor(diff / min) });
+  if (diff < day) return translate(dict, "time.hoursAgo", { n: Math.floor(diff / hour) });
+  if (diff < 30 * day) return translate(dict, "time.daysAgo", { n: Math.floor(diff / day) });
   return formatDate(d);
 }
 

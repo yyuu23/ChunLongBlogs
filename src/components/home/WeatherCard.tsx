@@ -1,88 +1,110 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT, type T } from "@/components/providers/LocaleProvider";
 
-/* ===== 类型 ===== */
+/* ===== 类型 =====
+ * 状态与缓存只保存语言中立的原始数据（天气码分桶 + 数值），
+ * 展示文案在渲染时按当前语言生成 —— 切语言后缓存依然有效。
+ */
 interface WeatherState {
-  emoji: string;
+  bucket: WeatherBucket; // 当前天气分桶（weather.codes.* 词典键）
   temp: number;
-  desc: string;
   city: string;
   wind: number;
   uv: number; // 紫外线指数 0-11+
   aqi: number | null; // 空气质量指数
-  aqiLabel: string;
-  tomorrow: { emoji: string; max: number; min: number; desc: string };
-  dayAfter: { emoji: string; max: number; min: number; desc: string };
-  suggestion: string;
-  hourlyMorningRain: boolean;
+  todayMax: number;
+  todayMin: number;
+  tomorrow: { bucket: WeatherBucket; max: number; min: number };
+  dayAfter: { bucket: WeatherBucket; max: number; min: number };
+  morningRain: boolean;
 }
 
-const CACHE_KEY = "cl-weather-v2";
+type WeatherBucket =
+  | "clear"
+  | "cloudy"
+  | "overcast"
+  | "fog"
+  | "drizzle"
+  | "rain"
+  | "snow"
+  | "showers"
+  | "snowShowers"
+  | "thunder";
+
+const CACHE_KEY = "cl-weather-v3";
 const TTL = 30 * 60 * 1000;
 
-/** WMO weather_code → 描述 + 图标 */
-function describe(code: number): { emoji: string; desc: string } {
-  if (code === 0) return { emoji: "☀️", desc: "晴" };
-  if (code <= 2) return { emoji: "⛅", desc: "多云" };
-  if (code === 3) return { emoji: "☁️", desc: "阴" };
-  if (code <= 48) return { emoji: "🌫️", desc: "雾" };
-  if (code <= 57) return { emoji: "🌦️", desc: "毛毛雨" };
-  if (code <= 67) return { emoji: "🌧️", desc: "雨" };
-  if (code <= 77) return { emoji: "🌨️", desc: "雪" };
-  if (code <= 82) return { emoji: "🌧️", desc: "阵雨" };
-  if (code <= 86) return { emoji: "🌨️", desc: "阵雪" };
-  return { emoji: "⛈️", desc: "雷暴" };
+/** WMO weather_code → 图标 + 语义分桶（分桶名即词典键，语言无关） */
+function describe(code: number): { emoji: string; bucket: WeatherBucket } {
+  if (code === 0) return { emoji: "☀️", bucket: "clear" };
+  if (code <= 2) return { emoji: "⛅", bucket: "cloudy" };
+  if (code === 3) return { emoji: "☁️", bucket: "overcast" };
+  if (code <= 48) return { emoji: "🌫️", bucket: "fog" };
+  if (code <= 57) return { emoji: "🌦️", bucket: "drizzle" };
+  if (code <= 67) return { emoji: "🌧️", bucket: "rain" };
+  if (code <= 77) return { emoji: "🌨️", bucket: "snow" };
+  if (code <= 82) return { emoji: "🌧️", bucket: "showers" };
+  if (code <= 86) return { emoji: "🌨️", bucket: "snowShowers" };
+  return { emoji: "⛈️", bucket: "thunder" };
 }
 
-function uvLabel(uv: number) {
-  if (uv < 3) return "弱";
-  if (uv < 6) return "中等";
-  if (uv < 8) return "强";
-  if (uv < 11) return "很强";
-  return "极强";
+/** 该分桶是否属于"雨天"（逻辑判断基于分桶而非译文，跨语言安全） */
+const isRainy = (b: WeatherBucket) => b === "rain" || b === "showers" || b === "thunder" || b === "drizzle";
+const isSnowy = (b: WeatherBucket) => b === "snow" || b === "snowShowers";
+
+function uvKey(uv: number) {
+  if (uv < 3) return "low";
+  if (uv < 6) return "moderate";
+  if (uv < 8) return "high";
+  if (uv < 11) return "veryHigh";
+  return "extreme";
 }
 
 function aqiInfo(aqi: number | null) {
-  if (aqi == null) return { label: "—", color: "text-muted" };
-  if (aqi <= 50) return { label: "优", color: "text-emerald-500" };
-  if (aqi <= 100) return { label: "良", color: "text-amber-500" };
-  if (aqi <= 150) return { label: "轻度污染", color: "text-orange-500" };
-  if (aqi <= 200) return { label: "中度污染", color: "text-rose-500" };
-  return { label: "重度污染", color: "text-purple-500" };
+  if (aqi == null) return { key: "moderate", color: "text-muted" };
+  if (aqi <= 50) return { key: "good", color: "text-emerald-500" };
+  if (aqi <= 100) return { key: "moderate", color: "text-amber-500" };
+  if (aqi <= 150) return { key: "lightPollution", color: "text-orange-500" };
+  if (aqi <= 200) return { key: "moderatePollution", color: "text-rose-500" };
+  return { key: "heavyPollution", color: "text-purple-500" };
 }
 
-/** 依据天气/UV/AQI 生成一句生活建议 */
-function makeSuggestion(s: {
-  desc: string;
-  uv: number;
-  aqi: number | null;
-  maxT: number;
-  minT: number;
-  morningRain: boolean;
-}): string {
+/** 依据天气/UV/AQI 生成一句生活建议（按当前语言） */
+function makeSuggestion(
+  t: T,
+  s: {
+    bucket: WeatherBucket;
+    uv: number;
+    aqi: number | null;
+    maxT: number;
+    minT: number;
+    morningRain: boolean;
+  },
+): string {
   const tips: string[] = [];
   const morning = new Date().getHours() < 12;
 
-  if (s.desc === "晴" && (morning ? s.uv >= 0 : s.uv >= 3))
-    tips.push(morning ? "今天上午有太阳，多去晒晒太阳吧 ☀️" : "今天阳光不错，适合出门走走 ☀️");
-  if (s.uv >= 8) tips.push("紫外线很强，出门记得防晒 🧴");
-  else if (s.uv >= 6) tips.push("紫外线偏强，建议涂点防晒 🕶️");
+  if (s.bucket === "clear" && (morning ? s.uv >= 0 : s.uv >= 3))
+    tips.push(morning ? t("weather.tips.sunMorning") : t("weather.tips.sunDay"));
+  if (s.uv >= 8) tips.push(t("weather.tips.uvHigh"));
+  else if (s.uv >= 6) tips.push(t("weather.tips.uvMid"));
 
-  if (["雨", "阵雨", "雷暴", "毛毛雨"].includes(s.desc) || s.morningRain)
-    tips.push(s.morningRain && morning ? "上午有雨，出门带把伞 ☔" : "有雨，记得带伞 ☔");
-  if (["雪", "阵雪"].includes(s.desc)) tips.push("下雪路滑，出行小心 🌨️");
-  if (s.desc === "雾") tips.push("有雾，开车注意安全 🌫️");
+  if (isRainy(s.bucket) || s.morningRain)
+    tips.push(s.morningRain && morning ? t("weather.tips.rainMorning") : t("weather.tips.rain"));
+  if (isSnowy(s.bucket)) tips.push(t("weather.tips.snow"));
+  if (s.bucket === "fog") tips.push(t("weather.tips.fog"));
 
-  if (s.aqi != null && s.aqi > 150) tips.push("空气质量不佳，减少户外运动 😷");
-  else if (s.aqi != null && s.aqi <= 50) tips.push("空气很清新，适合开窗通风 🍃");
+  if (s.aqi != null && s.aqi > 150) tips.push(t("weather.tips.airBad"));
+  else if (s.aqi != null && s.aqi <= 50) tips.push(t("weather.tips.airGood"));
 
-  if (s.maxT >= 33) tips.push("天气炎热，多喝水补水 💧");
-  if (s.minT <= 3) tips.push("气温较低，注意保暖 🧣");
+  if (s.maxT >= 33) tips.push(t("weather.tips.hot"));
+  if (s.minT <= 3) tips.push(t("weather.tips.cold"));
 
   if (!tips.length) {
-    if (["多云", "阴"].includes(s.desc)) tips.push("天气舒适，适合出去散散步 🚶");
-    else tips.push("今天也是适合认真生活的一天 ✨");
+    if (s.bucket === "cloudy" || s.bucket === "overcast") tips.push(t("weather.tips.comfy"));
+    else tips.push(t("weather.tips.defaultTip"));
   }
   return tips.slice(0, 2).join("；");
 }
@@ -99,6 +121,7 @@ async function fetchWithTimeout(url: string, ms: number) {
 
 /** 天气小组件：IP 定位 → Open-Meteo（实况+UV+逐时+2日预报）+ 空气质量；缓存 30 分钟；失败静默隐藏 */
 export function WeatherCard() {
+  const t = useT();
   const [weather, setWeather] = useState<WeatherState | null>(null);
 
   useEffect(() => {
@@ -169,14 +192,12 @@ export function WeatherCard() {
           }
         } catch {}
 
-        const { emoji, desc } = describe(cur.weather_code ?? 0);
+        const curWx = describe(cur.weather_code ?? 0);
         const daily = wx.daily;
         const dayWeather = (i: number) => {
-          const code = daily?.weather_code?.[i] ?? 0;
-          const d = describe(code);
+          const d = describe(daily?.weather_code?.[i] ?? 0);
           return {
-            emoji: d.emoji,
-            desc: d.desc,
+            bucket: d.bucket,
             max: Math.round(daily?.temperature_2m_max?.[i] ?? 0),
             min: Math.round(daily?.temperature_2m_min?.[i] ?? 0),
           };
@@ -201,25 +222,17 @@ export function WeatherCard() {
 
         const uv = Math.round((daily?.uv_index_max?.[0] ?? 0) * 10) / 10;
         const data: WeatherState = {
-          emoji,
+          bucket: curWx.bucket,
           temp: Math.round(cur.temperature_2m),
-          desc,
-          city: loc.city || "本地",
+          city: loc.city || "",
           wind: Math.round(cur.wind_speed_10m ?? 0),
           uv,
           aqi,
-          aqiLabel: aqiInfo(aqi).label,
+          todayMax: Math.round(daily?.temperature_2m_max?.[0] ?? cur.temperature_2m),
+          todayMin: Math.round(daily?.temperature_2m_min?.[0] ?? cur.temperature_2m),
           tomorrow,
           dayAfter,
-          hourlyMorningRain: morningRain,
-          suggestion: makeSuggestion({
-            desc,
-            uv,
-            aqi,
-            maxT: daily?.temperature_2m_max?.[0] ?? cur.temperature_2m,
-            minT: daily?.temperature_2m_min?.[0] ?? cur.temperature_2m,
-            morningRain,
-          }),
+          morningRain,
         };
         setWeather(data);
         try {
@@ -238,19 +251,22 @@ export function WeatherCard() {
 
   if (!weather) return null;
 
+  const emoji = describeByBucket(weather.bucket);
+  const aqiCur = aqiInfo(weather.aqi);
+
   return (
     <div className="glass-card glass-hover p-4">
       {/* 当前 */}
       <div className="flex items-center gap-3">
         <span className="text-3xl leading-none" aria-hidden>
-          {weather.emoji}
+          {emoji}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-lg font-bold leading-tight">
-            {weather.temp}°C <span className="text-sm font-normal text-muted">{weather.desc}</span>
+            {weather.temp}°C <span className="text-sm font-normal text-muted">{t(`weather.codes.${weather.bucket}`)}</span>
           </p>
           <p className="text-xs text-muted">
-            {weather.city} · 风速 {weather.wind} km/h
+            {weather.city || t("weather.localCity")} · {t("weather.windSpeed", { n: weather.wind })}
           </p>
         </div>
       </div>
@@ -258,15 +274,15 @@ export function WeatherCard() {
       {/* 指标条：紫外线 + 空气质量 */}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-accent-soft px-2.5 py-1.5">
-          <p className="text-[10px] text-muted">紫外线</p>
+          <p className="text-[10px] text-muted">{t("weather.uv.label")}</p>
           <p className="text-xs font-semibold">
-            {weather.uv} · {uvLabel(weather.uv)}
+            {weather.uv} · {t(`weather.uv.${uvKey(weather.uv)}`)}
           </p>
         </div>
         <div className="rounded-xl bg-accent-soft px-2.5 py-1.5">
-          <p className="text-[10px] text-muted">空气质量</p>
-          <p className={`text-xs font-semibold ${aqiInfo(weather.aqi).color}`}>
-            {weather.aqi ?? "—"} · {weather.aqiLabel}
+          <p className="text-[10px] text-muted">{t("weather.aqi.label")}</p>
+          <p className={`text-xs font-semibold ${aqiCur.color}`}>
+            {weather.aqi ?? "—"} · {t(`weather.aqi.${aqiCur.key}`)}
           </p>
         </div>
       </div>
@@ -275,16 +291,16 @@ export function WeatherCard() {
       <div className="mt-2.5 flex gap-2">
         {(
           [
-            ["明天", weather.tomorrow],
-            ["后天", weather.dayAfter],
+            [t("weather.tomorrow"), weather.tomorrow],
+            [t("weather.dayAfter"), weather.dayAfter],
           ] as const
         ).map(([label, d]) => (
           <div key={label} className="flex flex-1 items-center gap-2 rounded-xl px-2 py-1.5" style={{ background: "color-mix(in srgb, var(--glass-bg) 60%, transparent)" }}>
-            <span className="text-lg leading-none">{d.emoji}</span>
+            <span className="text-lg leading-none">{describeByBucket(d.bucket)}</span>
             <div className="min-w-0 text-[11px] leading-tight">
               <p className="text-muted">{label}</p>
               <p className="font-medium">
-                {d.min}° / {d.max}° {d.desc}
+                {d.min}° / {d.max}° {t(`weather.codes.${d.bucket}`)}
               </p>
             </div>
           </div>
@@ -293,8 +309,32 @@ export function WeatherCard() {
 
       {/* 生活建议 */}
       <p className="mt-2.5 rounded-xl bg-accent-soft px-3 py-2 text-xs leading-relaxed">
-        💡 {weather.suggestion}
+        💡 {makeSuggestion(t, {
+          bucket: weather.bucket,
+          uv: weather.uv,
+          aqi: weather.aqi,
+          maxT: weather.todayMax,
+          minT: weather.todayMin,
+          morningRain: weather.morningRain,
+        })}
       </p>
     </div>
   );
+}
+
+/** 分桶 → 图标（渲染期使用） */
+function describeByBucket(bucket: WeatherBucket): string {
+  const table: Record<WeatherBucket, string> = {
+    clear: "☀️",
+    cloudy: "⛅",
+    overcast: "☁️",
+    fog: "🌫️",
+    drizzle: "🌦️",
+    rain: "🌧️",
+    snow: "🌨️",
+    showers: "🌧️",
+    snowShowers: "🌨️",
+    thunder: "⛈️",
+  };
+  return table[bucket];
 }

@@ -6,6 +6,8 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/components/music/PlayerProvider";
+import { useLocale, useT } from "@/components/providers/LocaleProvider";
+import { pick } from "@/lib/i18n/config";
 import {
   PLANETS,
   BELT,
@@ -35,6 +37,9 @@ function PlanetLabel({
 }) {
   const orbitGroup = useRef<THREE.Group>(null);
   const tone = TONE[def.tone];
+  const { locale } = useLocale();
+  const t = useT();
+  const name = pick(locale, def.name);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -51,16 +56,16 @@ function PlanetLabel({
             onClick={onClick}
             className="group flex cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-white"
             style={{ pointerEvents: "auto" }}
-            title={`${def.name} · ${tone.label}${count != null ? ` · ${count} 条` : ""}`}
+            title={`${name} · ${pick(locale, tone.label)}${count != null ? ` · ${t("lab.itemCount", { n: count })}` : ""}`}
           >
             <span className="whitespace-nowrap text-sm font-bold tracking-wide drop-shadow">
-              {def.label}
+              {pick(locale, def.label)}
             </span>
             <span className="whitespace-nowrap text-[9px] tracking-widest text-white/45">
-              {def.name} · {ROMAN[def.order]}
+              {name} · {ROMAN[def.order]}
             </span>
             <span className="mt-0.5 hidden text-[9px] text-white/60 group-hover:block">
-              {count != null ? `${count} 条` : def.href ? "前往 →" : "点击查看"}
+              {count != null ? t("lab.itemCount", { n: count }) : def.href ? t("lab.visit") : t("lab.clickView")}
             </span>
           </button>
         </Html>
@@ -254,6 +259,7 @@ export default function LabScene({
   const [openStar, setOpenStar] = useState<StarItem | null>(null);
   const [memoryIdx, setMemoryIdx] = useState<number | null>(null);
   const { playing } = usePlayer() ?? {};
+  const t = useT();
 
   const openPlanet = (def: PlanetDef) => {
     if (def.id === "mars") {
@@ -317,7 +323,7 @@ export default function LabScene({
             CHUNLONG LAB
           </p>
           <p className="mt-1 text-xs tracking-[0.25em] text-white/50">
-            八颗行星 · 越近越私人 · 转得越快更新越勤
+            {t("lab.sceneHint")}
           </p>
         </div>
       </Html>
@@ -327,7 +333,7 @@ export default function LabScene({
         <Html position={[0, 78, 0]} center distanceFactor={170}>
           <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
-              <span>✦ 留声星 · {openStar.date}</span>
+              <span>{t("lab.memoryStar", { date: openStar.date })}</span>
               <button onClick={() => setOpenStar(null)} className="rounded-full px-2 hover:text-white">
                 ✕
               </button>
@@ -343,7 +349,7 @@ export default function LabScene({
           <div className="w-72 rounded-2xl border border-white/20 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-white/50">
               <span>
-                {moment.mood || "💭"} {moment.date} · 回忆瓶 {(memoryIdx ?? 0) + 1}/{moments.length}
+                {moment.mood || "💭"} {moment.date} · {t("lab.memoryBottle", { n: (memoryIdx ?? 0) + 1, m: moments.length })}
               </span>
               <button onClick={() => setMemoryIdx(null)} className="rounded-full px-2 hover:text-white">
                 ✕
@@ -357,13 +363,13 @@ export default function LabScene({
                 onClick={() => setMemoryIdx((i) => (i == null ? null : (i - 1 + moments.length) % moments.length))}
                 className="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
               >
-                ‹ 上一段
+                {t("lab.prevMemory")}
               </button>
               <button
                 onClick={() => setMemoryIdx((i) => (i == null ? null : (i + 1) % moments.length))}
                 className="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
               >
-                下一段 ›
+                {t("lab.nextMemory")}
               </button>
             </div>
           </div>

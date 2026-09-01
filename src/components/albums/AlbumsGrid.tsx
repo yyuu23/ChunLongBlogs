@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lightbox, type LightboxImage } from "@/components/albums/Lightbox";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { useT } from "@/components/providers/LocaleProvider";
 
 export interface AlbumData {
   id: number;
@@ -23,6 +24,7 @@ function PolaroidPhoto({
   index: number;
   onClick: () => void;
 }) {
+  const t = useT();
   const rotation = useMemo(() => {
     const seed = photo.id * 37 + index * 13;
     return ((seed % 7) - 3) * 0.9;
@@ -47,7 +49,7 @@ function PolaroidPhoto({
         <div className="relative aspect-[4/3] overflow-hidden rounded-[2px]">
           <LazyImage
             src={photo.url}
-            alt={photo.caption || "照片"}
+            alt={photo.caption || t("common.photoAlt")}
             fill
             sizes="(max-width: 640px) 50vw, 25vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -89,6 +91,7 @@ function AlbumCard({
   onToggle: () => void;
   onPhotoClick: (index: number) => void;
 }) {
+  const t = useT();
   const covers = album.photos.slice(0, 3).reverse();
 
   return (
@@ -138,7 +141,7 @@ function AlbumCard({
           ))}
           {/* 数量徽标 */}
           <div className="absolute -bottom-2 right-0 z-20 rounded-full bg-accent-gradient accent-glow px-2.5 py-0.5 text-xs font-bold text-white">
-            {album.photos.length} 张
+            {t("albums.photoCount", { n: album.photos.length })}
           </div>
         </motion.div>
 
@@ -147,7 +150,7 @@ function AlbumCard({
           <p className="mt-1 text-xs text-muted">{album.description}</p>
           {!isExpanded && (
             <p className="mt-2 text-[11px] tracking-widest text-muted opacity-70">
-              点击展开照片墙 ↓
+              {t("albums.expandHint")}
             </p>
           )}
         </div>

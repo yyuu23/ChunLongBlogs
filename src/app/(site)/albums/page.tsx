@@ -5,14 +5,20 @@ import { PageTransition } from "@/components/effects/PageTransition";
 import { AlbumsGrid, type AlbumData } from "@/components/albums/AlbumsGrid";
 import { db } from "@/lib/db";
 import { albums, photos } from "@/lib/db/schema";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "相册" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("albums.title") };
+}
 
 export default async function AlbumsPage() {
-  const [albumRows, photoRows] = await Promise.all([
+  const [albumRows, photoRows, { t }] = await Promise.all([
     db.select().from(albums).orderBy(asc(albums.createdAt)),
     db.select().from(photos).orderBy(asc(photos.sort), asc(photos.id)),
+    getT(),
   ]);
 
   const data: AlbumData[] = albumRows.map((a) => ({
@@ -32,9 +38,9 @@ export default async function AlbumsPage() {
             <Images className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="font-serif text-3xl font-black">相册</h1>
+            <h1 className="font-serif text-3xl font-black">{t("albums.title")}</h1>
             <p className="text-sm text-muted">
-              {albumRows.length} 本相册 · {photoRows.length} 张照片 · 点击相册展开照片墙
+              {t("albums.subtitle", { n: albumRows.length, m: photoRows.length })}
             </p>
           </div>
         </header>

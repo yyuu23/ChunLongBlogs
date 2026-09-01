@@ -6,20 +6,23 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { useT } from "@/components/providers/LocaleProvider";
 import { LogoEgg } from "@/components/effects/LogoEgg";
 import { CalendarPopover } from "@/components/layout/CalendarPopover";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { trackEvent } from "@/lib/track";
 
+/** 路由 → 词典 key（label 经 t() 现场翻译） */
 const LINKS = [
-  { href: "/", label: "首页" },
-  { href: "/posts", label: "文章" },
-  { href: "/archive", label: "归档" },
-  { href: "/moments", label: "说说" },
-  { href: "/albums", label: "相册" },
-  { href: "/lab", label: "实验室" },
-  { href: "/music", label: "音乐" },
-  { href: "/friends", label: "友链" },
-  { href: "/about", label: "关于" },
+  { href: "/", key: "nav.home" },
+  { href: "/posts", key: "nav.posts" },
+  { href: "/archive", key: "nav.archive" },
+  { href: "/moments", key: "nav.moments" },
+  { href: "/albums", key: "nav.albums" },
+  { href: "/lab", key: "nav.lab" },
+  { href: "/music", key: "nav.music" },
+  { href: "/friends", key: "nav.friends" },
+  { href: "/about", key: "nav.about" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -31,6 +34,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
+  const t = useT();
   const [hidden, setHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -113,7 +117,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
-                  <span className="relative z-10">{link.label}</span>
+                  <span className="relative z-10">{t(link.key)}</span>
                 </Link>
               );
             })}
@@ -123,18 +127,19 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <div className="hidden items-center lg:flex">
               <Search className="pointer-events-none h-4 w-4 text-muted" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && goSearch()}
-                placeholder="搜索文章…"
-                className="glass-input w-40 border-0 bg-transparent py-1 pl-6 focus:!shadow-none"
-              />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && goSearch()}
+                  placeholder={t("nav.searchPlaceholder")}
+                  className="glass-input w-40 border-0 bg-transparent py-1 pl-6 focus:!shadow-none"
+                />
             </div>
             <div className="hidden md:block"><CalendarPopover /></div>
+            <LanguageSwitcher />
             <button
               onClick={toggle}
-              aria-label="切换主题"
+              aria-label={t("nav.toggleTheme")}
               className="glass-button !rounded-full !p-2.5"
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -152,7 +157,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
             </button>
             <button
               onClick={() => setDrawerOpen((v) => !v)}
-              aria-label="菜单"
+              aria-label={t("nav.menu")}
               className="glass-button !rounded-full !p-2.5 md:hidden"
             >
               {drawerOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -190,7 +195,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                       setDrawerOpen(false);
                     }
                   }}
-                  placeholder="搜索文章…"
+                  placeholder={t("nav.searchPlaceholder")}
                   className="glass-input w-full"
                 />
               </div>
@@ -211,7 +216,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                       }`}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      {link.label}
+                      {t(link.key)}
                     </Link>
                   </motion.div>
                 ))}

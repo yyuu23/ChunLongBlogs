@@ -8,7 +8,17 @@ import {
   PARTICLE_THEMES,
   type ParticleTheme,
 } from "@/components/providers/EffectProvider";
-import { ACCENTS, useAccent } from "@/components/providers/AccentProvider";
+import { ACCENTS, useAccent, type AccentKey } from "@/components/providers/AccentProvider";
+import { useT } from "@/components/providers/LocaleProvider";
+
+/** 主题色 key → 词典键（配色键名与文案键名不同步，这里做映射） */
+const ACCENT_I18N: Record<AccentKey, string> = {
+  violet: "accents.violet",
+  rose: "accents.sakura",
+  emerald: "accents.jade",
+  amber: "accents.amber",
+  cyan: "accents.sky",
+};
 
 /** 返回顶部 + 特效设置面板（右下角悬浮按钮组） */
 export function FloatingTools() {
@@ -16,6 +26,7 @@ export function FloatingTools() {
   const [panelOpen, setPanelOpen] = useState(false);
   const { effects, toggle, particleTheme, setParticleTheme } = useEffects();
   const { accent, setAccent } = useAccent();
+  const t = useT();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 500);
@@ -34,14 +45,14 @@ export function FloatingTools() {
             transition={{ duration: 0.2 }}
             className="glass-card w-60 p-4"
           >
-            <p className="mb-2 text-xs font-semibold tracking-widest text-muted">主题色</p>
+            <p className="mb-2 text-xs font-semibold tracking-widest text-muted">{t("tools.accentColor")}</p>
             <div className="mb-4 flex justify-between px-0.5">
               {ACCENTS.map((a) => (
                 <button
                   key={a.key}
                   onClick={() => setAccent(a.key)}
-                  title={a.label}
-                  aria-label={`主题色：${a.label}`}
+                  title={t(ACCENT_I18N[a.key])}
+                  aria-label={t("tools.accentAria", { label: t(ACCENT_I18N[a.key]) })}
                   className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
                     accent === a.key ? "scale-110" : ""
                   }`}
@@ -53,35 +64,35 @@ export function FloatingTools() {
               ))}
             </div>
 
-            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">粒子主题</p>
+            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">{t("tools.particleTheme")}</p>
             <div className="mb-4 grid grid-cols-3 gap-1.5">
-              {PARTICLE_THEMES.map((t) => (
+              {PARTICLE_THEMES.map((p) => (
                 <button
-                  key={t.key}
-                  onClick={() => setParticleTheme(t.key as ParticleTheme)}
+                  key={p.key}
+                  onClick={() => setParticleTheme(p.key as ParticleTheme)}
                   className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] transition-all ${
-                    particleTheme === t.key
+                    particleTheme === p.key
                       ? "bg-accent-gradient text-white shadow"
                       : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
                   }`}
                 >
-                  <span className="text-sm leading-none">{t.emoji}</span>
-                  {t.label}
+                  <span className="text-sm leading-none">{p.emoji}</span>
+                  {t(`particles.${p.key}`)}
                 </button>
               ))}
             </div>
-            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">特效开关</p>
+            <p className="mb-2.5 text-xs font-semibold tracking-widest text-muted">{t("tools.effectsPanel")}</p>
             {(
               [
-                ["particles", "主题粒子"],
-                ["clickBurst", "点击爆破"],
-                ["selectionSparkle", "选中星光"],
-                ["splash", "启动屏"],
-                ["mascot", "看板娘"],
+                ["particles", "tools.particleToggle"],
+                ["clickBurst", "tools.clickBurst"],
+                ["selectionSparkle", "tools.selectionSparkle"],
+                ["splash", "tools.splashScreen"],
+                ["mascot", "tools.mascotToggle"],
               ] as const
-            ).map(([key, label]) => (
+            ).map(([key, labelKey]) => (
               <label key={key} className="flex cursor-pointer items-center justify-between py-1.5 text-sm">
-                {label}
+                {t(labelKey)}
                 <span
                   onClick={(e) => {
                     e.preventDefault();
@@ -110,7 +121,7 @@ export function FloatingTools() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            aria-label="返回顶部"
+            aria-label={t("tools.backToTop")}
             className="glass-button !rounded-full !p-3"
           >
             <ArrowUp className="h-4 w-4" />
@@ -120,7 +131,7 @@ export function FloatingTools() {
 
       <button
         onClick={() => setPanelOpen((v) => !v)}
-        aria-label="特效设置"
+        aria-label={t("tools.effectsAria")}
         className={`glass-button !rounded-full !p-3 ${panelOpen ? "rotate-90" : ""} transition-transform duration-300`}
       >
         <Settings2 className="h-4 w-4" />

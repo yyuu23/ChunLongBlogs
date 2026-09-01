@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Play, Music2, Clock3, ListMusic } from "lucide-react";
 import { usePlayer, type PlayerSong } from "@/components/music/PlayerProvider";
+import { useT } from "@/components/providers/LocaleProvider";
 
 export interface MusicPlaylist {
   id: number;
@@ -17,6 +18,7 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 
 export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
   const player = usePlayer();
+  const t = useT();
   const [activeId, setActiveId] = useState<number | null>(playlists[0]?.id ?? null);
   const [recent, setRecent] = useState<PlayerSong[]>([]);
 
@@ -72,7 +74,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{pl.title}</span>
                 <span className="block truncate text-xs text-muted">
-                  {pl.description || `${pl.songs.length} 首`}
+                  {pl.description || t("music.songCount", { n: pl.songs.length })}
                 </span>
               </span>
               <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">
@@ -85,7 +87,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
         {recent.length > 0 && (
           <div className="glass-card p-4">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-muted">
-              <Clock3 className="h-3.5 w-3.5" /> 最近播放
+              <Clock3 className="h-3.5 w-3.5" /> {t("music.recent")}
             </p>
             <ul className="flex flex-col gap-1">
               {recent.slice(0, 5).map((s) => (
@@ -129,7 +131,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
                 disabled={!active.songs.length}
                 className="glass-button gap-1.5 !py-1.5 text-xs"
               >
-                <Play className="h-3.5 w-3.5" /> 播放全部
+                <Play className="h-3.5 w-3.5" /> {t("music.playAll")}
               </button>
             </div>
             <ul className="divide-y divide-[var(--glass-border)]">
@@ -166,7 +168,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
                 );
               })}
               {!active.songs.length && (
-                <li className="px-5 py-10 text-center text-sm text-muted">歌单还是空的</li>
+                <li className="px-5 py-10 text-center text-sm text-muted">{t("music.emptyTitle")}</li>
               )}
             </ul>
           </motion.div>
@@ -181,6 +183,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
 /** 当前播放歌曲的歌词（无歌词时显示提示） */
 function LyricsPanel() {
   const player = usePlayer();
+  const t = useT();
   const lines = useMemo(() => {
     // lrc 数据暂未接入逐行时间轴，这里先做静态展示占位
     return null;
@@ -189,18 +192,18 @@ function LyricsPanel() {
   if (!player?.current) {
     return (
       <div className="glass-card p-8 text-center text-sm text-muted">
-        点击左上角「播放全部」或任意歌曲开始聆听 · 切换页面音乐不会中断 🎵
+        {t("music.emptyHint")}
       </div>
     );
   }
   return (
     <div className="glass-card p-5">
-      <p className="mb-2 text-xs font-semibold tracking-widest text-muted">正在播放</p>
+      <p className="mb-2 text-xs font-semibold tracking-widest text-muted">{t("music.nowPlaying")}</p>
       <p className="font-serif text-xl font-bold">{player.current.title}</p>
       <p className="mt-0.5 text-sm text-muted">{player.current.artist}</p>
       {lines ?? (
         <p className="mt-4 text-xs text-muted opacity-70">
-          {lines === null ? "这首歌没有配置歌词（.lrc 可在后台粘贴）" : ""}
+          {lines === null ? t("music.noLyrics") : ""}
         </p>
       )}
     </div>

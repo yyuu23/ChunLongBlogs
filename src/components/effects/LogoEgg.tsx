@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useT } from "@/components/providers/LocaleProvider";
 
 interface Piece {
   x: number;
@@ -29,6 +30,7 @@ const COLORS = [
 export function LogoEgg({ trigger }: { trigger: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [toast, setToast] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     if (!trigger) return;
@@ -146,7 +148,7 @@ export function LogoEgg({ trigger }: { trigger: number }) {
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
             className="glass-card fixed left-1/2 top-20 z-[71] -translate-x-1/2 px-5 py-3 text-sm font-medium"
           >
-            🎉 恭喜你发现了彩蛋！
+            🎉 {t("egg.toast")}
           </motion.div>
         )}
       </AnimatePresence>

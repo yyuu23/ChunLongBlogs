@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, SendHorizonal, Loader2 } from "lucide-react";
 import { trackEvent } from "@/lib/track";
+import { useT } from "@/components/providers/LocaleProvider";
 
 interface Msg {
   role: "user" | "assistant";
@@ -15,9 +16,10 @@ interface Msg {
  * 接口走 /api/chat（服务端代理，Key 不暴露给浏览器）
  */
 export function ChatWidget() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "你好呀！我是本站的 AI 小助手，有什么想聊的吗？(＾▽＾)" },
+    { role: "assistant", content: t("chat.welcome") },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,10 +46,10 @@ export function ChatWidget() {
       const data = (await res.json()) as { reply?: string; error?: string };
       setMessages((ms) => [
         ...ms,
-        { role: "assistant", content: data.reply ?? `出错了：${data.error ?? "未知错误"}` },
+        { role: "assistant", content: data.reply ?? t("chat.errorPrefix") + (data.error ?? t("chat.unknownError")) },
       ]);
     } catch {
-      setMessages((ms) => [...ms, { role: "assistant", content: "网络异常，稍后再试试吧 (´;ω;`)" }]);
+      setMessages((ms) => [...ms, { role: "assistant", content: t("chat.networkError") }]);
     } finally {
       setBusy(false);
     }
@@ -57,9 +59,9 @@ export function ChatWidget() {
     <>
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="AI 聊天"
+        aria-label={t("chat.openAria")}
         className="glass-button accent-glow fixed bottom-[19rem] left-3 z-40 !rounded-full !p-3"
-        title="和小助手聊天"
+        title={t("chat.title")}
       >
         <MessageCircle className="h-4 w-4" />
       </button>
@@ -75,7 +77,7 @@ export function ChatWidget() {
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
               <p className="text-sm font-semibold">AI 小助手</p>
-              <button onClick={() => setOpen(false)} aria-label="关闭聊天" className="rounded-full p-1 text-muted hover:text-rose-400">
+              <button onClick={() => setOpen(false)} aria-label={t("chat.closeAria")} className="rounded-full p-1 text-muted hover:text-rose-400">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -110,13 +112,13 @@ export function ChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && send()}
-                placeholder="说点什么…"
+                placeholder={t("chat.placeholder")}
                 className="glass-input flex-1 !rounded-2xl text-xs"
               />
               <button
                 onClick={send}
                 disabled={busy || !input.trim()}
-                aria-label="发送"
+                aria-label={t("chat.sendAria")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}

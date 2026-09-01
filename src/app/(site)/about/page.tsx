@@ -3,9 +3,13 @@ import { UserRound } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { renderMarkdown } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "关于" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("nav.about") };
+}
 
 export default async function AboutPage() {
   const config = await getSiteConfig();

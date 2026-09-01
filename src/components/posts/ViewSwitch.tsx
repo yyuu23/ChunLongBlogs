@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 import type { ReactNode } from "react";
+import { useT } from "@/components/providers/LocaleProvider";
 
 /** 列表/网格双视图切换（偏好记忆在 localStorage） */
 export function ViewSwitch({
@@ -12,6 +13,7 @@ export function ViewSwitch({
   listSlot: ReactNode;
   gridSlot: ReactNode;
 }) {
+  const t = useT();
   const [view, setView] = useState<"grid" | "list">("grid");
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function ViewSwitch({
         <div className="glass-card flex items-center gap-1 !rounded-full p-1">
           <button
             onClick={() => change("grid")}
-            aria-label="网格视图"
+            aria-label={t("posts.gridAria")}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
               view === "grid"
                 ? "bg-accent-gradient text-white shadow"
@@ -42,11 +44,11 @@ export function ViewSwitch({
             }`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            网格
+            {t("posts.grid")}
           </button>
           <button
             onClick={() => change("list")}
-            aria-label="列表视图"
+            aria-label={t("posts.listAria")}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
               view === "list"
                 ? "bg-accent-gradient text-white shadow"
@@ -54,7 +56,7 @@ export function ViewSwitch({
             }`}
           >
             <List className="h-3.5 w-3.5" />
-            列表
+            {t("posts.list")}
           </button>
         </div>
       </div>

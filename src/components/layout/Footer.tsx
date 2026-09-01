@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Rss, Lock, Heart } from "lucide-react";
 import type { SiteConfig } from "@/lib/site";
+import { getT } from "@/lib/i18n/server";
 
-export function Footer({ config }: { config: SiteConfig }) {
+export async function Footer({ config }: { config: SiteConfig }) {
+  const { t } = await getT();
   return (
     <footer className="relative z-10 mt-16 pb-24 md:pb-8">
       <div className="mx-auto w-[min(96%,72rem)] px-2 text-center text-sm text-muted">
@@ -10,7 +12,7 @@ export function Footer({ config }: { config: SiteConfig }) {
           <Link href="/feed" aria-label="RSS" className="transition-colors hover-text-accent">
             <Rss className="h-4 w-4" />
           </Link>
-          <Link href="/admin" aria-label="后台" className="transition-colors hover-text-accent">
+          <Link href="/admin" aria-label={t("footer.admin")} className="transition-colors hover-text-accent">
             <Lock className="h-4 w-4" />
           </Link>
         </div>

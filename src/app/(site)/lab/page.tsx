@@ -7,12 +7,17 @@ import type { MomentItem, StarItem } from "@/components/lab/LabScene";
 import { db } from "@/lib/db";
 import { moments, posts, songs, stars } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "实验室" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("lab.title") };
+}
 
 export default async function LabPage() {
-  const [momentRows, starRows, notesCount, postsCount, soundCount] = await Promise.all([
+  const [momentRows, starRows, notesCount, postsCount, soundCount, { t }] = await Promise.all([
     db.select().from(moments).orderBy(desc(moments.createdAt)).limit(20),
     db.select().from(stars).orderBy(desc(stars.id)).limit(80),
     db.select({ n: sql<number>`count(*)` }).from(moments),
@@ -21,6 +26,7 @@ export default async function LabPage() {
       .from(posts)
       .where(eq(posts.status, "published")),
     db.select({ n: sql<number>`count(*)` }).from(songs),
+    getT(),
   ]);
 
   const momentItems: MomentItem[] = momentRows.map((m) => ({
@@ -44,10 +50,8 @@ export default async function LabPage() {
             <FlaskConical className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="font-serif text-3xl font-black">实验室</h1>
-            <p className="text-sm text-muted">
-              行星体系 · 每颗行星是一类内容 · 放首歌让恒星起舞 🎵
-            </p>
+            <h1 className="font-serif text-3xl font-black">{t("lab.title")}</h1>
+            <p className="text-sm text-muted">{t("lab.subtitle")}</p>
           </div>
         </header>
         <LabClient

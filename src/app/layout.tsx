@@ -5,7 +5,10 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { EffectProvider } from "@/components/providers/EffectProvider";
 import { AccentProvider } from "@/components/providers/AccentProvider";
+import { LocaleProvider } from "@/components/providers/LocaleProvider";
 import { getSiteConfig } from "@/lib/site";
+import { getLocale } from "@/lib/i18n/server";
+import { HTML_LANG } from "@/lib/i18n/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -61,12 +64,13 @@ const initScript = `
 }catch(e){}})();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
   return (
     <html
-      lang="zh-CN"
+      lang={HTML_LANG[locale]}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${notoSerifSC.variable} antialiased`}
     >
@@ -77,11 +81,13 @@ export default function RootLayout({
         </noscript>
       </head>
       <body className="min-h-dvh">
-        <ThemeProvider>
-          <AccentProvider>
-            <EffectProvider>{children}</EffectProvider>
-          </AccentProvider>
-        </ThemeProvider>
+        <LocaleProvider initialLocale={locale}>
+          <ThemeProvider>
+            <AccentProvider>
+              <EffectProvider>{children}</EffectProvider>
+            </AccentProvider>
+          </ThemeProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

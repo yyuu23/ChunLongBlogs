@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useT } from "@/components/providers/LocaleProvider";
 
 export interface LightboxImage {
   url: string;
@@ -21,6 +22,7 @@ export function Lightbox({
   onClose: () => void;
   onNavigate: (i: number) => void;
 }) {
+  const t = useT();
   const open = index !== null;
 
   const step = useCallback(
@@ -58,7 +60,7 @@ export function Lightbox({
         >
           <button
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t("common.close")}
             className="absolute right-4 top-4 rounded-full bg-white/10 p-2.5 text-white transition-colors hover:bg-white/25"
           >
             <X className="h-5 w-5" />
@@ -70,7 +72,7 @@ export function Lightbox({
                   e.stopPropagation();
                   step(-1);
                 }}
-                aria-label="上一张"
+                aria-label={t("albums.prevImage")}
                 className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/25"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -80,7 +82,7 @@ export function Lightbox({
                   e.stopPropagation();
                   step(1);
                 }}
-                aria-label="下一张"
+                aria-label={t("albums.nextImage")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/25"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -99,7 +101,7 @@ export function Lightbox({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={images[index].url}
-              alt={images[index].caption ?? "照片"}
+              alt={images[index].caption ?? t("common.photoAlt")}
               className="max-h-[78vh] w-auto max-w-[92vw] rounded-2xl object-contain shadow-2xl"
             />
             {images[index].caption && (

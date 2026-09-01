@@ -3,16 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffects } from "@/components/providers/EffectProvider";
-
-const MASCOT_LINES = [
-  "欢迎来到 ChunLong Blog～",
-  "今天也要元气满满哦！",
-  "点击我有惊喜(っ´ω`c)",
-  "听说左下角的音乐很好听？",
-  "把窗口拖来拖去也很好玩呢",
-  "要不要看看实验室的星星？",
-  "喵呜～",
-];
+import { useLocale, useT } from "@/components/providers/LocaleProvider";
 
 /** 加载本地 Cubism2 core 脚本（幂等） */
 async function loadCore() {
@@ -37,12 +28,20 @@ export function Mascot() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [bubble, setBubble] = useState<string | null>(null);
   const { effects, hydrated } = useEffects();
+  const t = useT();
+  const { tArr } = useLocale();
   const bubbleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const showBubble = (text: string) => {
     setBubble(text);
     clearTimeout(bubbleTimer.current);
     bubbleTimer.current = setTimeout(() => setBubble(null), 3200);
+  };
+
+  /** 随机台词（词典数组，随语言切换） */
+  const randomLine = () => {
+    const lines = tArr("mascot.lines");
+    return lines[Math.floor(Math.random() * lines.length)] ?? "";
   };
 
   useEffect(() => {
@@ -92,10 +91,10 @@ export function Mascot() {
           const area = hitAreas?.[0];
           if (area === "head") {
             model.motion("flick_head");
-            showBubble("别摸头啦 (*/ω＼*)");
+            showBubble(t("mascot.flickHead"));
           } else {
             model.motion("tap_body");
-            showBubble(MASCOT_LINES[Math.floor(Math.random() * MASCOT_LINES.length)]);
+            showBubble(randomLine());
           }
         });
 
@@ -124,7 +123,7 @@ export function Mascot() {
           if (dragging && !moved) {
             // 原地点击 → 触发动作
             model.motion("tap_body");
-            showBubble(MASCOT_LINES[Math.floor(Math.random() * MASCOT_LINES.length)]);
+            showBubble(randomLine());
           }
           dragging = false;
         };
@@ -137,7 +136,7 @@ export function Mascot() {
           window.removeEventListener("pointerup", onUp);
         };
 
-        showBubble("你好呀，我是看板娘 ✨");
+        showBubble(t("mascot.greeting"));
       } catch {
         // 模型加载失败（罕见）：静默隐藏
       }

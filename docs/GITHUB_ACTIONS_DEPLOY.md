@@ -28,8 +28,8 @@
 
 - 域名：`chunlongblog.top`
 - 服务器：`8.159.154.125`
-- 系统：Anolis OS 8.8
-- Next.js 监听端口：`3001`（可通过 `APP_PORT` 覆盖）
+- 系统：Ubuntu 24.04 LTS
+- Next.js 监听端口：`3002`（可通过 `APP_PORT` 覆盖）
 - Nginx 模板：`deploy/nginx/chunlongblog.top.conf`
 
 ## 1. 创建专用部署用户
@@ -42,24 +42,16 @@ sudo mkdir -p /opt/chunlong-blog /opt/chunlong-backups
 sudo chown -R deploy:deploy /opt/chunlong-blog /opt/chunlong-backups
 ```
 
-Node.js、Git、PM2 和原生模块编译工具应提前安装。Anolis OS 8.8 执行：
+Node.js、Git、PM2 和 Nginx 应提前安装。Ubuntu 24.04 执行：
 
 ```bash
-sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y python3
+sudo apt update
+sudo apt install -y ca-certificates curl git nginx
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pm2
 ```
 
-Anolis OS 8.8 的 glibc 版本低于 `better-sqlite3` 官方预编译包的要求，因此部署脚本会设置
-`npm_config_build_from_source=true`，在服务器上编译与本机兼容的原生模块。不要手动升级系统 glibc。
-
-切换到部署用户后安装 PM2：
-
-```bash
-sudo -iu deploy
-npm install -g pm2
-```
-
-如果全局 npm 目录没有写权限，可以由管理员全局安装 PM2，或者给部署用户配置独立 npm prefix。
 
 ## 2. 生成 GitHub Actions 专用 SSH 密钥
 
@@ -97,13 +89,13 @@ ssh -i ~/.ssh/chunlong_blog_deploy deploy@服务器IP
 cd /opt
 git clone https://github.com/yyuu23/ChunLongBlogs.git chunlong-blog
 cd /opt/chunlong-blog
-npm_config_build_from_source=true npm ci
+npm ci
 cp .env.example .env
 nano .env
 npm run db:push
 npm run db:seed
 npm run build
-pm2 start npm --name chunlong-blog -- start
+PORT=3002 pm2 start npm --name chunlong-blog -- start -- --hostname 127.0.0.1
 pm2 save
 ```
 

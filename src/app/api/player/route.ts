@@ -9,6 +9,7 @@ import {
   DAILY_CAPS,
   levelOf,
   levelTitle,
+  normalizeStats,
   unlockedAchievements,
   type PlayerStats,
   type XpEvent,
@@ -23,6 +24,40 @@ interface DayCounter {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** 本地时区的日期差（按天算，不看时分秒） */
+function daysBetween(a: Date, b: Date) {
+  const A = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const B = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((B - A) / 86_400_000);
+}
+
+/**
+ * 每次请求结算一次「到访」：时段统计 + 累计天数 + 连续天数。
+ * 用 daily.counts.__visit 做当天去重 —— 否则一次浏览里每个埋点都会 +1，
+ * 夜访次数会被灌水成几十次。
+ */
+function touchVisit(stats: PlayerStats, daily: DayCounter, lastSeen: Date | null) {
+  if (daily.counts.__visit) return;
+  daily.counts.__visit = 1;
+
+  const now = new Date();
+  const h = now.getHours();
+  if (h < 5) stats.nightVisits += 1;
+  else if (h < 8) stats.dawnVisits += 1;
+
+  if (!lastSeen) {
+    stats.visitDays = 1;
+    stats.streak = 1;
+    stats.bestStreak = Math.max(stats.bestStreak, 1);
+    return;
+  }
+  const diff = daysBetween(lastSeen, now);
+  if (diff <= 0) return; // 同一天，天数不动
+  stats.visitDays += 1;
+  stats.streak = diff === 1 ? stats.streak + 1 : 1; // 断签则重新从 1 开始
+  stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
 }
 
 /** 结算一个行为事件：更新统计/经验/单日计数，返回新进度 */
@@ -66,6 +101,34 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
     case "use_chat":
       stats.chatUsed += 1;
       break;
+    case "toggle_theme":
+      stats.themeToggles += 1;
+      break;
+    case "use_search":
+      stats.searchUsed += 1;
+      break;
+    case "open_calendar":
+      stats.calendarOpens += 1;
+      break;
+    case "switch_locale": {
+      const l = String(payload?.locale ?? "");
+      if (l && !stats.localesTried.includes(l)) stats.localesTried = [...stats.localesTried, l].slice(-10);
+      break;
+    }
+    case "poke_sun":
+      stats.sunClicks += 1;
+      break;
+    case "visit_planet": {
+      stats.planetClicks += 1;
+      const p = String(payload?.planetId ?? "");
+      if (p && !(stats.planetIds ?? []).includes(p)) {
+        stats.planetIds = [...(stats.planetIds ?? []), p].slice(-20);
+      }
+      break;
+    }
+    case "view_star":
+      stats.starViews += 1;
+      break;
   }
   return gained;
 }
@@ -88,17 +151,19 @@ export async function POST(request: Request) {
   const rows = await db.select().from(visitors).where(eq(visitors.id, visitorId)).limit(1);
   const existing = rows[0];
 
-  const stats: PlayerStats = existing ? { ...EMPTY_STATS, ...(JSON.parse(existing.stats) as Partial<PlayerStats>) } : { ...EMPTY_STATS };
+  /* 直接从解析后的对象里取 __daily。
+     旧实现用正则从 JSON 字符串里抠（/"__daily":\s*(\{[^}]*\})/），
+     但 [^}]* 会在内层 counts 的 } 处就停下，抠出来永远是不闭合的片段，
+     JSON.parse 必抛错 → 每次都回落到新计数器 → 单日上限形同虚设。 */
+  const raw = existing
+    ? (JSON.parse(existing.stats) as Partial<PlayerStats> & { __daily?: DayCounter })
+    : null;
+  const { __daily, ...rest } = raw ?? {};
+  const stats: PlayerStats = normalizeStats(rest);
   const daily: DayCounter =
-    existing ? (() => {
-      try {
-        const parsed = JSON.parse((existing.stats as string).match(/"__daily":\s*(\{[^}]*\})/)?.[1] ?? "{}") as DayCounter;
-        return parsed.date === today() ? parsed : { date: today(), counts: {} };
-      } catch {
-        return { date: today(), counts: {} };
-      }
-    })() : { date: today(), counts: {} };
+    __daily && __daily.date === today() ? __daily : { date: today(), counts: {} };
 
+  touchVisit(stats, daily, existing?.lastSeen ?? null);
   const gained = applyEvent(stats, daily, event, body?.payload);
   const xp = (existing?.xp ?? 0) + gained;
 
@@ -147,7 +212,10 @@ export async function GET(request: Request) {
       stats: EMPTY_STATS,
     });
   }
-  const stats = { ...EMPTY_STATS, ...(JSON.parse(row.stats) as Partial<PlayerStats>) };
+  // 老访客的 stats 里没有新字段，normalizeStats 补齐默认值，否则 check() 会读到 undefined
+  const raw = JSON.parse(row.stats) as Partial<PlayerStats> & { __daily?: unknown };
+  delete raw.__daily;
+  const stats = normalizeStats(raw);
   const lvl = levelOf(row.xp);
   return NextResponse.json({
     xp: row.xp,

@@ -37,16 +37,14 @@ git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git merge --ff-only "origin/$BRANCH"
 
-# Anolis/RHEL 8 ships glibc 2.28. Build native modules locally instead of
-# using better-sqlite3's prebuilt binary, which currently requires glibc 2.29.
-npm_config_build_from_source=true npm ci
+npm ci
 npm run db:push
 npm run build
 
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
   PORT="$APP_PORT" pm2 restart "$APP_NAME" --update-env
 else
-  PORT="$APP_PORT" pm2 start npm --name "$APP_NAME" -- start
+  PORT="$APP_PORT" pm2 start npm --name "$APP_NAME" -- start -- --hostname 127.0.0.1
 fi
 
 pm2 save

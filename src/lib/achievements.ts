@@ -1,5 +1,6 @@
 /** 访客游戏化：经验规则 + 等级 + 成就定义（服务端/客户端共用） */
 import { DEFAULT_LOCALE, type Locale, type LText, pick } from "@/lib/i18n/config";
+import { BASIC, READING, MUSIC, EXPLORE, SOCIAL, LEGEND } from "@/lib/achievements-data";
 
 export interface PlayerStats {
   postsRead: number;
@@ -10,6 +11,29 @@ export interface PlayerStats {
   starsLeft: number;
   labVisits: number;
   chatUsed: number;
+  /* --- 以下为长线 / 趣味成就补充 ---
+   * stats 在库里是 JSON 列（visitors.stats），加字段不需要迁移。
+   * nightVisits / dawnVisits / visitDays / streak 由服务端按时间推算，
+   * 客户端不用管，所以这几个字段前端埋点里不会出现。 */
+  themeToggles: number;
+  searchUsed: number;
+  calendarOpens: number;
+  localesTried: string[];
+  sunClicks: number;
+  /** 点过恒星的次数 */
+  planetClicks: number;
+  planetIds?: string[];
+  starViews: number;
+  /** 0–5 点的访问次数 */
+  nightVisits: number;
+  /** 5–8 点的访问次数 */
+  dawnVisits: number;
+  /** 累计访问过的不同天数 */
+  visitDays: number;
+  /** 当前连续访问天数 */
+  streak: number;
+  /** 历史最长连续天数 */
+  bestStreak: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -21,6 +45,19 @@ export const EMPTY_STATS: PlayerStats = {
   starsLeft: 0,
   labVisits: 0,
   chatUsed: 0,
+  themeToggles: 0,
+  searchUsed: 0,
+  calendarOpens: 0,
+  localesTried: [],
+  sunClicks: 0,
+  planetClicks: 0,
+  planetIds: [],
+  starViews: 0,
+  nightVisits: 0,
+  dawnVisits: 0,
+  visitDays: 0,
+  streak: 0,
+  bestStreak: 0,
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -32,6 +69,13 @@ export const XP_RULES = {
   leave_star: 15,
   visit_lab: 5,
   use_chat: 3,
+  toggle_theme: 2,
+  use_search: 2,
+  open_calendar: 2,
+  switch_locale: 4,
+  poke_sun: 1,
+  visit_planet: 2,
+  view_star: 2,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -44,7 +88,19 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   use_chat: 5,
   visit_lab: 1,
   leave_star: 3,
+  toggle_theme: 3,
+  use_search: 5,
+  open_calendar: 3,
+  switch_locale: 2,
+  poke_sun: 5,
+  visit_planet: 5,
+  view_star: 5,
 };
+
+/** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */
+export function normalizeStats(raw: Partial<PlayerStats> | null | undefined): PlayerStats {
+  return { ...EMPTY_STATS, ...(raw ?? {}) };
+}
 
 /** 等级曲线：累计经验所需（二次曲线放缓） */
 export function levelOf(xp: number) {
@@ -82,100 +138,67 @@ export function levelTitle(level: number, locale: Locale = DEFAULT_LOCALE) {
   return pick(locale, entry);
 }
 
+/** 成就分组。数量一多就必须分组，否则成就墙是一堵没有结构的砖墙。 */
+export type AchievementCategory = "basic" | "reading" | "music" | "explore" | "social" | "legend";
+
+export const CATEGORY_META: Record<
+  AchievementCategory,
+  { emoji: string; name: LText; hint: LText }
+> = {
+  basic: {
+    emoji: "🌱",
+    name: { zh: "起步", en: "Getting Started", ja: "はじめの一歩", ko: "시작" },
+    hint: { zh: "走进来就已经开始了", en: "Showing up is the first step", ja: "来たことが始まり", ko: "오는 것이 시작" },
+  },
+  reading: {
+    emoji: "📖",
+    name: { zh: "阅读", en: "Reading", ja: "読書", ko: "독서" },
+    hint: { zh: "一篇一篇地读下去", en: "One post at a time", ja: "一記事ずつ読み進む", ko: "한 편씩 읽어가기" },
+  },
+  music: {
+    emoji: "🎧",
+    name: { zh: "聆听", en: "Listening", ja: "聴く", ko: "감상" },
+    hint: { zh: "这里的歌会一直放", en: "The music keeps playing", ja: "ここ音楽はずっと流れている", ko: "이곳 음악은 계속 흐른다" },
+  },
+  explore: {
+    emoji: "🧭",
+    name: { zh: "探索", en: "Exploration", ja: "探索", ko: "탐험" },
+    hint: { zh: "到处点点看", en: "Poke around", ja: "あちこち触ってみる", ko: "이곳저곳 눌러보기" },
+  },
+  social: {
+    emoji: "✨",
+    name: { zh: "交情", en: "Company", ja: "交流", ko: "교류" },
+    hint: { zh: "留下点什么，或找人聊聊", en: "Leave something, or say hi", ja: "何か残す、あるいは話しかける", ko: "무언가 남기거나 인사하기" },
+  },
+  legend: {
+    emoji: "🏆",
+    name: { zh: "传说", en: "Legendary", ja: "伝説", ko: "전설" },
+    hint: {
+      zh: "理论上存在，实际上几乎没人拿到",
+      en: "Theoretically obtainable, practically not",
+      ja: "理論上は可能、実際はほぼ不可能",
+      ko: "이론상 가능, 현실은 거의 불가",
+    },
+  },
+};
+
 export interface AchievementDef {
   key: string;
   name: LText;
   description: LText;
   emoji: string;
+  category: AchievementCategory;
   /** 满足条件（基于 stats） */
   check: (s: PlayerStats) => boolean;
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
-  {
-    key: "first_visit",
-    name: { zh: "初次来访", en: "First Visit", ja: "初めての訪問", ko: "첫 방문" },
-    description: { zh: "第一次踏进这个小站", en: "Step into this little site for the first time", ja: "この小さなサイトに初めて足を踏み入れる", ko: "이 작은 사이트에 처음 발을 들이다" },
-    emoji: "🚪", check: () => true,
-  },
-  {
-    key: "reader_1",
-    name: { zh: "开卷有益", en: "Bookworm Begins", ja: "読書の始まり", ko: "독서의 시작" },
-    description: { zh: "读完第一篇文章", en: "Finish your first post", ja: "最初の記事を読み終える", ko: "첫 글을 끝까지 읽기" },
-    emoji: "📖", check: (s) => s.postsRead >= 1,
-  },
-  {
-    key: "reader_5",
-    name: { zh: "博览群书", en: "Well-read", ja: "博覧強記", ko: "박식한 독자" },
-    description: { zh: "读完 5 篇文章", en: "Finish 5 posts", ja: "記事を 5 本読み終える", ko: "글 5편 읽기" },
-    emoji: "📚", check: (s) => s.postsRead >= 5,
-  },
-  {
-    key: "reader_10",
-    name: { zh: "书房常客", en: "Library Regular", ja: "書斎の常連", ko: "서재 단골" },
-    description: { zh: "读完 10 篇文章", en: "Finish 10 posts", ja: "記事を 10 本読み終える", ko: "글 10편 읽기" },
-    emoji: "🏛️", check: (s) => s.postsRead >= 10,
-  },
-  {
-    key: "music_1",
-    name: { zh: "侧耳倾听", en: "First Listen", ja: "初めての一枚", ko: "첫 감상" },
-    description: { zh: "在站点听第一首歌", en: "Play your first song on the site", ja: "サイトで初めて曲を聴く", ko: "사이트에서 첫 곡 듣기" },
-    emoji: "🎧", check: (s) => s.songsPlayed >= 1,
-  },
-  {
-    key: "music_5",
-    name: { zh: "循环播放", en: "On Repeat", ja: "リピート再生", ko: "반복 재생" },
-    description: { zh: "听歌 5 次", en: "Play songs 5 times", ja: "5 回曲を聴く", ko: "5곡 듣기" },
-    emoji: "🎵", check: (s) => s.songsPlayed >= 5,
-  },
-  {
-    key: "accent_2",
-    name: { zh: "换装爱好者", en: "Style Switcher", ja: "着せ替え好き", ko: "코디 좋아" },
-    description: { zh: "尝试 2 种主题色", en: "Try 2 accent colors", ja: "テーマカラーを 2 種類試す", ko: "테마 색 2가지 써보기" },
-    emoji: "🎨", check: (s) => s.accentsTried.length >= 2,
-  },
-  {
-    key: "accent_all",
-    name: { zh: "色彩收藏家", en: "Color Collector", ja: "カラー収集家", ko: "색깔 수집가" },
-    description: { zh: "集齐全部 5 种主题色", en: "Collect all 5 accent colors", ja: "全 5 種のテーマカラーをコンプリート", ko: "5가지 테마 색 모두 모으기" },
-    emoji: "🌈", check: (s) => s.accentsTried.length >= 5,
-  },
-  {
-    key: "egg",
-    name: { zh: "彩蛋猎人", en: "Egg Hunter", ja: "エッグハンター", ko: "이스터에그 헌터" },
-    description: { zh: "发现 Logo 的秘密", en: "Discover the Logo's secret", ja: "ロゴの秘密を見つける", ko: "로고의 비밀을 발견하기" },
-    emoji: "🥚", check: (s) => s.eggFound,
-  },
-  {
-    key: "star_1",
-    name: { zh: "摘星人", en: "Star Picker", ja: "星摘み人", ko: "별따기" },
-    description: { zh: "在夜空留下第一颗星", en: "Leave your first star in the night sky", ja: "夜空に最初の星を残す", ko: "밤하늘에 첫 별 남기기" },
-    emoji: "⭐", check: (s) => s.starsLeft >= 1,
-  },
-  {
-    key: "star_3",
-    name: { zh: "满天星愿", en: "Wishing Stars", ja: "満天の星願い", ko: "가득한 소원별" },
-    description: { zh: "留下 3 颗星", en: "Leave 3 stars", ja: "星を 3 つ残す", ko: "별 3개 남기기" },
-    emoji: "🌟", check: (s) => s.starsLeft >= 3,
-  },
-  {
-    key: "lab_1",
-    name: { zh: "初次实验", en: "First Experiment", ja: "初めての実験", ko: "첫 실험" },
-    description: { zh: "走进实验室", en: "Enter the Lab", ja: "ラボに入る", ko: "랩에 들어가기" },
-    emoji: "🔬", check: (s) => s.labVisits >= 1,
-  },
-  {
-    key: "chat_1",
-    name: { zh: "破冰对话", en: "Icebreaker", ja: "アイスブレイク", ko: "첫 대화" },
-    description: { zh: "和小助手聊上天", en: "Chat with the assistant", ja: "アシスタントと会話する", ko: "어시스턴트와 대화하기" },
-    emoji: "💬", check: (s) => s.chatUsed >= 1,
-  },
-  {
-    key: "chat_10",
-    name: { zh: "话痨之友", en: "Chatterbox's Friend", ja: "おしゃべりの友", ko: "수다 친구" },
-    description: { zh: "与小助手对话 10 次", en: "Chat with the assistant 10 times", ja: "アシスタントと 10 回会話する", ko: "어시스턴트와 10번 대화하기" },
-    emoji: "🗣️", check: (s) => s.chatUsed >= 10,
-  },
+  ...BASIC,
+  ...READING,
+  ...MUSIC,
+  ...EXPLORE,
+  ...SOCIAL,
+  ...LEGEND,
 ];
 
 export function unlockedAchievements(stats: PlayerStats) {

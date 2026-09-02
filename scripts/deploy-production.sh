@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/opt/chunlong-blog}"
 APP_NAME="${APP_NAME:-chunlong-blog}"
-APP_PORT="${APP_PORT:-3001}"
+APP_PORT="${APP_PORT:-3002}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/chunlong-backups}"
 

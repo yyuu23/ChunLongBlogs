@@ -16,9 +16,12 @@ export const ja: Dictionary = {
     moments: "つぶやき",
     albums: "アルバム",
     lab: "ラボ",
-    music: "ミュージック",
+    /* 音楽：原本是「ミュージック」6 字（约 84px），是六国语言里最长的一项，
+       把导航挤到和搜索框重叠。音楽 是日语里更自然的说法，且只有 2 字。 */
+    music: "音楽",
+    musicPlaying: "再生中",
     friends: "リンク",
-    about: "about",
+    about: "紹介",
     searchPlaceholder: "記事を検索…",
     toggleTheme: "テーマ切替",
     menu: "メニュー",

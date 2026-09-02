@@ -130,94 +130,105 @@ body {
   }
 }
 
-/* ================= 毛玻璃工具类 ================= */
+/* ================= 毛玻璃工具类 =================
+ * 包在 @layer components 里：未分层的 CSS 在 Tailwind v4 里优先级高于
+ * @layer utilities，会把同元素上的 md:hidden / md:flex 之类的响应式
+ * 工具类盖掉（汉堡菜单在 desktop 漏出来就是这个原因）。归到 components 层
+ * 后，utilities 才能正常赢。 */
 
-.glass-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 1.5rem;
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition:
-    background-color 0.7s ease,
-    border-color 0.7s ease,
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
-}
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition:
+      background-color 0.7s ease,
+      border-color 0.7s ease,
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+  }
 
-.glass-strong {
-  background: var(--glass-bg-strong);
-}
-
-.glass-hover {
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    background-color 0.7s ease;
-}
-.glass-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 40px rgba(31, 38, 135, 0.18);
-}
-.dark .glass-hover:hover {
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-}
-
-.glass-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 9999px;
-  padding: 0.5rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    background-color 0.7s ease;
-}
-.glass-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(31, 38, 135, 0.16);
-}
-.glass-button:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.glass-input {
-  border-radius: 0.875rem;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 0.55rem 0.9rem;
-  font-size: 0.875rem;
-  color: inherit;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.glass-input:focus {
-  border-color: rgba(129, 140, 248, 0.6);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
-}
-.glass-input::placeholder {
-  color: var(--text-muted);
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-  .glass-card,
-  .glass-button,
-  .glass-input {
+  .glass-strong {
     background: var(--glass-bg-strong);
+  }
+
+  .glass-hover {
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease,
+      background-color 0.7s ease;
+  }
+  .glass-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 40px rgba(31, 38, 135, 0.18);
+  }
+  .dark .glass-hover:hover {
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    cursor: pointer;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.7s ease;
+  }
+  .glass-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(31, 38, 135, 0.16);
+  }
+  .glass-button:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .glass-input {
+    border-radius: 0.875rem;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.875rem;
+    color: inherit;
+    outline: none;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .glass-input:focus {
+    border-color: rgba(129, 140, 248, 0.6);
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
+  }
+  .glass-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .glass-card,
+    .glass-button,
+    .glass-input {
+      background: var(--glass-bg-strong);
+    }
+  }
+
+  /* 导航栏「正在播放」绿点的扩散圈，配合上面的 live-pulse */
+  .live-ring {
+    animation: live-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
 
@@ -266,6 +277,21 @@ body {
 }
 
 /* ================= 关键帧 ================= */
+
+/* 「正在播放」的绿点：外圈缓慢扩散消失，内圈常亮。
+   2.4s 是刻意的 —— 内置的 animate-ping 是 1s，太快会变成通知红点，
+   在导航栏里抢注意力。慢下来才像"呼吸"，符合 WCAG 对闪烁节制的要求。 */
+@keyframes live-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
 
 @keyframes gradient-move {
   0% {

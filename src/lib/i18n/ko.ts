@@ -17,6 +17,7 @@ export const ko: Dictionary = {
     albums: "앨범",
     lab: "랩",
     music: "음악",
+    musicPlaying: "재생 중",
     friends: "친구",
     about: "소개",
     searchPlaceholder: "글 검색…",

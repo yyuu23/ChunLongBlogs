@@ -17,6 +17,7 @@ export const en: Dictionary = {
     albums: "Albums",
     lab: "Lab",
     music: "Music",
+    musicPlaying: "Now playing",
     friends: "Friends",
     about: "About",
     searchPlaceholder: "Search posts…",

@@ -15,6 +15,7 @@ export const zh = {
     albums: "相册",
     lab: "实验室",
     music: "音乐",
+    musicPlaying: "正在播放",
     friends: "友链",
     about: "关于",
     searchPlaceholder: "搜索文章…",

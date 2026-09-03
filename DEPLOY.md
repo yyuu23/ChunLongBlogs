@@ -66,7 +66,8 @@ pm2 start npm --name chunlong-blog -- start
 pm2 save
 ```
 
-> 升级：`git pull && npm ci && npm run db:push && npm run build && pm2 restart chunlong-blog`
+> **日常升级请走 GitHub Actions 自动部署**（见 `docs/GITHUB_ACTIONS_DEPLOY.md`：构建在 GitHub 免费云端 runner 完成，rsync 上传产物，服务器零构建压力）。
+> 本页的手工路径（`git pull && npm ci && npm run db:push && npm run build && pm2 restart chunlong-blog`）仅作应急手段，且要求服务器装有 git。
 
 ## 4. Nginx 反代（80/443 + 证书）
 

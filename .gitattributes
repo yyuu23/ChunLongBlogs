@@ -1,0 +1,5 @@
+# Windows 上开发（core.autocrlf=true），但这些文件会在 Linux（GitHub runner /
+# Ubuntu 服务器）上执行：换行符必须是 LF，CRLF 会导致 bash / yaml 解析失败
+*.sh  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

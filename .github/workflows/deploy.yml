@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run：仅列出 rsync 将传输的内容，不写入服务器、不重启服务"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,8 +19,9 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to server
+    name: Build & deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment:
       name: production
       url: ${{ vars.SITE_URL }}
@@ -27,11 +33,46 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
           test -n "$SERVER_HOST" || { echo "Missing SERVER_HOST" >&2; exit 1; }
           test -n "$SERVER_USER" || { echo "Missing SERVER_USER" >&2; exit 1; }
           test -n "$SSH_PRIVATE_KEY" || { echo "Missing SERVER_SSH_KEY" >&2; exit 1; }
           test -n "$SSH_KNOWN_HOSTS" || { echo "Missing SERVER_KNOWN_HOSTS" >&2; exit 1; }
+          test -n "$SITE_URL" || { echo "Missing SITE_URL variable on environment 'production'" >&2; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Node 大版本必须与服务器一致（当前 22）：better-sqlite3 的原生二进制按
+      # Node ABI 版本下发，不一致会在运行时报 NODE_MODULE_VERSION mismatch。
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # 不要设置 NODE_ENV=production：那会跳过 devDependencies，构建必然失败
+      - name: Install dependencies
+        run: npm ci
+
+      # Next.js 构建缓存：key 带 run_id 保证每次都保存新缓存，restore-keys
+      # 降级命中上一次的缓存
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: Linux-nextjs-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            Linux-nextjs-${{ hashFiles('package-lock.json') }}-
+            Linux-nextjs-
+
+      # SITE_URL 在构建期写入 robots.txt 与静态 metadata；
+      # sitemap.xml 和 /feed 是动态路由，运行时从服务器 .env 读取
+      - name: Build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: npm run build
 
       - name: Configure SSH
         env:
@@ -44,7 +85,57 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy
+      - name: Server preflight
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          RUNNER_ABI="$(node -p process.versions.modules)"
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -p "${SERVER_PORT:-22}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" \
+            'bash -s' -- "$RUNNER_ABI" <<'REMOTE'
+          set -euo pipefail
+
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "Server architecture is $(uname -m), expected x86_64." \
+              "better-sqlite3 binaries built on the runner would not run there." >&2
+            exit 1
+          fi
+
+          if ! command -v rsync >/dev/null 2>&1; then
+            echo "rsync is not installed on the server. Run: sudo apt install -y rsync" >&2
+            exit 1
+          fi
+
+          if [ ! -f /opt/chunlong-blog/.env ]; then
+            echo "Missing /opt/chunlong-blog/.env; configure production secrets on the server first." >&2
+            exit 1
+          fi
+
+          if [ "$(node -p process.versions.modules)" != "$1" ]; then
+            echo "Node ABI mismatch between runner and server." \
+              "Align the server's Node version with the workflow's node-version (currently 22)." >&2
+            exit 1
+          fi
+
+          avail_kb="$(df -Pk /opt | awk 'NR==2 {print $4}')"
+          if [ "$avail_kb" -lt 2097152 ]; then
+            echo "Less than 2GB free under /opt; rsync needs headroom for old + new build." >&2
+            exit 1
+          fi
+
+          echo "Preflight OK: $(uname -m), Node ABI $1, $((avail_kb / 1024))MB free on /opt."
+          REMOTE
+
+      # 备份脚本通过 stdin 管道执行：服务器上的落地副本是上一次部署的旧版，
+      # 管道保证运行的永远是本次 revision 的脚本
+      - name: Backup server runtime data
+        if: ${{ !inputs.dry_run }}
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_PORT: ${{ secrets.SERVER_PORT }}
@@ -56,4 +147,66 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "$SERVER_USER@$SERVER_HOST" \
-            'cd /opt/chunlong-blog && bash scripts/deploy-production.sh'
+            'bash -s' < scripts/server-backup.sh
+
+      - name: Rsync build artifacts
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          command -v rsync >/dev/null || { echo "rsync missing on runner" >&2; exit 1; }
+
+          opts=(-azc --delete-after --info=stats2)
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            opts+=(--dry-run --itemize-changes)
+          fi
+
+          # 安全红线：以下排除项保护服务器上的运行时状态，绝不能移除，
+          # 也绝不能加 --delete-excluded（被排除的服务器端文件默认不参与删除）：
+          #   /.git/            服务器保留仓库历史，可随时回退到旧的 git 部署方式
+          #   /.env             生产密钥
+          #   /data/            SQLite 数据库（runner 构建时会生成空库，绝不能覆盖生产库）
+          #   /public/uploads/  用户上传文件（runner 上没有）
+          # -c (--checksum)：CI 每次全新 npm ci + build，所有文件 mtime 都是"现在"，
+          #   默认的 mtime+size 判断会每次全量传 ~1GB；按内容哈希判断才能增量。
+          rsync "${opts[@]}" \
+            --exclude='/.git/' \
+            --exclude='/.env' \
+            --exclude='/data/' \
+            --exclude='/public/uploads/' \
+            --exclude='/node_modules/.cache/' \
+            --exclude='/.next/cache/' \
+            --exclude='*.log' \
+            --exclude='*.tsbuildinfo' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${SERVER_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            ./ "$SERVER_USER@$SERVER_HOST:/opt/chunlong-blog/"
+
+      # pm2 restart 严格排在 rsync 成功之后：rsync 失败则中止，不重启服务
+      - name: Finalize (db:push + pm2 restart)
+        if: ${{ !inputs.dry_run }}
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -p "${SERVER_PORT:-22}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" \
+            'bash -s' < scripts/server-finalize.sh
+
+      - name: Smoke test
+        if: ${{ !inputs.dry_run }}
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          sleep 5
+          curl -fsS --retry 3 --retry-connrefused --retry-delay 3 "$SITE_URL" >/dev/null
+          # robots.txt 是构建期静态生成的，grep 到正式域名说明 SITE_URL 注入生效
+          curl -fsS "$SITE_URL/robots.txt" | grep -qF "$SITE_URL"
+          curl -fsS "$SITE_URL/sitemap.xml" >/dev/null
+          curl -fsS "$SITE_URL/feed" >/dev/null
+          echo "Smoke test passed: $SITE_URL"

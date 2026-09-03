@@ -60,10 +60,19 @@ export function Mascot() {
         await loadCore();
         // 全部使用 @pixi v6（pixi-live2d-display 自带的 peer 依赖），不再引入
         // pixi.js v7 —— 消除双份 PIXI（v7 的 436KB chunk 整体消失）。
-        // registerTicker 是官方 API，注册后 bundle 不再读 window.PIXI 兜底
+        // 关键：@pixi/app v6.5 只自动注册 ResizePlugin，创建 app.ticker 并
+        // 挂载 render 循环的 TickerPlugin 位于 @pixi/ticker，必须手动注册，
+        // 否则 canvas 只会空白透明（元素在、事件在、但从未渲染过一帧）
         const { Application } = await import("@pixi/app");
-        const { Ticker } = await import("@pixi/ticker");
+        const { Ticker, TickerPlugin } = await import("@pixi/ticker");
+        const { extensions } = await import("@pixi/core");
         const { Live2DModel } = await import("pixi-live2d-display/cubism2");
+        // 先 remove 再 add：effect 重跑（dev 严格模式/开关特效）时保持幂等
+        try {
+          extensions.remove(TickerPlugin);
+        } catch {}
+        extensions.add(TickerPlugin);
+        // registerTicker 是官方 API，注册后 bundle 不再读 window.PIXI 兜底
         Live2DModel.registerTicker(Ticker);
         if (destroyed || !wrapRef.current) return;
 
@@ -72,6 +81,7 @@ export function Mascot() {
           width: 260,
           height: 340,
           antialias: true,
+          autoStart: true,
         });
         app.view.style.touchAction = "none";
         wrapRef.current.appendChild(app.view);

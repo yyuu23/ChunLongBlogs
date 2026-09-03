@@ -80,10 +80,49 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          # secret 可能是在 Windows 上复制的，带 CRLF 换行；
+          # OpenSSH 无法解析含 \r 的私钥，必须剥掉
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+
+          # 自检：私钥可解析 + known_hosts 有实际条目，失败时给出明确原因
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/tmp/keyerr; then
+            echo "::error::SERVER_SSH_KEY 不是有效私钥。请确认粘贴了完整内容（含 BEGIN/END 两行）。"
+            cat /tmp/keyerr >&2
+            exit 1
+          fi
+          echo "Deploy key: $(ssh-keygen -lf ~/.ssh/deploy_key.pub)"
+
+          host_entries="$(grep -cv '^\s*\(#\|$\)' ~/.ssh/known_hosts || true)"
+          if [ "$host_entries" -lt 1 ]; then
+            echo "::error::SERVER_KNOWN_HOSTS 没有有效条目（应为 'IP ssh-ed25519 AAAA...' 一行）。"
+            exit 1
+          fi
+          echo "known_hosts entries: $host_entries"
+
+      # 独立的连通性测试：把"连不上"与"服务器检查项不满足"区分开
+      - name: Verify SSH connectivity
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          if ! ssh \
+            -i ~/.ssh/deploy_key \
+            -p "${SERVER_PORT:-22}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=20 \
+            "$SERVER_USER@$SERVER_HOST" 'echo connected as $(whoami)' 2>/tmp/ssherr
+          then
+            echo "::error::SSH 连接失败。以下为 ssh 输出："
+            cat /tmp/ssherr >&2
+            echo "排查提示：Permission denied → 公钥未装到服务器或私钥 secret 有误；" >&2
+            echo "Host key verification failed → SERVER_KNOWN_HOSTS 与服务器实际主机密钥不符。" >&2
+            exit 1
+          fi
 
       - name: Server preflight
         env:

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Noto_Serif_SC } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -41,6 +41,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 }
+
+/** Android/Chrome 软键盘弹出时压缩 layout viewport（配合 dvh，聊天页输入框不被遮挡） */
+export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
+};
 
 /** 首帧脚本：主题初始化（localStorage/系统偏好）+ 启动屏"已看过"判断，避免闪烁 */
 const initScript = `

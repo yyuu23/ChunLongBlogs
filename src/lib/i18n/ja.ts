@@ -20,6 +20,7 @@ export const ja: Dictionary = {
        把导航挤到和搜索框重叠。音楽 是日语里更自然的说法，且只有 2 字。 */
     music: "音楽",
     musicPlaying: "再生中",
+    aiChat: "AI",
     friends: "リンク",
     about: "紹介",
     searchPlaceholder: "記事を検索…",
@@ -126,6 +127,10 @@ export const ja: Dictionary = {
     nextMemory: "次へ ›",
     level: "Lv. {n}",
   },
+  ach: {
+    unlocked: "実績解除！",
+    close: "閉じる",
+  },
   music: {
     title: "ミュージック",
     subtitle: "プレイリスト · 最近再生 · ページを移動しても再生は続く",
@@ -156,6 +161,26 @@ export const ja: Dictionary = {
     errorPrefix: "エラー：",
     networkError: "通信エラーです。少し後にもう一度 (´;ω;`)",
     unknownError: "不明なエラー",
+    stopAria: "生成を停止",
+    rateLimited: "質問が多すぎるよ～ 1 分休んでからまた (＞﹏＜)",
+  },
+  chatPage: {
+    title: "AI アシスタント",
+    subtitle: "記事とつぶやきに基づいて答えるよ。雑談もOK",
+    welcomeLong: "こんにちは！記事やつぶやきから答えられるよ。他の話題でもOK～",
+    inputPlaceholder: "質問を入力、Enter で送信（Shift+Enter で改行）",
+    clear: "会話を削除",
+    clearAria: "会話を削除",
+    retry: "再試行",
+    sources: "参考ソース",
+    fromPost: "記事",
+    fromMoment: "つぶやき",
+    suggestions: [
+      "このブログの技術スタックは？",
+      "最近のつぶやきは？",
+      "記事をおすすめして",
+      "君はだれ？",
+    ],
   },
   mascot: {
     greeting: "こんにちは、看板娘です ✨",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { XpEvent } from "@/lib/achievements";
+import type { PlayerStats, XpEvent } from "@/lib/achievements";
 
 const VID_KEY = "cl-visitor-id";
 
@@ -24,6 +24,8 @@ export interface PlayerProgress {
   progress: number;
   tier: string;
   achievements: string[];
+  /** API 响应本来就带 stats（成就进度展示用），此前类型没声明 */
+  stats: PlayerStats;
 }
 
 /** 行为埋点：fire-and-forget 上报经验事件，附带本地事件供 HUD 即时刷新 */
@@ -49,6 +51,8 @@ export function trackEvent(event: XpEvent, payload?: Record<string, unknown>) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ visitorId, event, payload }),
+    // 页面即将卸载（如点行星外链跳走）时也别丢上报
+    keepalive: true,
   })
     .then((r) => (r.ok ? r.json() : null))
     .then((data: PlayerProgress | null) => {

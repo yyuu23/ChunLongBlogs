@@ -37,7 +37,7 @@ export default async function MomentsPage() {
             const images: string[] = JSON.parse(m.images || "[]");
             return (
               <FadeIn key={m.id} delay={Math.min(i * 0.05, 0.3)}>
-                <article className="relative">
+                <article id={`moment-${m.id}`} className="relative scroll-mt-24">
                   <span className="absolute -left-5 top-5 h-3 w-3 rounded-full bg-gradient-to-r from-pink-400 to-indigo-400 ring-4 ring-white/50 dark:ring-slate-900/50" />
                   <div className="glass-card p-5">
                     <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">

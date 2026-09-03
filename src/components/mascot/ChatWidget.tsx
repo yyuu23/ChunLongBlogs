@@ -1,58 +1,46 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, X, SendHorizonal, Loader2 } from "lucide-react";
-import { trackEvent } from "@/lib/track";
+import { MessageCircle, X, SendHorizonal, Loader2, Square } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-
-interface Msg {
-  role: "user" | "assistant";
-  content: string;
-}
+import { useEffects } from "@/components/providers/EffectProvider";
+import { useChat } from "@/components/chat/useChat";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
- * 接口走 /api/chat（服务端代理，Key 不暴露给浏览器）
+ * 接口走 /api/chat（服务端代理，Key 不暴露给浏览器），流式打字机输出。
+ *
+ * 坐标说明（桌面 md+）：看板娘画布高 340px、其气泡最坏顶到 ~384px，
+ * 按钮放 392px（24.5rem）避让；面板底边 432px（27rem）与按钮顶 434px 咬合。
+ * 移动端（<768px）无看板娘，维持贴底原位。
  */
 export function ChatWidget() {
   const t = useT();
+  const pathname = usePathname();
+  const { effects, hydrated } = useEffects();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: t("chat.welcome") },
-  ]);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { messages, busy, send, stop } = useChat({ welcome: t("chat.welcome") });
   const listRef = useRef<HTMLDivElement>(null);
+
+  // /chat 页有自己的完整聊天界面，这里隐藏避免双入口
+  const onChatPage = pathname === "/chat";
+  // 看板娘被用户关闭时左下空无一物，按钮回贴底，别悬在半空
+  const mascotOff = hydrated && !effects.mascot;
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy, open]);
 
-  const send = async () => {
+  if (onChatPage) return null;
+
+  const doSend = () => {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
-    trackEvent("use_chat");
-    const next: Msg[] = [...messages, { role: "user", content: text }];
-    setMessages(next);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.filter((m) => m.role === "user" || m.content !== undefined).slice(-16) }),
-      });
-      const data = (await res.json()) as { reply?: string; error?: string };
-      setMessages((ms) => [
-        ...ms,
-        { role: "assistant", content: data.reply ?? t("chat.errorPrefix") + (data.error ?? t("chat.unknownError")) },
-      ]);
-    } catch {
-      setMessages((ms) => [...ms, { role: "assistant", content: t("chat.networkError") }]);
-    } finally {
-      setBusy(false);
-    }
+    void send(text);
   };
 
   return (
@@ -60,7 +48,9 @@ export function ChatWidget() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={t("chat.openAria")}
-        className="glass-button accent-glow fixed bottom-[19rem] left-3 z-40 !rounded-full !p-3"
+        className={`glass-button accent-glow fixed left-3 z-40 !rounded-full !p-3 ${
+          mascotOff ? "bottom-[19rem]" : "bottom-[19rem] md:bottom-[24.5rem]"
+        }`}
         title={t("chat.title")}
       >
         <MessageCircle className="h-4 w-4" />
@@ -73,7 +63,11 @@ export function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="glass-card fixed bottom-[21.5rem] left-3 z-40 flex h-96 w-[min(20rem,86vw)] flex-col overflow-hidden"
+            className={`glass-card fixed left-3 z-40 flex h-96 w-[min(20rem,86vw)] max-h-[calc(100dvh-24rem)] flex-col overflow-hidden ${
+              mascotOff
+                ? "bottom-[21.5rem]"
+                : "bottom-[21.5rem] md:bottom-[27rem] md:max-h-[calc(100dvh-31rem)]"
+            }`}
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
               <p className="text-sm font-semibold">AI 小助手</p>
@@ -93,10 +87,11 @@ export function ChatWidget() {
                     }`}
                   >
                     {m.content}
+                    {m.streaming && m.content && <span className="animate-pulse">▍</span>}
                   </span>
                 </div>
               ))}
-              {busy && (
+              {busy && !messages.at(-1)?.content && (
                 <div className="flex justify-start">
                   <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2.5 dark:bg-white/10">
                     <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
@@ -111,18 +106,28 @@ export function ChatWidget() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
+                onKeyDown={(e) => e.key === "Enter" && doSend()}
                 placeholder={t("chat.placeholder")}
                 className="glass-input flex-1 !rounded-2xl text-xs"
               />
-              <button
-                onClick={send}
-                disabled={busy || !input.trim()}
-                aria-label={t("chat.sendAria")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
-              </button>
+              {busy ? (
+                <button
+                  onClick={stop}
+                  aria-label={t("chat.stopAria")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white"
+                >
+                  <Square className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <button
+                  onClick={doSend}
+                  disabled={!input.trim()}
+                  aria-label={t("chat.sendAria")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
+                >
+                  <SendHorizonal className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </motion.div>
         )}

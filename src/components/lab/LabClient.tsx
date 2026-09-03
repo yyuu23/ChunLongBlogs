@@ -2,13 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { useProgress } from "@react-three/drei";
-import { Loader2, SendHorizonal, Lock, Sparkles } from "lucide-react";
+import { Loader2, SendHorizonal, Sparkles } from "lucide-react";
 import { fetchProgress, getVisitorId, trackEvent, type PlayerProgress } from "@/lib/track";
-import { ACHIEVEMENTS } from "@/lib/achievements";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { pick, DATE_LOCALE } from "@/lib/i18n/config";
+import { DATE_LOCALE } from "@/lib/i18n/config";
+import { AchievementWall } from "@/components/lab/AchievementWall";
 import type { MomentItem, StarItem, PlanetCounts } from "@/components/lab/LabScene";
 
 /** three.js 场景只在客户端加载（WebGL 不能 SSR） */
@@ -140,58 +139,8 @@ export function LabClient({
         </div>
       </div>
 
-      {/* 成就徽章墙 */}
-      <div className="glass-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-serif text-lg font-bold">
-            <Sparkles className="h-4 w-4 text-accent" /> {t("lab.badges")}
-          </h2>
-          {progress && (
-            <span className="text-xs text-muted">
-              {t("lab.unlocked", { n: progress.achievements.length, m: ACHIEVEMENTS.length })}
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-7">
-          {ACHIEVEMENTS.map((a, i) => {
-            const unlocked = progress?.achievements.includes(a.key) ?? false;
-            const tier = progress?.tier ?? "bronze";
-            return (
-              <motion.div
-                key={a.key}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.03 }}
-                title={`${pick(locale, a.name)}：${pick(locale, a.description)}`}
-                className={`flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-center transition-all ${
-                  unlocked ? "bg-accent-soft" : "opacity-45"
-                }`}
-              >
-                <span
-                  className={`flex h-11 w-11 items-center justify-center text-xl ${
-                    unlocked ? "hex-badge" : ""
-                  }`}
-                  style={
-                    unlocked
-                      ? tier === "gold"
-                        ? { background: "linear-gradient(135deg,#fbbf24,#f97316)", color: "#fff" }
-                        : tier === "silver"
-                          ? { background: "linear-gradient(135deg,#cbd5e1,#94a3b8)", color: "#fff" }
-                          : { background: "linear-gradient(135deg,#d97706,#b45309)", color: "#fff" }
-                      : undefined
-                  }
-                >
-                  {unlocked ? a.emoji : <Lock className="h-4 w-4 text-muted" />}
-                </span>
-                <span className="text-[11px] font-medium leading-tight">{pick(locale, a.name)}</span>
-                <span className="hidden text-[10px] leading-tight text-muted sm:block">{pick(locale, a.description)}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-center text-xs text-muted">{t("lab.badgeWallHint")}</p>
-      </div>
+      {/* 成就徽章墙（按分类分组折叠） */}
+      <AchievementWall progress={progress} />
     </div>
   );
 }

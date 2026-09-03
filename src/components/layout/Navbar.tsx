@@ -22,6 +22,7 @@ const LINKS = [
   { href: "/albums", key: "nav.albums" },
   { href: "/lab", key: "nav.lab" },
   { href: "/music", key: "nav.music" },
+  { href: "/chat", key: "nav.aiChat" },
   { href: "/friends", key: "nav.friends" },
   { href: "/about", key: "nav.about" },
 ];
@@ -71,7 +72,9 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
 
   const goSearch = () => {
     const kw = q.trim();
-    if (kw) router.push(`/posts?q=${encodeURIComponent(kw)}`);
+    if (!kw) return;
+    trackEvent("use_search"); // 不带关键词，隐私优先
+    router.push(`/posts?q=${encodeURIComponent(kw)}`);
   };
 
   return (

@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { trackEvent } from "@/lib/track";
 
 type Theme = "light" | "dark";
 
@@ -29,6 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = useCallback(() => {
+    trackEvent("toggle_theme");
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       document.documentElement.classList.toggle("dark", next === "dark");

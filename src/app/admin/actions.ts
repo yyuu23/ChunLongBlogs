@@ -143,6 +143,11 @@ export async function savePost(input: PostInput) {
 export async function deletePost(id: number) {
   await guard();
   await db.delete(posts).where(eq(posts.id, id));
+  // 清理向量行，避免孤儿数据（embedding 未配置时是无害的空删）
+  try {
+    const { deleteEmbeddings } = await import("@/lib/rag");
+    await deleteEmbeddings("post", id);
+  } catch {}
   revalidateAll();
 }
 
@@ -221,18 +226,30 @@ export async function saveMoment(input: {
     mood: input.mood ?? "",
     location: input.location ?? "",
   };
+  let momentId = input.id;
   if (input.id) {
     await db.update(moments).set(values).where(eq(moments.id, input.id));
   } else {
-    await db.insert(moments).values(values);
+    momentId = (await db.insert(moments).values(values).returning())[0]!.id;
   }
   revalidateAll();
+  // 说说也参与 RAG 检索，保存后自动更新向量（未配置 embedding 时为空操作，不影响保存）
+  if (momentId) {
+    try {
+      const { rebuildMomentEmbeddings } = await import("@/lib/rag");
+      void rebuildMomentEmbeddings(momentId).catch(() => {});
+    } catch {}
+  }
   return { ok: true as const };
 }
 
 export async function deleteMoment(id: number) {
   await guard();
   await db.delete(moments).where(eq(moments.id, id));
+  try {
+    const { deleteEmbeddings } = await import("@/lib/rag");
+    await deleteEmbeddings("moment", id);
+  } catch {}
   revalidateAll();
 }
 
@@ -443,17 +460,24 @@ export async function importNetease(playlistId: string) {
 
 /* ============ 站点配置 ============ */
 
-/** 重建全部文章的 RAG 向量索引（后台按钮） */
+/** 重建全部文章与说说的 RAG 向量索引（后台按钮） */
 export async function rebuildEmbeddingsAction() {
   await guard();
-  const { rebuildPostEmbeddings, embeddingConfigured } = await import("@/lib/rag");
+  const { rebuildPostEmbeddings, rebuildMomentEmbeddings, embeddingConfigured } = await import(
+    "@/lib/rag"
+  );
   if (!embeddingConfigured()) {
     return { error: "未配置 EMBEDDING_API_KEY（当前问答走关键词检索，功能可用但语义匹配较弱）" };
   }
   try {
     const r = await rebuildPostEmbeddings();
-    if ("error" in r && r.error) return { error: r.error };
-    return { ok: true as const, message: `已为 ${r.posts} 篇文章生成 ${r.chunks} 个向量块` };
+    if (!("ok" in r)) return { error: r.error };
+    const m = await rebuildMomentEmbeddings();
+    if (!("ok" in m)) return { error: m.error };
+    return {
+      ok: true as const,
+      message: `已为 ${r.posts} 篇文章、${m.moments} 条说说生成 ${r.chunks + m.chunks} 个向量块`,
+    };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "重建失败" };
   }

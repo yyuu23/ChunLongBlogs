@@ -807,3 +807,45 @@ html.splash-seen .splash-overlay {
   clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
   box-shadow: 0 0 12px color-mix(in srgb, var(--accent-solid) 45%, transparent);
 }
+
+/* 成就徽章 hover：解锁的弹跳摇摆 / 未解锁的锁轻轻磕碰。
+   wiggle 用独立的 rotate/scale 属性（非 transform），与外层
+   framer-motion 的 transform 位移互不覆盖。 */
+@media (prefers-reduced-motion: no-preference) {
+  .ach-badge:hover .ach-emoji {
+    animation: ach-wiggle 0.55s ease-in-out;
+  }
+  .ach-badge:hover .ach-lock {
+    animation: ach-nudge 0.4s ease-in-out;
+  }
+}
+@keyframes ach-wiggle {
+  0%,
+  100% {
+    rotate: 0deg;
+    scale: 1;
+  }
+  30% {
+    rotate: -9deg;
+    scale: 1.18;
+  }
+  65% {
+    rotate: 7deg;
+    scale: 1.12;
+  }
+}
+@keyframes ach-nudge {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  25% {
+    translate: -2px 0;
+  }
+  55% {
+    translate: 2px 0;
+  }
+  80% {
+    translate: -1px 0;
+  }
+}

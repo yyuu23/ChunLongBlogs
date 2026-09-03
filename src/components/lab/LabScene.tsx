@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { usePlayer } from "@/components/music/PlayerProvider";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { pick } from "@/lib/i18n/config";
+import { trackEvent } from "@/lib/track";
 import {
   PLANETS,
   BELT,
@@ -261,7 +262,28 @@ export default function LabScene({
   const { playing } = usePlayer() ?? {};
   const t = useT();
 
+  /* 太阳连点合并上报：600ms 内的点击攒成一次 { count }。
+     逐点上报的话，快速连点会产生并行的 read-modify-write，交错覆盖会丢计数。 */
+  const sunPending = useRef(0);
+  const sunTimer = useRef<number | null>(null);
+  const flushSun = () => {
+    if (sunTimer.current != null) {
+      clearTimeout(sunTimer.current);
+      sunTimer.current = null;
+    }
+    if (sunPending.current > 0) {
+      trackEvent("poke_sun", { count: sunPending.current });
+      sunPending.current = 0;
+    }
+  };
+  const pokeSun = () => {
+    sunPending.current += 1;
+    if (sunTimer.current == null) sunTimer.current = window.setTimeout(flushSun, 600);
+  };
+  useEffect(() => flushSun, []); // 卸载时把尾巴冲掉
+
   const openPlanet = (def: PlanetDef) => {
+    trackEvent("visit_planet", { planetId: def.id });
     if (def.id === "mars") {
       setMemoryIdx(moments.length ? 0 : null);
       return;
@@ -295,7 +317,12 @@ export default function LabScene({
       <ambientLight intensity={0.05} color="#93a9ff" />
 
       {/* 恒星 + 点击爆发 */}
-      <Sun onClick={() => setBursts((b) => [...b, Date.now()])} />
+      <Sun
+        onClick={() => {
+          pokeSun();
+          setBursts((b) => [...b, Date.now()]);
+        }}
+      />
       {bursts.map((id) => (
         <Burst key={id} onDone={() => setBursts((b) => b.filter((x) => x !== id))} />
       ))}
@@ -314,7 +341,13 @@ export default function LabScene({
       </Suspense>
 
       {/* 小行星带：留声星 */}
-      <StarBelt stars={stars} onOpen={setOpenStar} />
+      <StarBelt
+        stars={stars}
+        onOpen={(s) => {
+          setOpenStar(s);
+          trackEvent("view_star");
+        }}
+      />
 
       {/* 标题 */}
       <Html position={[0, 108, 0]} center distanceFactor={230}>

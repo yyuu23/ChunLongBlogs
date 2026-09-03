@@ -86,6 +86,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        # /chat 的 SSE 流式响应：禁缓冲，否则打字机效果会被攒成一坨
+        # （响应里也带了 X-Accel-Buffering: no，双保险）
+        proxy_buffering off;
     }
 
     # 可选：长期缓存上传图片

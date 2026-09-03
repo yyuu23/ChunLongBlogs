@@ -76,7 +76,11 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       const ids = new Set(stats.readPostIds ?? []);
       if (Number.isFinite(id) && !ids.has(id)) {
         ids.add(id);
-        stats.postsRead = ids.size;
+        // postsRead 独立累计：readPostIds 只留最近 50 条做近期去重，
+        // 若写作 ids.size 会封顶在 51，reader_100+ 永远无法解锁。
+        // 已知偏差：重读 50 篇之前的旧文会多计一次，客户端
+        // cl-read-posts（留 100 条）兜底，成就阈值判定宁可宽松。
+        stats.postsRead += 1;
         stats.readPostIds = [...ids].slice(-50);
       }
       break;
@@ -116,7 +120,9 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       break;
     }
     case "poke_sun":
-      stats.sunClicks += 1;
+      // 客户端把快速连点合并成一个 { count } 上报（防并发丢计数），
+      // 单次最多认 50 下，防伪造payload灌水
+      stats.sunClicks += Math.min(50, Math.max(1, Math.floor(Number(payload?.count)) || 1));
       break;
     case "visit_planet": {
       stats.planetClicks += 1;

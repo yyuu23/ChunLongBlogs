@@ -30,9 +30,9 @@ export interface PlayerStats {
   dawnVisits: number;
   /** 累计访问过的不同天数 */
   visitDays: number;
-  /** 当前连续访问天数 */
+  /** 当前连续访问天数（暂无成就引用，留作未来用） */
   streak: number;
-  /** 历史最长连续天数 */
+  /** 历史最长连续天数（暂无成就引用，留作未来用） */
   bestStreak: number;
 }
 
@@ -190,6 +190,16 @@ export interface AchievementDef {
   category: AchievementCategory;
   /** 满足条件（基于 stats） */
   check: (s: PlayerStats) => boolean;
+  /** 进度展示（仅未解锁时用）；数组字段自动取 length。复合条件成就可省略 */
+  progress?: { stat: keyof PlayerStats; target: number };
+}
+
+/** UI 用：返回 { current, target } 或 null（无声明 / 无 stats） */
+export function achievementProgress(a: AchievementDef, s: PlayerStats | undefined) {
+  if (!a.progress || !s) return null;
+  const raw = s[a.progress.stat];
+  const current = Array.isArray(raw) ? raw.length : typeof raw === "boolean" ? 0 : Number(raw) || 0;
+  return { current: Math.min(current, a.progress.target), target: a.progress.target };
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [

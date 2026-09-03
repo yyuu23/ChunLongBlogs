@@ -7,6 +7,7 @@ import { FloatingTools } from "@/components/layout/FloatingTools";
 import { SplashScreen } from "@/components/layout/SplashScreen";
 import { ThemeParticles, ClickEffect } from "@/components/effects/Effects";
 import { SelectionSparkle } from "@/components/effects/SelectionSparkle";
+import { AchievementToasts } from "@/components/effects/AchievementToasts";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
@@ -41,6 +42,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <FloatingTools />
       <Mascot />
       <ChatWidget />
+      <AchievementToasts />
     </>
   );
 }

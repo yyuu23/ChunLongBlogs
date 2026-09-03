@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DayKind } from "@/lib/holidays";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
+import { trackEvent } from "@/lib/track";
 
 interface MonthHolidays {
   [dateKey: string]: { kind: DayKind; name?: string };
@@ -77,7 +78,11 @@ export function CalendarPopover() {
   }, [open]);
 
   const openPanel = () => {
-    setOpen((v) => !v);
+    setOpen((v) => {
+      const next = !v;
+      if (next) trackEvent("open_calendar"); // 只在关闭→打开的边沿上报
+      return next;
+    });
     setView("days");
   };
 

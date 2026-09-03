@@ -31,6 +31,7 @@ export const BASIC: AchievementDef[] = [
     emoji: "🔬",
     category: "basic",
     check: (s) => s.labVisits >= 1,
+    progress: { stat: "labVisits", target: 1 },
   },
   {
     key: "day_2",
@@ -39,6 +40,7 @@ export const BASIC: AchievementDef[] = [
     emoji: "🔁",
     category: "basic",
     check: (s) => s.visitDays >= 2,
+    progress: { stat: "visitDays", target: 2 },
   },
   {
     key: "day_7",
@@ -47,6 +49,16 @@ export const BASIC: AchievementDef[] = [
     emoji: "🗓️",
     category: "basic",
     check: (s) => s.visitDays >= 7,
+    progress: { stat: "visitDays", target: 7 },
+  },
+  {
+    key: "days_30",
+    name: { zh: "三十日之约", en: "Thirty Days Together", ja: "三十日の約束", ko: "30일의 약속" },
+    description: { zh: "累计来访 30 天", en: "Visit on 30 different days", ja: "のべ 30 日訪れる", ko: "총 30일 방문하기" },
+    emoji: "🔥",
+    category: "basic",
+    check: (s) => s.visitDays >= 30,
+    progress: { stat: "visitDays", target: 30 },
   },
   {
     key: "accent_2",
@@ -55,6 +67,7 @@ export const BASIC: AchievementDef[] = [
     emoji: "🎨",
     category: "basic",
     check: (s) => s.accentsTried.length >= 2,
+    progress: { stat: "accentsTried", target: 2 },
   },
   {
     key: "theme_1",
@@ -63,6 +76,7 @@ export const BASIC: AchievementDef[] = [
     emoji: "🌗",
     category: "basic",
     check: (s) => s.themeToggles >= 1,
+    progress: { stat: "themeToggles", target: 1 },
   },
 ];
 
@@ -78,6 +92,7 @@ export const READING: AchievementDef[] = [
     emoji: "📖",
     category: "reading",
     check: (s) => s.postsRead >= 1,
+    progress: { stat: "postsRead", target: 1 },
   },
   {
     key: "reader_3",
@@ -86,6 +101,7 @@ export const READING: AchievementDef[] = [
     emoji: "📕",
     category: "reading",
     check: (s) => s.postsRead >= 3,
+    progress: { stat: "postsRead", target: 3 },
   },
   {
     key: "reader_5",
@@ -94,6 +110,7 @@ export const READING: AchievementDef[] = [
     emoji: "📚",
     category: "reading",
     check: (s) => s.postsRead >= 5,
+    progress: { stat: "postsRead", target: 5 },
   },
   {
     key: "reader_10",
@@ -102,6 +119,7 @@ export const READING: AchievementDef[] = [
     emoji: "🏛️",
     category: "reading",
     check: (s) => s.postsRead >= 10,
+    progress: { stat: "postsRead", target: 10 },
   },
   {
     key: "reader_25",
@@ -110,6 +128,7 @@ export const READING: AchievementDef[] = [
     emoji: "📜",
     category: "reading",
     check: (s) => s.postsRead >= 25,
+    progress: { stat: "postsRead", target: 25 },
   },
   {
     key: "reader_50",
@@ -118,6 +137,7 @@ export const READING: AchievementDef[] = [
     emoji: "🗿",
     category: "reading",
     check: (s) => s.postsRead >= 50,
+    progress: { stat: "postsRead", target: 50 },
   },
   {
     key: "reader_100",
@@ -126,6 +146,7 @@ export const READING: AchievementDef[] = [
     emoji: "🎓",
     category: "reading",
     check: (s) => s.postsRead >= 100,
+    progress: { stat: "postsRead", target: 100 },
   },
   {
     key: "reader_250",
@@ -134,6 +155,7 @@ export const READING: AchievementDef[] = [
     emoji: "🧠",
     category: "reading",
     check: (s) => s.postsRead >= 250,
+    progress: { stat: "postsRead", target: 250 },
   },
   {
     key: "reader_500",
@@ -142,6 +164,7 @@ export const READING: AchievementDef[] = [
     emoji: "🌌",
     category: "reading",
     check: (s) => s.postsRead >= 500,
+    progress: { stat: "postsRead", target: 500 },
   },
 ];
 
@@ -157,6 +180,7 @@ export const MUSIC: AchievementDef[] = [
     emoji: "🎧",
     category: "music",
     check: (s) => s.songsPlayed >= 1,
+    progress: { stat: "songsPlayed", target: 1 },
   },
   {
     key: "music_5",
@@ -165,6 +189,7 @@ export const MUSIC: AchievementDef[] = [
     emoji: "🎵",
     category: "music",
     check: (s) => s.songsPlayed >= 5,
+    progress: { stat: "songsPlayed", target: 5 },
   },
   {
     key: "music_20",
@@ -173,6 +198,7 @@ export const MUSIC: AchievementDef[] = [
     emoji: "🎶",
     category: "music",
     check: (s) => s.songsPlayed >= 20,
+    progress: { stat: "songsPlayed", target: 20 },
   },
   {
     key: "music_50",
@@ -181,6 +207,7 @@ export const MUSIC: AchievementDef[] = [
     emoji: "🎼",
     category: "music",
     check: (s) => s.songsPlayed >= 50,
+    progress: { stat: "songsPlayed", target: 50 },
   },
   {
     key: "music_100",
@@ -189,6 +216,7 @@ export const MUSIC: AchievementDef[] = [
     emoji: "🎤",
     category: "music",
     check: (s) => s.songsPlayed >= 100,
+    progress: { stat: "songsPlayed", target: 100 },
   },
   {
     key: "music_night",
@@ -211,6 +239,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🔍",
     category: "explore",
     check: (s) => s.searchUsed >= 1,
+    progress: { stat: "searchUsed", target: 1 },
   },
   {
     key: "search_10",
@@ -219,6 +248,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🕵️",
     category: "explore",
     check: (s) => s.searchUsed >= 10,
+    progress: { stat: "searchUsed", target: 10 },
   },
   {
     key: "calendar_1",
@@ -227,6 +257,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "📅",
     category: "explore",
     check: (s) => s.calendarOpens >= 1,
+    progress: { stat: "calendarOpens", target: 1 },
   },
   {
     key: "calendar_10",
@@ -235,6 +266,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "⏳",
     category: "explore",
     check: (s) => s.calendarOpens >= 10,
+    progress: { stat: "calendarOpens", target: 10 },
   },
   {
     key: "sun_1",
@@ -243,6 +275,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "☀️",
     category: "explore",
     check: (s) => s.sunClicks >= 1,
+    progress: { stat: "sunClicks", target: 1 },
   },
   {
     key: "sun_50",
@@ -251,6 +284,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🔆",
     category: "explore",
     check: (s) => s.sunClicks >= 50,
+    progress: { stat: "sunClicks", target: 50 },
   },
   {
     key: "planet_1",
@@ -259,6 +293,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🪐",
     category: "explore",
     check: (s) => s.planetClicks >= 1,
+    progress: { stat: "planetClicks", target: 1 },
   },
   {
     key: "planet_all",
@@ -267,6 +302,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🌠",
     category: "explore",
     check: (s) => (s.planetIds ?? []).length >= 8,
+    progress: { stat: "planetIds", target: 8 },
   },
   {
     key: "planet_50",
@@ -275,6 +311,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🚀",
     category: "explore",
     check: (s) => s.planetClicks >= 50,
+    progress: { stat: "planetClicks", target: 50 },
   },
   {
     key: "accent_all",
@@ -283,6 +320,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🌈",
     category: "explore",
     check: (s) => s.accentsTried.length >= 5,
+    progress: { stat: "accentsTried", target: 5 },
   },
   {
     key: "locale_2",
@@ -291,6 +329,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🗺️",
     category: "explore",
     check: (s) => s.localesTried.length >= 2,
+    progress: { stat: "localesTried", target: 2 },
   },
   {
     key: "locale_all",
@@ -299,6 +338,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🌐",
     category: "explore",
     check: (s) => s.localesTried.length >= 4,
+    progress: { stat: "localesTried", target: 4 },
   },
   {
     key: "theme_100",
@@ -307,6 +347,7 @@ export const EXPLORE: AchievementDef[] = [
     emoji: "🌓",
     category: "explore",
     check: (s) => s.themeToggles >= 100,
+    progress: { stat: "themeToggles", target: 100 },
   },
   {
     key: "egg",
@@ -327,6 +368,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "⭐",
     category: "social",
     check: (s) => s.starsLeft >= 1,
+    progress: { stat: "starsLeft", target: 1 },
   },
   {
     key: "star_3",
@@ -335,6 +377,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "🌟",
     category: "social",
     check: (s) => s.starsLeft >= 3,
+    progress: { stat: "starsLeft", target: 3 },
   },
   {
     key: "star_10",
@@ -343,6 +386,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "💫",
     category: "social",
     check: (s) => s.starsLeft >= 10,
+    progress: { stat: "starsLeft", target: 10 },
   },
   {
     key: "starview_1",
@@ -351,6 +395,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "👀",
     category: "social",
     check: (s) => s.starViews >= 1,
+    progress: { stat: "starViews", target: 1 },
   },
   {
     key: "starview_20",
@@ -359,6 +404,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "🔭",
     category: "social",
     check: (s) => s.starViews >= 20,
+    progress: { stat: "starViews", target: 20 },
   },
   {
     key: "chat_1",
@@ -367,6 +413,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "💬",
     category: "social",
     check: (s) => s.chatUsed >= 1,
+    progress: { stat: "chatUsed", target: 1 },
   },
   {
     key: "chat_10",
@@ -375,6 +422,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "🗣️",
     category: "social",
     check: (s) => s.chatUsed >= 10,
+    progress: { stat: "chatUsed", target: 10 },
   },
   {
     key: "chat_100",
@@ -383,6 +431,7 @@ export const SOCIAL: AchievementDef[] = [
     emoji: "🫂",
     category: "social",
     check: (s) => s.chatUsed >= 100,
+    progress: { stat: "chatUsed", target: 100 },
   },
 ];
 
@@ -403,6 +452,7 @@ export const LEGEND: AchievementDef[] = [
     emoji: "🐉",
     category: "legend",
     check: (s) => s.postsRead >= 1000,
+    progress: { stat: "postsRead", target: 1000 },
   },
   {
     key: "music_1000",
@@ -411,22 +461,16 @@ export const LEGEND: AchievementDef[] = [
     emoji: "🎛️",
     category: "legend",
     check: (s) => s.songsPlayed >= 1000,
+    progress: { stat: "songsPlayed", target: 1000 },
   },
   {
-    key: "streak_30",
-    name: { zh: "三十日不辍", en: "Thirty Days Running", ja: "三十日途切れずに", ko: "30일을 쉬지 않고" },
-    description: { zh: "连续 30 天来访", en: "Visit 30 days in a row", ja: "30 日連続で訪れる", ko: "30일 연속 방문하기" },
-    emoji: "🔥",
-    category: "legend",
-    check: (s) => s.bestStreak >= 30,
-  },
-  {
-    key: "streak_365",
-    name: { zh: "年度常客", en: "A Whole Year", ja: "一年間の常連", ko: "1년 내내" },
-    description: { zh: "连续 365 天来访", en: "Visit 365 days in a row", ja: "365 日連続で訪れる", ko: "365일 연속 방문하기" },
+    key: "days_365",
+    name: { zh: "四季常在", en: "Through Every Season", ja: "四季を通して", ko: "사계절 내내" },
+    description: { zh: "累计来访 365 天", en: "Visit on 365 different days", ja: "のべ 365 日訪れる", ko: "총 365일 방문하기" },
     emoji: "👑",
     category: "legend",
-    check: (s) => s.bestStreak >= 365,
+    check: (s) => s.visitDays >= 365,
+    progress: { stat: "visitDays", target: 365 },
   },
   {
     key: "night_50",
@@ -435,6 +479,7 @@ export const LEGEND: AchievementDef[] = [
     emoji: "🦉",
     category: "legend",
     check: (s) => s.nightVisits >= 50,
+    progress: { stat: "nightVisits", target: 50 },
   },
   {
     key: "dawn_30",
@@ -443,6 +488,7 @@ export const LEGEND: AchievementDef[] = [
     emoji: "🐦",
     category: "legend",
     check: (s) => s.dawnVisits >= 30,
+    progress: { stat: "dawnVisits", target: 30 },
   },
   {
     key: "lab_365",
@@ -451,6 +497,7 @@ export const LEGEND: AchievementDef[] = [
     emoji: "🧪",
     category: "legend",
     check: (s) => s.labVisits >= 365,
+    progress: { stat: "labVisits", target: 365 },
   },
   {
     key: "chat_1000",
@@ -459,6 +506,7 @@ export const LEGEND: AchievementDef[] = [
     emoji: "📞",
     category: "legend",
     check: (s) => s.chatUsed >= 1000,
+    progress: { stat: "chatUsed", target: 1000 },
   },
   {
     key: "omni",

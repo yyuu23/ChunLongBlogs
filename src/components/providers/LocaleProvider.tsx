@@ -4,12 +4,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, HTML_LANG, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 import { DICTIONARIES, translate, translateList, type TParams } from "@/lib/i18n";
+import { trackEvent } from "@/lib/track";
 
 export type T = (key: string, params?: TParams) => string;
 export type TArr = (key: string) => string[];
@@ -46,6 +49,11 @@ export function LocaleProvider({
 }) {
   const router = useRouter();
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  // setLocale 回调是 useCallback([router])，闭包里的 locale 会过期，用 ref 同步最新值
+  const localeRef = useRef(initialLocale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   const t = useCallback<T>(
     (key, params) => translate(DICTIONARIES[locale], key, params),
@@ -58,6 +66,10 @@ export function LocaleProvider({
 
   const setLocale = useCallback(
     (next: Locale) => {
+      // 语言切换器把当前语言也渲染成可点按钮，点了不算切换
+      if (next === localeRef.current) return;
+      localeRef.current = next;
+      trackEvent("switch_locale", { locale: next });
       setLocaleState(next);
       document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
       document.documentElement.lang = HTML_LANG[next];

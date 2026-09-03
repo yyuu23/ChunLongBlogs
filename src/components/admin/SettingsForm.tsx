@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles, Download, Upload } from "lucide-react";
 import { saveSettings, rebuildEmbeddingsAction } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
 import type { SiteConfig } from "@/lib/site";
@@ -10,12 +11,38 @@ const label = "flex flex-col gap-1.5";
 const input =
   "rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400";
 
+/** 导入结果里表名 → 中文（postTags/siteConfig 不单列） */
+const TABLE_LABEL: Record<string, string> = {
+  posts: "文章",
+  categories: "分类",
+  tags: "标签",
+  moments: "说说",
+  friendLinks: "友链",
+  albums: "相册",
+  photos: "照片",
+  playlists: "歌单",
+  songs: "歌曲",
+};
+
+/** 备份文件的预览信息（选择后、确认前） */
+interface ImportPreview {
+  fileName: string;
+  exportedAt: string;
+  raw: string;
+  counts: { label: string; n: number }[];
+}
+
 export function SettingsForm({ initial }: { initial: SiteConfig }) {
+  const router = useRouter();
   const [config, setConfig] = useState<SiteConfig>(initial);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [embedMsg, setEmbedMsg] = useState("");
   const [embedBusy, setEmbedBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const rebuildEmbeddings = async () => {
     setEmbedBusy(true);
@@ -24,6 +51,73 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
     setEmbedBusy(false);
     if ("error" in r && r.error) setEmbedMsg(`❌ ${r.error}`);
     else if ("message" in r && r.message) setEmbedMsg(`✅ ${r.message}`);
+  };
+
+  /** 选文件 → 本地预解析 → 预览态（确认前不碰数据库） */
+  const pickImportFile = async (file: File | undefined) => {
+    setImportMsg("");
+    setImportPreview(null);
+    if (!file) return;
+    try {
+      const raw = await file.text();
+      const data = JSON.parse(raw) as {
+        version?: number;
+        exportedAt?: string;
+        tables?: Record<string, unknown[]>;
+      };
+      if (data.version !== 1 || typeof data.tables !== "object" || data.tables === null) {
+        setImportMsg("❌ 不是本站导出的备份（version 应为 1）");
+        return;
+      }
+      const names: [string, string][] = [
+        ["posts", "文章"], ["categories", "分类"], ["tags", "标签"], ["moments", "说说"],
+        ["friendLinks", "友链"], ["albums", "相册"], ["photos", "照片"], ["playlists", "歌单"], ["songs", "歌曲"],
+      ];
+      setImportPreview({
+        fileName: file.name,
+        exportedAt: data.exportedAt ?? "未知时间",
+        raw,
+        counts: names.map(([k, l]) => ({ label: l, n: Array.isArray(data.tables![k]) ? data.tables![k]!.length : 0 })),
+      });
+    } catch {
+      setImportMsg("❌ 文件不是有效的 JSON");
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = ""; // 允许重选同一个文件
+    }
+  };
+
+  const runImport = async () => {
+    if (!importPreview) return;
+    const total = importPreview.counts.reduce((s, c) => s + c.n, 0);
+    const ok = confirm(
+      `确定导入 ${importPreview.fileName}（共 ${total} 条内容）？\n\n` +
+        "相同 ID 的现有内容会被备份覆盖，此操作无法撤销。\n建议先点「导出全部内容」留存当前备份。",
+    );
+    if (!ok) return;
+    setImportBusy(true);
+    setImportMsg("");
+    try {
+      const res = await fetch("/api/admin/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: importPreview.raw,
+      });
+      const r = (await res.json()) as { ok?: boolean; counts?: Record<string, number>; hint?: string; error?: string };
+      if (!res.ok || !r.ok) {
+        setImportMsg(`❌ ${r.error ?? `导入失败（HTTP ${res.status}）`}`);
+        return;
+      }
+      const parts = Object.entries(r.counts ?? {})
+        .filter(([k]) => k !== "postTags" && k !== "siteConfig")
+        .map(([k, n]) => `${TABLE_LABEL[k] ?? k} ${n}`);
+      setImportMsg(`✅ 已导入：${parts.join(" · ")}${r.hint ? `。${r.hint}` : ""}`);
+      setImportPreview(null);
+      router.refresh();
+    } catch {
+      setImportMsg("❌ 网络异常，导入请求未完成");
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const set = <K extends keyof SiteConfig>(key: K, value: SiteConfig[K]) =>
@@ -290,6 +384,73 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
             className={`resize-y font-mono text-xs ${input}`}
           />
         </label>
+      </section>
+
+      {/* 数据管理：备份 / 恢复 */}
+      <section className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold">数据管理（备份 / 恢复）</h2>
+        <p className="text-[11px] leading-relaxed text-slate-400">
+          导出范围：文章、说说、相册、友链、音乐、分类标签与站点设置（不含管理员账号与访客数据）。
+          导入按 ID 合并：相同 ID 的现有内容会被覆盖，本地新增内容保留，可重复导入。
+          图片文件不在备份内——更换服务器时请另外拷贝 public/uploads/ 目录。
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/api/admin/export"
+            download
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500"
+          >
+            <Download className="h-3.5 w-3.5" />
+            导出全部内容（JSON）
+          </a>
+          <button
+            onClick={() => importInputRef.current?.click()}
+            disabled={importBusy}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-60"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            选择备份文件…
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => void pickImportFile(e.target.files?.[0])}
+          />
+        </div>
+
+        {/* 导入预览（确认前不碰数据库） */}
+        {importPreview && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-xs">
+            <p className="font-medium text-slate-700">
+              {importPreview.fileName}
+              <span className="ml-2 font-normal text-slate-400">导出于 {importPreview.exportedAt}</span>
+            </p>
+            <p className="mt-1.5 text-slate-500">
+              {importPreview.counts.map((c) => `${c.label} ${c.n}`).join(" · ")}
+              （站点设置 {importPreview.raw.includes('"siteConfig"') ? "✓" : "—"}）
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() => void runImport()}
+                disabled={importBusy}
+                className="flex items-center gap-1.5 rounded-xl bg-rose-500 px-3.5 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                {importBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {importBusy ? "导入中…" : "确认导入"}
+              </button>
+              <button
+                onClick={() => setImportPreview(null)}
+                disabled={importBusy}
+                className="rounded-xl px-3 py-2 text-xs text-slate-400 hover:text-slate-600 disabled:opacity-60"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+        {importMsg && <p className="text-xs leading-relaxed text-slate-500">{importMsg}</p>}
       </section>
 
       <div className="flex justify-end">

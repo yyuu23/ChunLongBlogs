@@ -80,9 +80,21 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          # secret 可能是在 Windows 上复制的，带 CRLF 换行；
-          # OpenSSH 无法解析含 \r 的私钥，必须剥掉
-          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+
+          # SERVER_SSH_KEY 支持两种格式：
+          #   1) PEM 原文（可能带 Windows 的 CRLF，需剥掉 \r）
+          #   2) 单行 base64（推荐：不含换行，复制粘贴不会被破坏）
+          if printf '%s' "$SSH_PRIVATE_KEY" | grep -q 'BEGIN .*PRIVATE KEY'; then
+            echo "SERVER_SSH_KEY 格式：PEM 原文"
+            printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            echo "SERVER_SSH_KEY 格式：base64"
+            if ! printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r\n \t' | base64 -d > ~/.ssh/deploy_key 2>/tmp/b64err; then
+              echo "::error::SERVER_SSH_KEY 既不是 PEM 私钥原文，也不是有效的 base64。"
+              cat /tmp/b64err >&2
+              exit 1
+            fi
+          fi
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts

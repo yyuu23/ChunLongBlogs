@@ -59,8 +59,8 @@ SITE_URL=https://你的域名
 ## 3. 初始化数据库并启动
 
 ```bash
-npm run db:push     # 建表
-npm run db:seed     # 首次部署可选：写入演示数据（之后正式写作前可在后台删掉演示文章）
+npm run db:push     # 建表（管理员账号会在首次 Actions 部署时按 .env 自动创建）
+npm run db:seed     # 可选：仅写入演示数据（会清空已有内容，已正式写作的站点别跑）
 npm run build
 pm2 start npm --name chunlong-blog -- start
 pm2 save
@@ -134,8 +134,9 @@ certbot --nginx -d chunlong.me
 
 ## 常见问题
 
-- **忘记管理员密码**：改 `.env` 里的 `ADMIN_PASSWORD`，然后 `npm run db:seed`（会重置全部数据，慎用）；或直接改库：
-  `node -e "const b=require('bcryptjs');console.log(b.hashSync('新密码',10))"` 后 SQL 更新 `admin_users.password_hash`
+- **忘记管理员密码**：改 `.env` 不会生效（登录校验的是数据库里的哈希，`.env` 只在部署脚本首次创建账号时用到）。在服务器上执行（把 `NEWPWD` 换成新密码，别含单引号；立即生效无需重启）：
+  `node -e 'const b=require("bcryptjs");const db=require("better-sqlite3")("data/db.sqlite");db.prepare("INSERT INTO admin_users (username,password_hash) VALUES (?,?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash").run("admin",b.hashSync("NEWPWD",10));console.log("done");'`
+  **不要**用 `npm run db:seed` 修密码——它会清空全部内容表（文章/说说/相册）再写演示数据
 - **图片上传 401**：确认是从 `/admin` 登录后的会话操作
 - **端口被占**：`pm2 delete chunlong-blog && PORT=3001 pm2 start npm --name chunlong-blog -- start` 并同步修改 Nginx
 

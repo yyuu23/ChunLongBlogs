@@ -122,11 +122,26 @@ nano /opt/chunlong-blog/.env
    node_modules 和构建产物，并自动执行 db:push 和 pm2 start。
 ```
 
-首次部署成功后，如需演示数据（可选，仅首次）：
+**管理员账号无需手动初始化**：部署脚本检测到 `admin_users` 表为空时，会自动按
+`.env` 的 `ADMIN_USERNAME / ADMIN_PASSWORD` 创建（已有任何账号则永不改动、绝不覆盖
+密码——忘记密码见下方说明）。
+
+如需演示数据（可选，**仅限全新空库**）：`db:seed` 会先**清空全部内容表**（文章、
+说说、相册等）再写入演示数据，已正式写作的站点绝对不要跑：
 
 ```bash
 ssh deploy@服务器IP
 cd /opt/chunlong-blog && npm run db:seed
+```
+
+**忘记管理员密码**：改 `.env` 里的 `ADMIN_PASSWORD` 不会生效（登录校验的是数据库
+里的哈希，`.env` 只在账号首次创建时用到）。在服务器上直接更新哈希即可（立即生效，
+无需重启，不动其他数据）。下面整段复制粘贴，**只需把 `NEWPWD` 换成新密码**（别用
+单引号字符）：
+
+```bash
+ssh deploy@服务器IP
+cd /opt/chunlong-blog && node -e 'const b=require("bcryptjs");const db=require("better-sqlite3")("data/db.sqlite");db.prepare("INSERT INTO admin_users (username,password_hash) VALUES (?,?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash").run("admin",b.hashSync("NEWPWD",10));console.log("done");'
 ```
 
 ## 4. 取得并验证服务器主机密钥

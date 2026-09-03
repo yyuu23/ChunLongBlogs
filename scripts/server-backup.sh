@@ -27,6 +27,14 @@ if (( ${#backup_items[@]} > 0 )); then
   echo "Runtime data backed up to $backup_path"
 fi
 
-# 只保留最近 $KEEP 份备份，避免无限累积占满磁盘
-cd "$BACKUP_DIR"
-ls -1t chunlong-*.tar.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f
+# 只保留最近 $KEEP 份备份，避免无限累积占满磁盘。
+# 注意：目录为空时 ls 的通配会返回非零退出码，在 set -e / pipefail 下会中止脚本，
+# 因此先用 nullglob 数组统计数量，只有确实超量时才执行清理。
+shopt -s nullglob
+existing=("$BACKUP_DIR"/chunlong-*.tar.gz)
+shopt -u nullglob
+
+if (( ${#existing[@]} > KEEP )); then
+  ls -1t "$BACKUP_DIR"/chunlong-*.tar.gz | tail -n +"$((KEEP + 1))" | xargs -r rm -f
+  echo "Pruned old backups, keeping the most recent $KEEP."
+fi

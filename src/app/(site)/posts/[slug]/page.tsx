@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { CalendarDays, Clock3, Home, ChevronRight, ArrowLeft, ArrowRight } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { AutoCover } from "@/components/posts/AutoCover";
 import { Toc } from "@/components/posts/Toc";
 import { ViewCounter, GiscusComments } from "@/components/posts/PostExtras";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
@@ -100,8 +101,8 @@ export default async function PostDetailPage({ params }: PageProps) {
                   )}
                 </header>
 
-                {post.cover && (
-                  <div className="relative aspect-[21/9]">
+                <div className="relative aspect-[21/9]">
+                  {post.cover ? (
                     <LazyImage
                       src={post.cover}
                       alt={post.title}
@@ -110,8 +111,10 @@ export default async function PostDetailPage({ params }: PageProps) {
                       sizes="(max-width: 1024px) 100vw, 60vw"
                       className="object-cover"
                     />
-                  </div>
-                )}
+                  ) : (
+                    <AutoCover title={post.title} seed={post.slug} variant="wide" />
+                  )}
+                </div>
 
                 {/* 正文 */}
                 <div

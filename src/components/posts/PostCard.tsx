@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Eye, Clock3 } from "lucide-react";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { AutoCover } from "@/components/posts/AutoCover";
 import { useT } from "@/components/providers/LocaleProvider";
 import type { PostListItem } from "@/lib/posts";
 import { formatDate } from "@/lib/utils";
@@ -79,7 +80,9 @@ export function PostCard({
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="h-full w-full bg-accent-br-gradient opacity-60" />
+                  <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
+                    <AutoCover title={post.title} seed={post.slug} />
+                  </div>
                 )}
                 {post.isPinned && (
                   <span className="absolute left-3 top-3 z-10 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-0.5 text-xs font-semibold text-white shadow">
@@ -142,7 +145,9 @@ export function PostCard({
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="h-full w-full bg-accent-br-gradient opacity-60" />
+                  <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
+                    <AutoCover title={post.title} seed={post.slug} />
+                  </div>
                 )}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-2 py-1 pr-2">

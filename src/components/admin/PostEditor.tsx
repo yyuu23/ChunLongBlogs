@@ -14,6 +14,7 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { savePost } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
@@ -50,6 +51,7 @@ export function PostEditor({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [tagInput, setTagInput] = useState("");
+  const [aiSummarizing, setAiSummarizing] = useState(false);
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const words = useMemo(() => countWords(data.content), [data.content]);
@@ -79,6 +81,35 @@ export function PostEditor({
     if (!trimmed || data.tagNames.includes(trimmed)) return;
     set("tagNames", [...data.tagNames, trimmed]);
     setTagInput("");
+  };
+
+  /** 让 AI 根据标题+正文写摘要，成功后直接填入摘要框（覆盖前先确认） */
+  const aiSummarize = async () => {
+    if (data.content.trim().length < 20) {
+      setMessage({ type: "err", text: "正文太短，先写点内容再生成摘要" });
+      return;
+    }
+    if (data.description.trim() && !confirm("摘要已有内容，生成的结果会覆盖它，继续？")) return;
+    setAiSummarizing(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: data.title, content: data.content }),
+      });
+      const json = (await res.json()) as { summary?: string; error?: string };
+      if (!res.ok || !json.summary) {
+        setMessage({ type: "err", text: json.error ?? "生成失败，请重试" });
+        return;
+      }
+      set("description", json.summary);
+      setMessage({ type: "ok", text: "摘要已生成 ✓" });
+    } catch {
+      setMessage({ type: "err", text: "生成失败，请检查网络" });
+    } finally {
+      setAiSummarizing(false);
+    }
   };
 
   const insertAtCursor = (text: string) => {
@@ -190,8 +221,24 @@ export function PostEditor({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1.5 md:col-span-2">
-          <span className="text-xs font-medium text-slate-500">摘要</span>
+        <div className="flex flex-col gap-1.5 md:col-span-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-slate-500">摘要</span>
+            <button
+              type="button"
+              onClick={aiSummarize}
+              disabled={aiSummarizing}
+              title="用 AI 根据标题与正文生成一句话摘要"
+              className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-60"
+            >
+              {aiSummarizing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {aiSummarizing ? "生成中…" : "AI 生成摘要"}
+            </button>
+          </div>
           <textarea
             value={data.description}
             onChange={(e) => set("description", e.target.value)}
@@ -199,7 +246,7 @@ export function PostEditor({
             rows={2}
             className="resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400"
           />
-        </label>
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-slate-500">封面图</span>

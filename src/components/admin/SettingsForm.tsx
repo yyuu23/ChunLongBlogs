@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles, Download, Upload } from "lucide-react";
-import { saveSettings, rebuildEmbeddingsAction } from "@/app/admin/actions";
+import { saveSettings, rebuildEmbeddingsAction, backfillSummariesAction, backfillTagsAction } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
 import type { SiteConfig } from "@/lib/site";
 
@@ -39,6 +39,10 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
   const [saved, setSaved] = useState(false);
   const [embedMsg, setEmbedMsg] = useState("");
   const [embedBusy, setEmbedBusy] = useState(false);
+  const [summaryMsg, setSummaryMsg] = useState("");
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [tagMsg, setTagMsg] = useState("");
+  const [tagBusy, setTagBusy] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState("");
@@ -51,6 +55,26 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
     setEmbedBusy(false);
     if ("error" in r && r.error) setEmbedMsg(`❌ ${r.error}`);
     else if ("message" in r && r.message) setEmbedMsg(`✅ ${r.message}`);
+  };
+
+  /** 为 description 为空的文章补 AI 摘要：每次 5 篇，剩余量提示继续点击 */
+  const backfillSummaries = async () => {
+    setSummaryBusy(true);
+    setSummaryMsg("");
+    const r = await backfillSummariesAction();
+    setSummaryBusy(false);
+    if ("error" in r && r.error) setSummaryMsg(`❌ ${r.error}`);
+    else if ("message" in r && r.message) setSummaryMsg(`✅ ${r.message}`);
+  };
+
+  /** 为没有任何标签的文章补 AI 标签：只补空，不动已有标签 */
+  const backfillTags = async () => {
+    setTagBusy(true);
+    setTagMsg("");
+    const r = await backfillTagsAction();
+    setTagBusy(false);
+    if ("error" in r && r.error) setTagMsg(`❌ ${r.error}`);
+    else if ("message" in r && r.message) setTagMsg(`✅ ${r.message}`);
   };
 
   /** 选文件 → 本地预解析 → 预览态（确认前不碰数据库） */
@@ -373,6 +397,36 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
           </div>
           <p className="text-[11px] leading-relaxed text-slate-400">
             配置 .env 的 EMBEDDING_API_KEY 后可启用语义检索（推荐智谱 embedding-3）；未配置时自动使用关键词检索，问答功能同样可用
+          </p>
+        </div>
+        <div className={`${label} sm:col-span-2`}>
+          <span className="text-xs font-medium text-slate-500">文章 AI 摘要与标签</span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={backfillSummaries}
+                disabled={summaryBusy}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-60"
+              >
+                {summaryBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {summaryBusy ? "生成中…" : "为缺摘要的文章生成"}
+              </button>
+              {summaryMsg && <span className="text-xs text-slate-500">{summaryMsg}</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={backfillTags}
+                disabled={tagBusy}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-60"
+              >
+                {tagBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {tagBusy ? "生成中…" : "为无标签文章补标签"}
+              </button>
+              {tagMsg && <span className="text-xs text-slate-500">{tagMsg}</span>}
+            </div>
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            摘要：为摘要为空的文章批量生成一句话摘要；标签：只为没有任何标签的文章补充（优先复用标签库已有词，不修改已有标签）。每批 5 篇，需要 .env 配置 LLM_API_KEY / DEEPSEEK_API_KEY
           </p>
         </div>
         <label className={`${label} sm:col-span-2`}>

@@ -12,7 +12,8 @@ export default async function AdminAlbumsPage() {
       title: albums.title,
       description: albums.description,
       cover: albums.cover,
-      photoCount: sql<number>`(SELECT count(*) FROM photos ph WHERE ph.album_id = ${albums.id})`,
+      // 同 lib/posts.ts：sql`` 里插值列会丢表前缀，子查询裸 id 绑到内层 photos.id 计数恒 0，手写限定名
+      photoCount: sql<number>`(SELECT count(*) FROM photos ph WHERE ph.album_id = albums.id)`,
     })
     .from(albums)
     .orderBy(asc(albums.createdAt));

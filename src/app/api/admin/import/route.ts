@@ -15,6 +15,7 @@ import {
   tags,
 } from "@/lib/db/schema";
 import { requireAdminApi } from "@/lib/auth";
+import { excerpt } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -160,7 +161,8 @@ export async function POST(request: Request) {
           id,
           title: str(r.title, "无标题"),
           slug,
-          description: str(r.description),
+          // 备份里摘要为空的文章用清洗后的正文兜底，避免前台/RSS 出现空摘要
+          description: str(r.description) || excerpt(str(r.content), 100),
           content: str(r.content),
           cover: str(r.cover),
           categoryId: r.categoryId == null ? null : num(r.categoryId),

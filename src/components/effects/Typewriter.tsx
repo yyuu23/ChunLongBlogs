@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 
 /** 打字机效果：逐字输出 + 闪烁光标 */
@@ -42,7 +42,7 @@ export function Typewriter({
   );
 }
 
-/** 图片懒加载淡入：加载完成前显示 shimmer 骨架 */
+/** 图片懒加载淡入：加载完成前显示 shimmer 骨架；传入 fallback 后，加载失败（图床挂了/URL 失效）渲染 fallback 而不是永久骨架 */
 export function LazyImage({
   src,
   alt,
@@ -52,6 +52,7 @@ export function LazyImage({
   className,
   sizes,
   priority,
+  fallback,
 }: {
   src: string;
   alt: string;
@@ -61,22 +62,29 @@ export function LazyImage({
   className?: string;
   sizes?: string;
   priority?: boolean;
+  fallback?: ReactNode;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <>
-      {!loaded && <div className="shimmer-bg absolute inset-0" aria-hidden />}
-      <Image
-        src={src}
-        alt={alt}
-        fill={fill}
-        width={width}
-        height={height}
-        sizes={sizes}
-        priority={priority}
-        className={`transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
-        onLoad={() => setLoaded(true)}
-      />
+      {!loaded && !failed && <div className="shimmer-bg absolute inset-0" aria-hidden />}
+      {failed ? (
+        fallback ?? null
+      ) : (
+        <Image
+          src={src}
+          alt={alt}
+          fill={fill}
+          width={width}
+          height={height}
+          sizes={sizes}
+          priority={priority}
+          className={`transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+      )}
     </>
   );
 }

@@ -23,10 +23,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const [{ slug }, { t }] = await Promise.all([params, getT()]);
   const post = await getPostBySlug(slug);
   if (!post) return { title: t("posts.notFound") };
+  // 分享卡图：有封面用封面；无封面走 /api/og 动态渲染的渐变图（与 AutoCover 同视觉）
+  const image = post.cover || `/api/og/${post.slug}`;
   return {
     title: post.title,
     description: post.description,
-    openGraph: { title: post.title, description: post.description, type: "article" },
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      type: "article",
+      images: [{ url: image, width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.description,
+      images: [image],
+    },
   };
 }
 
@@ -110,6 +123,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                       priority
                       sizes="(max-width: 1024px) 100vw, 60vw"
                       className="object-cover"
+                      fallback={<AutoCover title={post.title} seed={post.slug} variant="wide" />}
                     />
                   ) : (
                     <AutoCover title={post.title} seed={post.slug} variant="wide" />

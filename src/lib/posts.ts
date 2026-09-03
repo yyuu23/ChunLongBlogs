@@ -125,7 +125,7 @@ export async function getPublishedPosts(opts: QueryOptions = {}) {
     const tid = await tagIdBySlug(opts.tag);
     if (tid == null) return { items: [], total: 0, page, perPage };
     conditions.push(
-      sql`EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = ${postsTable.id} AND pt.tag_id = ${tid})`,
+      sql`EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = posts.id AND pt.tag_id = ${tid})`,
     );
   }
   if (opts.q) {
@@ -199,7 +199,9 @@ export async function getCategoriesWithCount() {
       name: categories.name,
       slug: categories.slug,
       color: categories.color,
-      count: sql<number>`(SELECT count(*) FROM posts p WHERE p.category_id = ${categories.id} AND p.status = 'published')`,
+      // 注意：sql`` 模板里插值列对象会被 drizzle 渲染成裸列名（丢表前缀），
+      // 相关子查询的裸 id 会绑到内层表导致计数恒为 0，必须手写表限定名
+      count: sql<number>`(SELECT count(*) FROM posts p WHERE p.category_id = categories.id AND p.status = 'published')`,
     })
     .from(categories)
     .orderBy(asc(categories.id));
@@ -211,7 +213,7 @@ export async function getTagsWithCount() {
       id: tagsTable.id,
       name: tagsTable.name,
       slug: tagsTable.slug,
-      count: sql<number>`(SELECT count(*) FROM post_tags pt JOIN posts p ON p.id = pt.post_id WHERE pt.tag_id = ${tagsTable.id} AND p.status = 'published')`,
+      count: sql<number>`(SELECT count(*) FROM post_tags pt JOIN posts p ON p.id = pt.post_id WHERE pt.tag_id = tags.id AND p.status = 'published')`,
     })
     .from(tagsTable)
     .orderBy(asc(tagsTable.id));

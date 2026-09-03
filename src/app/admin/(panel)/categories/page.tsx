@@ -12,7 +12,8 @@ export default async function AdminCategoriesPage() {
         id: categories.id,
         name: categories.name,
         color: categories.color,
-        count: sql<number>`(SELECT count(*) FROM posts p WHERE p.category_id = ${categories.id})`,
+        // 同 lib/posts.ts：sql`` 里插值列会丢表前缀，手写限定名防裸 id 绑到内层 posts.id
+        count: sql<number>`(SELECT count(*) FROM posts p WHERE p.category_id = categories.id)`,
       })
       .from(categories)
       .orderBy(asc(categories.id)),
@@ -20,7 +21,7 @@ export default async function AdminCategoriesPage() {
       .select({
         id: tags.id,
         name: tags.name,
-        count: sql<number>`(SELECT count(*) FROM post_tags pt WHERE pt.tag_id = ${tags.id})`,
+        count: sql<number>`(SELECT count(*) FROM post_tags pt WHERE pt.tag_id = tags.id)`,
       })
       .from(tags)
       .orderBy(asc(tags.name)),

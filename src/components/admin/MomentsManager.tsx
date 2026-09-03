@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Plus, Trash2, X, Loader2, MapPin, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Loader2, MapPin, Pencil, Check, Wand2, Undo2, Sparkles } from "lucide-react";
 import { saveMoment, deleteMoment } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
 import { relativeTime } from "@/lib/utils";
@@ -24,6 +24,9 @@ export function MomentsManager({ moments }: { moments: MomentRow[] }) {
   const [saving, setSaving] = useState(false);
   // 编辑态：非空 = 正在编辑该条（saveMoment 带 id 走更新分支）
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [polishing, setPolishing] = useState(false);
+  /** 润色前的内容备份：null = 未润色过；再润色会刷新备份（撤销只有一级） */
+  const [polishBackup, setPolishBackup] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const resetForm = () => {
@@ -48,7 +51,36 @@ export function MomentsManager({ moments }: { moments: MomentRow[] }) {
     setSaving(true);
     await saveMoment({ id: editingId ?? undefined, content, images, mood, location });
     resetForm();
+    setPolishBackup(null);
     setSaving(false);
+  };
+
+  /** AI 润色：把当前内容改写得更轻松惬意，原意不变；润色前内容可一键撤销 */
+  const aiPolish = async () => {
+    if (content.trim().length < 10) return;
+    setPolishing(true);
+    try {
+      const res = await fetch("/api/admin/polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "moment", content }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      const json = (await res.json()) as { content?: string; error?: string };
+      if (!res.ok || !json.content) return;
+      setPolishBackup(content);
+      setContent(json.content);
+    } catch {
+      /* 润色失败就保留原文，不打断发布流程 */
+    } finally {
+      setPolishing(false);
+    }
+  };
+
+  const undoPolish = () => {
+    if (polishBackup == null) return;
+    setContent(polishBackup);
+    setPolishBackup(null);
   };
 
   return (
@@ -73,6 +105,19 @@ export function MomentsManager({ moments }: { moments: MomentRow[] }) {
           rows={3}
           className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400"
         />
+        {polishBackup != null && (
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-amber-600">
+            <Sparkles className="h-3 w-3" />
+            已润色
+            <button
+              onClick={undoPolish}
+              className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors hover:bg-amber-50"
+            >
+              <Undo2 className="h-3 w-3" />
+              撤销，恢复原文
+            </button>
+          </div>
+        )}
         {images.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {images.map((src) => (
@@ -106,6 +151,15 @@ export function MomentsManager({ moments }: { moments: MomentRow[] }) {
             />
           </div>
           <UploadButton onUploaded={(urls) => setImages((prev) => [...prev, ...urls])} label="添加图片" multiple />
+          <button
+            onClick={() => void aiPolish()}
+            disabled={polishing || content.trim().length < 10}
+            title="AI 把这条说说改写得更轻松惬意（原意不变，可撤销）"
+            className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-50"
+          >
+            {polishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {polishing ? "润色中…" : "AI 润色"}
+          </button>
           <button
             onClick={submit}
             disabled={saving || !content.trim()}

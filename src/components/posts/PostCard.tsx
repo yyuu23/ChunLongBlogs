@@ -78,6 +78,11 @@ export function PostCard({
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    fallback={
+                      <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
+                        <AutoCover title={post.title} seed={post.slug} />
+                      </div>
+                    }
                   />
                 ) : (
                   <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
@@ -143,6 +148,11 @@ export function PostCard({
                     fill
                     sizes="(max-width: 640px) 100vw, 224px"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    fallback={
+                      <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
+                        <AutoCover title={post.title} seed={post.slug} />
+                      </div>
+                    }
                   />
                 ) : (
                   <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">

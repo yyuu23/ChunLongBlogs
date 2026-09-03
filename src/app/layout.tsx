@@ -29,6 +29,7 @@ const notoSerifSC = Noto_Serif_SC({
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig();
   return {
+    metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
     title: {
       default: config.siteName,
       template: `%s · ${config.siteName}`,

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import {
@@ -19,8 +19,9 @@ import {
   tags,
 } from "@/lib/db/schema";
 import { createSession, destroySession, getSession } from "@/lib/auth";
+import { llmConfigured, summarizeContent, suggestTags } from "@/lib/ai";
 import { saveSiteConfig, type SiteConfig } from "@/lib/site";
-import { countWords, readingTimeMinutes, slugify } from "@/lib/utils";
+import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
 
 async function guard() {
   const session = await getSession();
@@ -87,7 +88,8 @@ export async function savePost(input: PostInput) {
   const payload = {
     title,
     slug,
-    description: (input.description ?? "").trim() || content.slice(0, 100),
+    // 留空时截正文兜底：走 excerpt 清洗（去代码块/Markdown 标记），列表卡/RSS/SEO 描述不漏原文符号
+    description: (input.description ?? "").trim() || excerpt(content, 100),
     content,
     cover: input.cover ?? "",
     categoryId: input.categoryId ?? null,
@@ -456,6 +458,121 @@ export async function importNetease(playlistId: string) {
   } catch (e) {
     return { error: e instanceof Error ? `导入失败：${e.message}` : "导入失败" };
   }
+}
+
+/**
+ * 为缺摘要（description 为空）的文章批量生成 AI 摘要。
+ * 每次最多处理 5 篇——LLM 单篇数秒，批太多会顶到 server action 超时；
+ * 返回 remaining 让 UI 提示"继续点击"直到清零。
+ */
+export async function backfillSummariesAction() {
+  await guard();
+  if (!llmConfigured()) {
+    return { error: "未配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务" };
+  }
+  const rows = await db
+    .select({ id: posts.id, title: posts.title, content: posts.content })
+    .from(posts)
+    .where(eq(posts.description, ""))
+    .orderBy(asc(posts.id))
+    .limit(5);
+
+  let updated = 0;
+  let lastError = "";
+  for (const row of rows) {
+    const r = await summarizeContent(row.title, row.content);
+    if (r.ok) {
+      await db
+        .update(posts)
+        .set({ description: r.summary, updatedAt: new Date() })
+        .where(eq(posts.id, row.id));
+      updated++;
+    } else {
+      lastError = r.error;
+    }
+  }
+
+  const remainingRows = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(posts)
+    .where(eq(posts.description, ""));
+  const remaining = remainingRows[0]?.n ?? 0;
+
+  if (updated === 0) {
+    return { error: lastError || "没有需要补摘要的文章" };
+  }
+  revalidateAll();
+  return {
+    ok: true as const,
+    updated,
+    remaining,
+    message:
+      remaining > 0
+        ? `已生成 ${updated} 篇，还剩 ${remaining} 篇缺摘要（继续点击即可）`
+        : `已生成 ${updated} 篇，全部文章都有摘要了`,
+  };
+}
+
+/**
+ * 为没有任何标签的文章批量补 AI 标签（每批 5 篇防 action 超时）。
+ * 只补空——已有标签的文章绝不修改；模型优先复用标签库现有词，
+ * 新词按 savePost 同款逻辑（slug 查重）建入 tags 表，与标签管理页天然联动。
+ */
+export async function backfillTagsAction() {
+  await guard();
+  if (!llmConfigured()) {
+    return { error: "未配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务" };
+  }
+  const existingNames = (
+    await db.select({ name: tags.name }).from(tags).orderBy(asc(tags.name))
+  ).map((t) => t.name);
+
+  const rows = await db
+    .select({ id: posts.id, title: posts.title, content: posts.content })
+    .from(posts)
+    .where(sql`NOT EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = posts.id)`)
+    .orderBy(asc(posts.id))
+    .limit(5);
+
+  let updated = 0;
+  let lastError = "";
+  for (const row of rows) {
+    const r = await suggestTags(row.title, row.content, existingNames);
+    if (!r.ok) {
+      lastError = r.error;
+      continue;
+    }
+    for (const name of r.tags) {
+      const tslug = slugify(name);
+      let tagRow = (await db.select().from(tags).where(eq(tags.slug, tslug)).limit(1))[0];
+      if (!tagRow) {
+        tagRow = (await db.insert(tags).values({ name, slug: tslug }).returning())[0]!;
+        existingNames.push(name); // 后续文章的"现有标签列表"带上本轮新建的词
+      }
+      await db.insert(postTags).values({ postId: row.id, tagId: tagRow.id }).onConflictDoNothing();
+    }
+    updated++;
+  }
+
+  const remainingRows = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(posts)
+    .where(sql`NOT EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = posts.id)`);
+  const remaining = remainingRows[0]?.n ?? 0;
+
+  if (updated === 0) {
+    return { error: lastError || "没有需要补标签的文章" };
+  }
+  revalidateAll();
+  return {
+    ok: true as const,
+    updated,
+    remaining,
+    message:
+      remaining > 0
+        ? `已为 ${updated} 篇补上标签，还剩 ${remaining} 篇无标签（继续点击即可）`
+        : `已为 ${updated} 篇补上标签，全部文章都有标签了`,
+  };
 }
 
 /* ============ 站点配置 ============ */

@@ -13,7 +13,8 @@ export default async function AdminMusicPage() {
         title: playlists.title,
         description: playlists.description,
         cover: playlists.cover,
-        songCount: sql<number>`(SELECT count(*) FROM songs s WHERE s.playlist_id = ${playlists.id})`,
+        // 同 lib/posts.ts：sql`` 里插值列会丢表前缀，手写限定名防裸 id 绑到内层 songs.id
+        songCount: sql<number>`(SELECT count(*) FROM songs s WHERE s.playlist_id = playlists.id)`,
       })
       .from(playlists)
       .orderBy(asc(playlists.createdAt)),

@@ -1,12 +1,14 @@
 /**
- * 自动封面：没上传封面图的文章，用标题哈希生成一张稳定的渐变封面。
+ * 自动封面：没上传封面图的文章，用 slug 哈希生成一张稳定的渐变封面。
  *
  * 为什么是 DOM/CSS 而不是 next/og 生成 PNG：Satori 内置字体不含中文字形，
  * 仓库里也没有 .ttf/.otf 可用（Google Fonts 在国内还拉不通），生成的 PNG
  * 中文会变成豆腐块。改成纯 DOM 后由浏览器用系统字体渲染，中文正常。
+ * （后续已在 public/fonts/simhei.ttf 放入黑体，/api/og/[slug] 用它为
+ * 无封面文章出分享卡 PNG；线上封面仍是本组件渲染，二者共用 pickAutoCoverStyle。）
  *
  * 无 hook、无 "use client"：服务端组件与客户端组件都能直接用；
- * 配色只由 title/slug 决定，同一篇文章每次渲染结果一致（不会 hydration 抖动）。
+ * 配色只由 slug 决定——同一篇文章改标题配色不变，也不会 hydration 抖动。
  */
 
 /** 柔和渐变 + 深色文字，取自站点 gradientPalette 的调性 */
@@ -31,23 +33,39 @@ function hash(input: string): number {
   return Math.abs(h);
 }
 
+export interface AutoCoverStyle {
+  palette: { from: string; to: string; ink: string };
+  angle: number;
+  blobA: { x: number; y: number; r: number };
+  blobB: { x: number; y: number; r: number };
+  bandY: number;
+}
+
+/** 由 seed（一般传 slug）推出封面的全部视觉参数；组件与 OG 分享图路由共用，保证视觉一致 */
+export function pickAutoCoverStyle(seed: string): AutoCoverStyle {
+  const h = hash(seed);
+  return {
+    palette: PALETTES[h % PALETTES.length]!,
+    // 渐变角度与两个装饰圆的位置都从哈希里取，避免所有封面长得一样
+    angle: 105 + ((h >> 3) % 70),
+    blobA: { x: 8 + ((h >> 5) % 30), y: 10 + ((h >> 9) % 30), r: 34 + ((h >> 13) % 18) },
+    blobB: { x: 60 + ((h >> 7) % 30), y: 55 + ((h >> 11) % 35), r: 26 + ((h >> 17) % 16) },
+    bandY: 30 + ((h >> 19) % 30),
+  };
+}
+
 export function AutoCover({
   title,
   seed = "",
   variant = "card",
 }: {
   title: string;
-  /** 参与哈希的额外因子，一般传 slug，保证同名标题也能有不同配色 */
+  /** 参与哈希的因子，一般传 slug：slug 天然唯一，且标题修改不会改变配色 */
   seed?: string;
   /** card：列表卡片（小图）；wide：详情页横幅（大图） */
   variant?: "card" | "wide";
 }) {
-  const h = hash(`${seed}::${title}`);
-  const palette = PALETTES[h % PALETTES.length]!;
-  // 渐变角度与两个装饰圆的位置都从哈希里取，避免所有封面长得一样
-  const angle = 105 + ((h >> 3) % 70);
-  const blobA = { x: 8 + ((h >> 5) % 30), y: 10 + ((h >> 9) % 30), r: 34 + ((h >> 13) % 18) };
-  const blobB = { x: 60 + ((h >> 7) % 30), y: 55 + ((h >> 11) % 35), r: 26 + ((h >> 17) % 16) };
+  const { palette, angle, blobA, blobB, bandY } = pickAutoCoverStyle(seed);
   const wide = variant === "wide";
 
   return (
@@ -77,7 +95,7 @@ export function AutoCover({
       />
       <span
         className="absolute -inset-x-1/4 h-1/3 -rotate-12 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-        style={{ top: `${30 + ((h >> 19) % 30)}%` }}
+        style={{ top: `${bandY}%` }}
       />
 
       {/* 标题：line-clamp 兜住超长标题，中文由系统字体渲染 */}

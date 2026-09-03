@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 const COOKIE_NAME = "cl_admin";
@@ -9,6 +9,16 @@ function secret() {
   return encoder.encode(
     process.env.AUTH_SECRET ?? "dev-secret-do-not-use-in-production",
   );
+}
+
+/**
+ * 登录 cookie 是否加 Secure 按请求真实协议判断，而非 NODE_ENV：
+ * 备案期间站点经 http://IP:8080 直连，若 cookie 带 Secure，浏览器会在
+ * HTTP 页面上拒收它——登录每次"成功"却又立即弹回登录页。
+ * nginx 透传的 x-forwarded-proto 已与访问协议一致（见 deploy/nginx 配置）。
+ */
+async function isSecureRequest(): Promise<boolean> {
+  return ((await headers()).get("x-forwarded-proto") ?? "http") === "https";
 }
 
 export async function createSession(username: string) {
@@ -23,7 +33,7 @@ export async function createSession(username: string) {
   jar.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await isSecureRequest(),
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });

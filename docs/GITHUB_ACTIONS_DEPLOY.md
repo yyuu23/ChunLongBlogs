@@ -243,7 +243,36 @@ GitHub Actions 只负责发布，不负责让网站持续运行。
 `--checksum` 按内容判断增量——因为 CI 每次全新构建，所有文件 mtime 都是"现在"，
 默认按时间戳判断会退化为每次全量传输。
 
-## 8. 回退到旧的部署方式
+## 8. 当前访问方式：ICP 备案办理中
+
+站点已正常运行，但**域名暂不可用**，访问地址是：
+
+```
+http://8.159.154.125:8080
+```
+
+原因：服务器在阿里云大陆地域，域名未完成 ICP 备案时，阿里云按 **Host 头**拦截
+未备案域名的请求，返回 403（页面标题 `Non-compliance ICP Filing`，响应头 `Server: Beaver`）。
+
+实测对比（同一 IP、同一端口，仅 Host 头不同）：
+
+| 请求 | 结果 |
+| --- | --- |
+| `curl http://8.159.154.125:8080/` | 200，正常返回博客页面 |
+| `curl -H "Host: chunlongblog.top" http://8.159.154.125:8080/` | 403 拦截 |
+
+**注意：该拦截与端口无关**，换非标端口（8080 等）不能让域名可用；Cloudflare
+回源时同样携带域名 Host，因此 Origin Rules 改端口也无效。唯一合规解法是完成备案
+（或把服务器换到不需要备案的境外地域）。
+
+备案通过后的切换步骤写在 `deploy/nginx/chunlongblog.top.conf` 顶部注释里
+（切回 80 → certbot 签证书 → Cloudflare SSL 模式升 Full）。
+
+备案期间 workflow 的 `Smoke test (public URL)` 步骤会失败，但它带
+`continue-on-error`，不会阻断部署——应用是否健康由 `Smoke test (app)`
+（服务器本地 `127.0.0.1:3002`）负责判定。
+
+## 9. 回退到旧的部署方式
 
 如果需要回到"服务器上构建"的旧流程：
 
@@ -259,7 +288,7 @@ git push origin main
 `ssh 'bash -s' < 脚本` 管道执行，**始终运行本次 revision 的版本**——
 服务器上的落地副本可能还是上一次部署的旧版，不能直接 `bash scripts/server-*.sh` 调用。
 
-## 9. 密钥泄露时的处理
+## 10. 密钥泄露时的处理
 
 立即在服务器编辑 `/home/deploy/.ssh/authorized_keys`，删除对应公钥，然后删除 GitHub 中的
 `SERVER_SSH_KEY`。重新生成一对全新的部署密钥并更新服务器和 GitHub Secret。不要继续使用旧密钥。

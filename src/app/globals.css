@@ -293,15 +293,17 @@ body {
   }
 }
 
+/* 流动渐变：transform 合成层动画（原先动画 background-position，
+ * 每帧全屏重绘；等价换算见 BackgroundLayer.tsx 的 gradient 分支） */
 @keyframes gradient-move {
   0% {
-    background-position: 0% 50%;
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    background-position: 100% 50%;
+    transform: translate3d(-300vw, 0, 0);
   }
   100% {
-    background-position: 0% 50%;
+    transform: translate3d(0, 0, 0);
   }
 }
 

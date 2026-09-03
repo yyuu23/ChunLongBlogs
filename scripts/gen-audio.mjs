@@ -1,5 +1,7 @@
 // 生成演示用免版权环境音 WAV（正弦叠加 pad，22050Hz 单声道 16bit）
 // 运行：node scripts/gen-audio.mjs
+// 注意：线上演示曲已是 MP3 版（public/music/*.mp3，WAV 约 3 倍大）。
+// 重新生成 WAV 后需转 MP3 并同步 songs 表的 url，别直接引用 .wav。
 import fs from "node:fs";
 import path from "node:path";
 

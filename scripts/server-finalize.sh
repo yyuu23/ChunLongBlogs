@@ -57,11 +57,12 @@ if (n > 0) {
 }
 NODE
 
-if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  PORT="$APP_PORT" pm2 restart "$APP_NAME" --update-env
-else
-  PORT="$APP_PORT" pm2 start npm --name "$APP_NAME" -- start -- --hostname 127.0.0.1
-fi
+# 以 ecosystem 配置启动（deploy/ecosystem.config.js：直连 next 二进制，
+# 省 npm 包装层，带内存护栏）。单实例下 restart/delete 本就有秒级停机窗口，
+# 直接 delete+start 最简单可靠，也天然完成了旧版 npm 包装进程的迁移。
+pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+APP_DIR="$APP_DIR" APP_NAME="$APP_NAME" APP_PORT="$APP_PORT" \
+  pm2 start "$APP_DIR/deploy/ecosystem.config.js"
 
 pm2 save
 

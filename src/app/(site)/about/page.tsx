@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { UserRound } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
-import { renderMarkdown } from "@/lib/markdown";
+import { renderMarkdown, markdownCacheKey } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
 import { getT } from "@/lib/i18n/server";
 
@@ -13,7 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AboutPage() {
   const config = await getSiteConfig();
-  const html = await renderMarkdown(config.aboutMarkdown);
+  const html = await renderMarkdown(
+    config.aboutMarkdown,
+    markdownCacheKey("about", config.aboutMarkdown),
+  );
 
   return (
     <PageTransition>

@@ -136,6 +136,9 @@ export function WeatherCard() {
             setWeather(parsed.data);
             return;
           }
+          // 过期：先显示上一屏数据（stale-while-revalidate），再后台刷新。
+          // 天气数值变化慢，回访者立即有内容，好于空白等待
+          setWeather(parsed.data);
         }
       } catch {}
 
@@ -243,9 +246,19 @@ export function WeatherCard() {
       }
     };
 
-    load();
+    // 三个外部 API（ipwho.is → open-meteo → air-quality）在大陆访问都慢，
+    // 等浏览器空闲再发，避免与首屏字体/图片抢 HTTP/1.1 的有限连接数
+    let idleId: number | null = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    if (typeof requestIdleCallback === "function") {
+      idleId = requestIdleCallback(() => load(), { timeout: 3000 });
+    } else {
+      timerId = setTimeout(load, 2000);
+    }
     return () => {
       cancelled = true;
+      if (idleId !== null) cancelIdleCallback(idleId);
+      if (timerId !== null) clearTimeout(timerId);
     };
   }, []);
 

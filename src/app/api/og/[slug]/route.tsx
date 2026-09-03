@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { pickAutoCoverStyle } from "@/components/posts/AutoCover";
 import { getPostBySlug } from "@/lib/posts";
+import subsetGlyphs from "@/lib/og-subset-glyphs.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,20 +12,33 @@ export const dynamic = "force-dynamic";
  * 无封面文章的社交分享图（og:image）：用 next/og 渲染 1200×630 PNG，
  * 视觉与前台 AutoCover 渐变一致（共用 pickAutoCoverStyle）。
  *
- * Satori 的内置字体不含中文字形，这里加载 public/fonts/simhei.ttf（黑体，
- * 仅 400 字重——Satori 不做 faux bold，靠字号与深色 ink 保证可读性）。
+ * Satori 的内置字体不含中文字形，这里加载 public/fonts/ 下的黑体（仅 400
+ * 字重——Satori 不做 faux bold，靠字号与深色 ink 保证可读性）。字体分两份：
+ * 子集 simhei-subset.ttf（2MB，GB2312+ASCII+常用符号，由
+ * scripts/subset-simhei.py 生成，码位清单即 og-subset-glyphs.json）与全量
+ * simhei.ttf（9.3MB 兜底）。标题全部命中子集用子集，含生僻/繁体字回退全量。
  * 字体读取失败时降级为无文字纯渐变，仍比分享卡无图强。
  *
  * 有真实封面的文章 metadata 直接指向封面地址，不会走到这里；
  * 本路由对有封面文章 302 到封面，只是手敲 URL 时的兜底。
  */
 
-let fontPromise: Promise<Buffer | null> | null = null;
-function loadFont(): Promise<Buffer | null> {
-  fontPromise ??= readFile(join(process.cwd(), "public", "fonts", "simhei.ttf")).catch(
-    () => null,
-  );
-  return fontPromise;
+const SUBSET_GLYPHS = new Set<string>(subsetGlyphs);
+
+let subsetFontPromise: Promise<Buffer | null> | null = null;
+let fullFontPromise: Promise<Buffer | null> | null = null;
+
+function readFont(file: string): Promise<Buffer | null> {
+  return readFile(join(process.cwd(), "public", "fonts", file)).catch(() => null);
+}
+
+function loadFontForTitle(title: string): Promise<Buffer | null> {
+  if (Array.from(title).every((ch) => SUBSET_GLYPHS.has(ch))) {
+    subsetFontPromise ??= readFont("simhei-subset.ttf");
+    return subsetFontPromise;
+  }
+  fullFontPromise ??= readFont("simhei.ttf");
+  return fullFontPromise;
 }
 
 /** Satori 没有 line-clamp：手动分两行、每行 26 字，超长加省略号（Array.from 防止切断 emoji） */
@@ -49,12 +63,16 @@ export async function GET(
   if (post.cover) {
     return new Response(null, {
       status: 302,
-      headers: { Location: new URL(post.cover, request.url).toString() },
+      headers: {
+        Location: new URL(post.cover, request.url).toString(),
+        // 封面地址极少变化，浏览器/爬虫缓存 1 小时
+        "Cache-Control": "public, max-age=3600",
+      },
     });
   }
 
   const { palette, angle, blobA, blobB, bandY } = pickAutoCoverStyle(post.slug);
-  const font = await loadFont();
+  const font = await loadFontForTitle(post.title);
   const lines = wrapTitle(post.title);
 
   try {
@@ -134,6 +152,11 @@ export async function GET(
         width: 1200,
         height: 630,
         fonts: font ? [{ name: "SimHei", data: font, weight: 400, style: "normal" }] : [],
+        // satori 渲染 + 全量黑体解析成本高，标题不变图不变：
+        // 缓存一天 + stale-while-revalidate 一周，爬虫重复抓取不再触发重渲染
+        headers: {
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        },
       },
     );
   } catch (e) {

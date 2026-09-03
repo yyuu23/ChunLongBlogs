@@ -141,12 +141,19 @@ export function ClickEffect() {
         });
       }
       if (particles.length > 300) particles = particles.slice(-300);
+      ensureLoop();
     };
     window.addEventListener("pointerdown", onDown);
 
+    // 空闲即停：粒子放完（画布已清空）就停掉 rAF，不再每帧全屏 clearRect 空转；
+    // 有新粒子时由 ensureLoop 重启。raf === 0 表示循环未在跑
     const tick = () => {
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       particles = particles.filter((p) => p.life > 0);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      if (!particles.length) {
+        raf = 0;
+        return;
+      }
       for (const p of particles) {
         p.x += p.vx;
         p.y += p.vy;
@@ -162,7 +169,9 @@ export function ClickEffect() {
       ctx.globalAlpha = 1;
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+    const ensureLoop = () => {
+      if (raf === 0) raf = requestAnimationFrame(tick);
+    };
 
     return () => {
       cancelAnimationFrame(raf);

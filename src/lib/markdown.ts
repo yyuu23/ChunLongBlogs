@@ -38,8 +38,45 @@ const processor = unified()
   .use(rehypeSlug)
   .use(rehypeStringify, { allowDangerousHtml: true });
 
-export async function renderMarkdown(markdown: string): Promise<string> {
-  return String(await processor.process(markdown));
+/** 渲染结果 LRU 缓存：shiki 十主题管线是文章页 SSR 的 CPU 大头（单篇
+ * 数十毫秒），同一内容重复渲染直接返回缓存。cacheKey 由调用方提供并
+ * 含数据更新时间（如 `post:${id}:${updatedAt}`），数据变更天然失效。
+ * 32 篇 × 平均 ~150KB HTML ≈ 5MB 内存，2GB 机器无压力 */
+const HTML_CACHE_MAX = 32;
+const htmlCache = new Map<string, string>();
+
+export async function renderMarkdown(
+  markdown: string,
+  cacheKey?: string,
+): Promise<string> {
+  if (cacheKey) {
+    const hit = htmlCache.get(cacheKey);
+    if (hit !== undefined) {
+      // 命中即提升为最新（Map 迭代顺序 = 插入顺序，最旧在前）
+      htmlCache.delete(cacheKey);
+      htmlCache.set(cacheKey, hit);
+      return hit;
+    }
+  }
+  const html = String(await processor.process(markdown));
+  if (cacheKey) {
+    htmlCache.set(cacheKey, html);
+    if (htmlCache.size > HTML_CACHE_MAX) {
+      htmlCache.delete(htmlCache.keys().next().value as string);
+    }
+  }
+  return html;
+}
+
+/** 由内容派生缓存 key（长度 + FNV-1a 32 位）：内容变 key 变。
+ * 供没有显式版本号可用的调用方（文章页/关于页）以渲染内容本身定 key */
+export function markdownCacheKey(scope: string, markdown: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < markdown.length; i++) {
+    h ^= markdown.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `${scope}:${markdown.length}:${(h >>> 0).toString(36)}`;
 }
 
 export interface TocItem {

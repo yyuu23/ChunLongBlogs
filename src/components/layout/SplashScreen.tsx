@@ -28,14 +28,15 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
       setShow(false);
       return;
     }
-    const t1 = setTimeout(() => setExiting(true), 1600);
+    // 总时长约 1s：演出加速播放而非砍掉（0.7s 开始退场 + 0.35s 退场动画）
+    const t1 = setTimeout(() => setExiting(true), 700);
     const t2 = setTimeout(() => {
       try {
         sessionStorage.setItem(SESSION_KEY, "1");
       } catch {}
       document.documentElement.classList.add("splash-seen");
       setShow(false);
-    }, 2200);
+    }, 1050);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -55,7 +56,7 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
         >
           <motion.div
             animate={exiting ? { scale: 1.15, opacity: 0 } : { scale: 1, opacity: 1 }}
-            transition={{ duration: 0.55, ease: "easeInOut" }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
             className="relative flex flex-col items-center gap-6"
           >
             {/* 旋转光环 + 头像 */}
@@ -77,7 +78,7 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
               <motion.p
                 initial={{ y: 26, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ delay: 0.15, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="font-serif text-2xl font-bold tracking-wide text-slate-800 dark:text-slate-100"
               >
                 {siteName}
@@ -85,7 +86,7 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.45, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ delay: 0.28, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="text-sm tracking-[0.3em] text-slate-500 dark:text-slate-400"
               >
                 LOADING
@@ -98,7 +99,7 @@ export function SplashScreen({ siteName, avatar }: { siteName: string; avatar: s
                 className="h-full rounded-full bg-accent-gradient"
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 1.5, ease: "easeInOut" }}
+                transition={{ duration: 0.7, ease: "easeInOut" }}
               />
             </div>
           </motion.div>

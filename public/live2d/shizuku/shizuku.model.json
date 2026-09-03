@@ -3,12 +3,12 @@
   "name": "shizuku",
   "model": "shizuku.moc",
   "textures": [
-    "shizuku.1024/texture_00.png",
-    "shizuku.1024/texture_01.png",
-    "shizuku.1024/texture_02.png",
-    "shizuku.1024/texture_03.png",
-    "shizuku.1024/texture_04.png",
-    "shizuku.1024/texture_05.png"
+    "shizuku.1024/texture_00.webp",
+    "shizuku.1024/texture_01.webp",
+    "shizuku.1024/texture_02.webp",
+    "shizuku.1024/texture_03.webp",
+    "shizuku.1024/texture_04.webp",
+    "shizuku.1024/texture_05.webp"
   ],
   "physics": "shizuku.physics.json",
   "pose": "shizuku.pose.json",

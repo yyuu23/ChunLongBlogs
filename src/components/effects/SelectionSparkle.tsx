@@ -103,12 +103,19 @@ export function SelectionSparkle() {
         }
       }
       if (stars.length > 160) stars = stars.slice(-160);
+      ensureLoop();
     };
     document.addEventListener("mouseup", onUp);
 
+    // 空闲即停：星星放完（画布已清空）就停掉 rAF，不再每帧全屏 clearRect 空转；
+    // 有新星时由 ensureLoop 重启。raf === 0 表示循环未在跑
     const tick = () => {
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       stars = stars.filter((s) => s.life > 0);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      if (!stars.length) {
+        raf = 0;
+        return;
+      }
       for (const s of stars) {
         s.x += s.vx;
         s.y += s.vy;
@@ -121,7 +128,9 @@ export function SelectionSparkle() {
       ctx.globalAlpha = 1;
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
+    const ensureLoop = () => {
+      if (raf === 0) raf = requestAnimationFrame(tick);
+    };
 
     return () => {
       cancelAnimationFrame(raf);

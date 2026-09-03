@@ -98,7 +98,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
 };
 
-export const getSiteConfig = cache(async (): Promise<SiteConfig> => {
+/** 请求内去重（React cache）：同一请求的多次 getSiteConfig 只查一次库 */
+const loadSiteConfig = cache(async (): Promise<SiteConfig> => {
   try {
     const rows = await db
       .select()
@@ -114,6 +115,20 @@ export const getSiteConfig = cache(async (): Promise<SiteConfig> => {
   }
 });
 
+/** 跨请求 30s TTL 缓存：站点配置每个页面都要读，全部缓存() 时每个请求
+ * 仍各查一次 SQLite。单实例部署无一致性问题；保存后立即失效 */
+const CONFIG_TTL_MS = 30_000;
+let configCache: { at: number; value: SiteConfig } | null = null;
+
+export async function getSiteConfig(): Promise<SiteConfig> {
+  if (configCache && Date.now() - configCache.at < CONFIG_TTL_MS) {
+    return configCache.value;
+  }
+  const value = await loadSiteConfig();
+  configCache = { at: Date.now(), value };
+  return value;
+}
+
 export async function saveSiteConfig(config: SiteConfig) {
   await db
     .insert(siteConfigs)
@@ -122,4 +137,5 @@ export async function saveSiteConfig(config: SiteConfig) {
       target: siteConfigs.key,
       set: { value: JSON.stringify(config), updatedAt: new Date() },
     });
+  configCache = null;
 }

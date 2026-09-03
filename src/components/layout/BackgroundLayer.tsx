@@ -47,11 +47,16 @@ export function BackgroundLayer({ mode, images, palette }: BackgroundLayerProps)
           <div className="absolute inset-0 bg-white/35 backdrop-blur-[18px] dark:bg-slate-950/55" />
         </>
       ) : (
+        /* 流动渐变：原先是 400% 尺寸背景动画 background-position（每帧全屏重绘）。
+         * 数学等价的合成层写法：渲染一个 400vw×400vh 的子层并垂直居中（原
+         * background-position 垂直恒为 50% ⇔ top: -150vh），水平用 transform
+         * 平移 0 → -300vw（= 原 0% → 100% 的图像偏移 X%×(100vw-400vw)）。
+         * 渐变/角度/节奏完全相同，从主线程重绘降为纯合成器动画 */
         <div
-          className="absolute inset-0"
+          className="absolute left-0 -top-[150vh] h-[400vh] w-[400vw] will-change-transform"
           style={{
             backgroundImage: gradient,
-            backgroundSize: "400% 400%",
+            backgroundSize: "100% 100%",
             animation: "gradient-move 16s ease infinite",
           }}
         />

@@ -8,7 +8,7 @@ import { AutoCover } from "@/components/posts/AutoCover";
 import { Toc } from "@/components/posts/Toc";
 import { ViewCounter, GiscusComments } from "@/components/posts/PostExtras";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
-import { renderMarkdown, extractToc } from "@/lib/markdown";
+import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
@@ -49,7 +49,9 @@ export default async function PostDetailPage({ params }: PageProps) {
   if (!post || post.status !== "published") notFound();
 
   const [html, neighbors] = await Promise.all([
-    renderMarkdown(post.content),
+    // 以内容派生 key 缓存渲染结果：shiki 十主题管线是 SSR 的 CPU 大头，
+    // 热门文章重复访问不再重渲染；内容变更 key 自然改变
+    renderMarkdown(post.content, markdownCacheKey("post", post.content)),
     getNeighborPosts(post.publishedAt, post.id),
   ]);
   const toc = extractToc(post.content);

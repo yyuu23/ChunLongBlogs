@@ -51,18 +51,23 @@ export function Mascot() {
     let app: any = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let model: any = null;
+    // 空闲门控的取消句柄
+    let startIdleId: number | null = null;
+    let startTimerId: ReturnType<typeof setTimeout> | null = null;
 
-    (async () => {
+    const start = async () => {
       try {
         await loadCore();
-        const PIXI = (await import("pixi.js")).default ?? (await import("pixi.js"));
+        // 全部使用 @pixi v6（pixi-live2d-display 自带的 peer 依赖），不再引入
+        // pixi.js v7 —— 消除双份 PIXI（v7 的 436KB chunk 整体消失）。
+        // registerTicker 是官方 API，注册后 bundle 不再读 window.PIXI 兜底
+        const { Application } = await import("@pixi/app");
+        const { Ticker } = await import("@pixi/ticker");
         const { Live2DModel } = await import("pixi-live2d-display/cubism2");
+        Live2DModel.registerTicker(Ticker);
         if (destroyed || !wrapRef.current) return;
 
-        // pixi-live2d-display 需要全局 PIXI
-        (window as unknown as { PIXI: unknown }).PIXI = PIXI;
-
-        app = new PIXI.Application({
+        app = new Application({
           backgroundAlpha: 0,
           width: 260,
           height: 340,
@@ -78,13 +83,40 @@ export function Mascot() {
         model.scale.set(0.13);
         model.anchor.set(0.5, 1);
         model.position.set(130, 340);
-        // pixi-live2d-display 的基类来自 @pixi/*@6（其 peer 依赖），与站点使用的
-        // pixi.js@7 是两份模块。v7 的命中测试会调用 isInteractive()（仅 v7 有），
-        // 挂在 v7 舞台上的 v6 对象会在鼠标划过画布时抛 TypeError。看板娘的点击/
-        // 拖拽由下方 DOM 指针事件处理，这里直接让模型不参与 pixi 事件命中。
-        model.eventMode = "none";
+        // 模型基类与舞台现在同属 @pixi v6，不再有跨版本混搭。看板娘的
+        // 点击/拖拽由下方 DOM 指针事件处理，这里让模型不参与 pixi 事件命中
+        // （v6 的写法是 interactive = false）
+        model.interactive = false;
         model.interactiveChildren = false;
         app.stage.addChild(model);
+
+        // 标签页切后台时冻结渲染循环（呼吸/物理暂停），切回无缝续播
+        const onVisibility = () => {
+          if (!app?.ticker) return;
+          if (document.hidden) app.ticker.stop();
+          else app.ticker.start();
+        };
+        document.addEventListener("visibilitychange", onVisibility);
+
+        // 长时间无人互动降到 30fps 省电（呼吸/待机动作依旧播放），
+        // 指针靠近或点击立即恢复满帧并重新计时
+        let dimTimer: ReturnType<typeof setTimeout> | null = null;
+        const undim = () => {
+          if (dimTimer) {
+            clearTimeout(dimTimer);
+            dimTimer = null;
+          }
+          if (app?.ticker) app.ticker.maxFPS = 0; // 0 = 不限帧
+        };
+        const scheduleDim = () => {
+          if (dimTimer) clearTimeout(dimTimer);
+          dimTimer = setTimeout(() => {
+            dimTimer = null;
+            if (app?.ticker) app.ticker.maxFPS = 30;
+          }, 10000);
+        };
+        app.view.addEventListener("pointerenter", undim);
+        app.view.addEventListener("pointerleave", scheduleDim);
 
         // 点击命中区：随机动作 + 台词
         model.on("hit", (hitAreas: string[]) => {
@@ -103,6 +135,7 @@ export function Mascot() {
         let moved = false;
         let last = { x: 0, y: 0 };
         const onDown = (e: PointerEvent) => {
+          undim(); // 点击即恢复满帧并重置空闲计时
           dragging = true;
           moved = false;
           last = { x: e.clientX, y: e.clientY };
@@ -134,16 +167,31 @@ export function Mascot() {
           app.view.removeEventListener("pointerdown", onDown);
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
+          document.removeEventListener("visibilitychange", onVisibility);
+          app.view.removeEventListener("pointerenter", undim);
+          app.view.removeEventListener("pointerleave", scheduleDim);
+          if (dimTimer) clearTimeout(dimTimer);
         };
+        scheduleDim(); // 初始：加载后无人互动满 10s 即降帧
 
         showBubble(t("mascot.greeting"));
       } catch {
         // 模型加载失败（罕见）：静默隐藏
       }
-    })();
+    };
+
+    // 等浏览器空闲再启动整条加载链（live2d core + pixi + 约 2MB 模型），
+    // 不与首屏字体/图片抢 HTTP/1.1 的有限连接；看板娘晚 1-4 秒登场，登场后效果不变
+    if (typeof requestIdleCallback === "function") {
+      startIdleId = requestIdleCallback(() => start(), { timeout: 4000 });
+    } else {
+      startTimerId = setTimeout(start, 2500);
+    }
 
     return () => {
       destroyed = true;
+      if (startIdleId !== null) cancelIdleCallback(startIdleId);
+      if (startTimerId !== null) clearTimeout(startTimerId);
       clearTimeout(bubbleTimer.current);
       try {
         model?.__cleanup?.();

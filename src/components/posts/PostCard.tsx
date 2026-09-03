@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Eye, Clock3 } from "lucide-react";
 import { LazyImage } from "@/components/effects/Typewriter";
@@ -24,24 +24,38 @@ export function PostCard({
 }) {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
-  const [glare, setGlare] = useState({ x: 50, y: 50, opacity: 0 });
+  const glareRef = useRef<HTMLDivElement>(null);
+  // 悬停期间布局不变（tilt 是 transform，不参与流式布局），
+  // rect 进出时缓存一次，mousemove 里不再每次 getBoundingClientRect
+  const rectRef = useRef<DOMRect | null>(null);
+
+  const onEnter = () => {
+    rectRef.current = ref.current?.getBoundingClientRect() ?? null;
+  };
 
   const onMove = (e: React.MouseEvent) => {
     const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
+    const rect = rectRef.current;
+    if (!el || !rect) return;
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
     const rx = (0.5 - py) * 6;
     const ry = (px - 0.5) * 6;
     el.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg)`;
-    setGlare({ x: px * 100, y: py * 100, opacity: 0.5 });
+    // 眩光同样直写 DOM：指针扫过卡片墙时不再每帧触发 React 重渲染
+    const glare = glareRef.current;
+    if (glare) {
+      glare.style.background = `radial-gradient(circle at ${px * 100}% ${py * 100}%, rgba(255,255,255,0.35), transparent 60%)`;
+      glare.style.opacity = "0.5";
+    }
   };
 
   const onLeave = () => {
     const el = ref.current;
     if (el) el.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
-    setGlare((g) => ({ ...g, opacity: 0 }));
+    rectRef.current = null;
+    const glare = glareRef.current;
+    if (glare) glare.style.opacity = "0";
   };
 
   return (
@@ -53,6 +67,7 @@ export function PostCard({
       <Link href={`/posts/${post.slug}`} className="group block">
         <div
           ref={ref}
+          onMouseEnter={onEnter}
           onMouseMove={onMove}
           onMouseLeave={onLeave}
           className="glass-card glass-hover relative overflow-hidden transition-transform duration-200"
@@ -60,11 +75,13 @@ export function PostCard({
         >
           {/* 光标眩光层 */}
           <div
+            ref={glareRef}
             aria-hidden
             className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
             style={{
-              opacity: glare.opacity,
-              background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.35), transparent 60%)`,
+              opacity: 0,
+              background:
+                "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.35), transparent 60%)",
             }}
           />
 

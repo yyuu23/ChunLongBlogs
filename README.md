@@ -31,7 +31,10 @@ npm run dev                 # http://localhost:3000
 
 ## 部署
 
-见 [DEPLOY.md](./DEPLOY.md)（Nginx 反代 + pm2）。
+推送到 `main` 即自动部署（GitHub 云端构建 + rsync 上传，服务器零构建压力）。
+原理、域名注意事项与踩坑经验见 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)；
+从零搭建的完整步骤见 [docs/GITHUB_ACTIONS_DEPLOY.md](./docs/GITHUB_ACTIONS_DEPLOY.md)；
+纯手工应急路径见 [DEPLOY.md](./DEPLOY.md)。
 
 ## License
 

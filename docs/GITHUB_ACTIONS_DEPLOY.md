@@ -272,17 +272,25 @@ http://8.159.154.125:8080
 `continue-on-error`，不会阻断部署——应用是否健康由 `Smoke test (app)`
 （服务器本地 `127.0.0.1:3002`）负责判定。
 
-## 9. 回退到旧的部署方式
+## 9. 回退与回滚
 
-如果需要回到"服务器上构建"的旧流程：
+**回滚某次坏发布**（推荐，走同一条流水线）：
+
+```bash
+git revert <坏提交>
+git push origin main
+```
+
+**回到"服务器上构建"的旧流程**：
 
 ```bash
 git revert <本次部署改造的 commit>   # 恢复 deploy.yml 和 scripts/deploy-production.sh
 git push origin main
 ```
 
-服务器上的 `.git` 目录一直保留（rsync 不碰它），旧的
-`git fetch && git merge --ff-only` 流程可以继续工作。
+注意：如果服务器是按本文 §3 **全新初始化**的（没有 git clone 过），服务器上
+没有 `.git` 目录，旧流程开跑前需要先在服务器上 `git clone` 一次并配置 `.env`；
+旧流程还会在服务器上执行 `npm ci` + `next build`（这正是当初改造掉的压力来源）。
 
 注意：`scripts/server-backup.sh` 和 `scripts/server-finalize.sh` 通过
 `ssh 'bash -s' < 脚本` 管道执行，**始终运行本次 revision 的版本**——

@@ -12,7 +12,7 @@
 
 :root,
 html[data-accent="violet"] {
-  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-bg-strong: rgba(255, 255, 255, 0.62);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
@@ -65,7 +65,7 @@ html[data-accent="custom"] {
 }
 
 .dark {
-  --glass-bg: rgba(15, 23, 42, 0.55);
+  --glass-bg: rgba(15, 23, 42, 0.65);
   --glass-bg-strong: rgba(15, 23, 42, 0.75);
   --glass-border: rgba(255, 255, 255, 0.09);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
@@ -825,7 +825,8 @@ body {
     transform: scale(1) translate(0, 0);
   }
   100% {
-    transform: scale(1.12) translate(-1.5%, -1.5%);
+    /* 幅度刻意小：背景是氛围面，缩放感太强会抢内容（配合与轮播同期的时长） */
+    transform: scale(1.08) translate(-1%, -1%);
   }
 }
 

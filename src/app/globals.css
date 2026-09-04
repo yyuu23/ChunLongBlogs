@@ -96,6 +96,10 @@ html[data-accent="custom"] {
 }
 
 html {
+  /* 根字号 = 全站字号/间距的宏观系数（Tailwind 的 rem 单位全部随它等比缩放，
+     模块间的相对层次不变）。访客可在右下角设置面板三档调节（cl-font-size，
+     由 initScript 首帧覆盖此默认值） */
+  font-size: 17px;
   scroll-behavior: smooth;
 }
 

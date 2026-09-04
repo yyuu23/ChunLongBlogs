@@ -79,7 +79,7 @@ export function HouseWindow() {
       <div className="mb-3 flex items-center gap-2">
         <Home className="h-4 w-4 text-accent" />
         <p className="text-sm font-semibold">{t("home.houseTitle")}</p>
-        {weather?.city && <p className="ml-auto text-[10px] text-muted">{weather.city}</p>}
+        {weather?.city && <p className="ml-auto text-[0.625rem] text-muted">{weather.city}</p>}
       </div>
 
       {/* 窗户主体 */}

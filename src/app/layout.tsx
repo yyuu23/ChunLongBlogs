@@ -66,6 +66,10 @@ const initScript = `
   if(h){ document.documentElement.style.setProperty('--custom-hue', h); }
 }catch(e){}})();
 (function(){try{
+  var f = localStorage.getItem('cl-font-size');
+  if(f === '15' || f === '17' || f === '19'){ document.documentElement.style.fontSize = f + 'px'; }
+}catch(e){}})();
+(function(){try{
   var seen = sessionStorage.getItem('cl-splash-seen')==='1';
   var eff = localStorage.getItem('cl-effects');
   var splashOn = eff ? (JSON.parse(eff).splash !== false) : true;

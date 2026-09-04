@@ -149,7 +149,7 @@ function AlbumCard({
           <h3 className="font-serif text-lg font-bold">{album.title}</h3>
           <p className="mt-1 text-xs text-muted">{album.description}</p>
           {!isExpanded && (
-            <p className="mt-2 text-[11px] tracking-widest text-muted opacity-70">
+            <p className="mt-2 text-[0.6875rem] tracking-widest text-muted opacity-70">
               {t("albums.expandHint")}
             </p>
           )}

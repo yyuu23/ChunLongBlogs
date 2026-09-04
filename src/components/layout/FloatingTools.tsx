@@ -15,6 +15,7 @@ import { useT } from "@/components/providers/LocaleProvider";
 import { PanelSection } from "@/components/layout/PanelSection";
 import { WallpaperPicker } from "@/components/layout/WallpaperPicker";
 import { HueSlider } from "@/components/layout/HueSlider";
+import { FontSizeSection } from "@/components/layout/FontSizeSection";
 
 /** 主题色 key → 词典键（配色键名与文案键名不同步，这里做映射） */
 const ACCENT_I18N: Record<Exclude<AccentKey, "custom">, string> = {
@@ -129,6 +130,9 @@ export function FloatingTools() {
                 ))}
               </div>
             </PanelSection>
+
+            {/* ===== 字体大小 ===== */}
+            <FontSizeSection />
 
             {/* ===== 粒子主题 ===== */}
             <PanelSection

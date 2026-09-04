@@ -108,7 +108,7 @@ export function AchievementToasts() {
                 {def.emoji}
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-accent">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-accent">
                   {t("ach.unlocked")}
                 </p>
                 <p className="truncate text-sm font-bold">{pick(locale, def.name)}</p>

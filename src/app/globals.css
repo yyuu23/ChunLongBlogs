@@ -1273,6 +1273,35 @@ html[data-accent="cyan"].dark .md pre code span[data-line] span {
   border-color: #10b981;
 }
 
+/* ===== chat 消息操作按钮（复制/编辑）：hover 气泡时浮现，触屏常显 ===== */
+.cl-msg-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.group:hover .cl-msg-actions,
+.cl-msg-actions:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cl-msg-actions {
+    opacity: 1;
+  }
+}
+
+.cl-msg-action {
+  display: flex;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.cl-msg-action:hover {
+  color: var(--accent-text);
+}
+
 /* ================= 沉浸阅读（html.cl-immersive） =================
    导航/看板娘/粒子/TabBar 等都是 (site)/layout 的兄弟节点，不在文章页
    组件树内，只能走全局类 + [data-cl-chrome] 钩子（同 cl-night 的路子）。

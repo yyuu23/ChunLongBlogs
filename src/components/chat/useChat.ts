@@ -17,6 +17,8 @@ export interface RelatedRef {
 }
 
 export interface ChatMsg {
+  /** 消息唯一 id（编辑重生成要按 id 定位截断；旧持久化数据载入时补齐） */
+  id: string;
   role: "user" | "assistant";
   content: string;
   /** 流式生成中 */
@@ -29,6 +31,10 @@ export interface ChatMsg {
 
 const HISTORY_VERSION = 1;
 const MAX_PERSIST = 50;
+
+const uid = () =>
+  crypto.randomUUID?.() ??
+  `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 /** SSE 流里的事件负载 */
 interface SsePayload {
@@ -44,26 +50,36 @@ interface SsePayload {
 export function useChat({ welcome, persistKey }: { welcome: string; persistKey?: string }) {
   const t = useT();
   const pathname = usePathname();
-  const [messages, setMessages] = useState<ChatMsg[]>([{ role: "assistant", content: welcome }]);
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    { id: uid(), role: "assistant", content: welcome },
+  ]);
   const [busy, setBusy] = useState(false);
   const acRef = useRef<AbortController | null>(null);
   const persistTimer = useRef<number | null>(null);
 
-  /** 恢复历史：只在挂载后读 localStorage，首帧恒为欢迎语（无 hydration 不一致） */
+  /** 恢复/重载历史：挂载及 persistKey 变化（多会话切换）时读 localStorage。
+   *  键无数据 → 重置为欢迎语（新会话）；首帧恒为欢迎语，无 hydration 不一致。
+   *  悬浮窗不传 persistKey → 此 effect 永不介入，行为不变。 */
   useEffect(() => {
     if (!persistKey) return;
+    let restored: ChatMsg[] | null = null;
     try {
       const raw = localStorage.getItem(persistKey);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { v?: number; messages?: ChatMsg[] };
-      if (saved.v === HISTORY_VERSION && Array.isArray(saved.messages) && saved.messages.length) {
-        // 剥离流式/失败等中间态，只留稳定消息
-        setMessages(
-          saved.messages.map((m) => ({ role: m.role, content: m.content, related: m.related })),
-        );
+      if (raw) {
+        const saved = JSON.parse(raw) as { v?: number; messages?: ChatMsg[] };
+        if (saved.v === HISTORY_VERSION && Array.isArray(saved.messages) && saved.messages.length) {
+          // 剥离流式/失败等中间态，只留稳定消息；旧数据无 id 就地补齐
+          restored = saved.messages.map((m) => ({
+            id: m.id ?? uid(),
+            role: m.role,
+            content: m.content,
+            related: m.related,
+          }));
+        }
       }
     } catch {}
-  }, [persistKey]);
+    setMessages(restored ?? [{ id: uid(), role: "assistant", content: welcome }]);
+  }, [persistKey, welcome]);
 
   /** 持久化：防抖 500ms，剥离中间态；只剩欢迎语时清键 */
   useEffect(() => {
@@ -74,7 +90,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         const clean = messages
           .filter((m) => !m.failed && !m.streaming)
           .slice(-MAX_PERSIST)
-          .map((m) => ({ role: m.role, content: m.content, related: m.related }));
+          .map((m) => ({ id: m.id, role: m.role, content: m.content, related: m.related }));
         if (clean.length <= 1) {
           localStorage.removeItem(persistKey);
           return;
@@ -101,7 +117,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
   /** 跑一轮对话：history 已含最新 user 消息，尾部追加流式 assistant */
   const runTurn = useCallback(
     async (history: ChatMsg[]) => {
-      setMessages([...history, { role: "assistant", content: "", streaming: true }]);
+      setMessages([...history, { id: uid(), role: "assistant", content: "", streaming: true }]);
       setBusy(true);
       const ac = new AbortController();
       acRef.current = ac;
@@ -232,9 +248,26 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
       trackEvent("use_chat");
       const history = [
         ...messages.filter((m) => !m.failed && !m.streaming),
-        { role: "user" as const, content: q },
+        { id: uid(), role: "user" as const, content: q },
       ];
       await runTurn(history);
+    },
+    [busy, messages, runTurn],
+  );
+
+  /** 编辑历史提问后重生成：截断该消息之后的一切，改写内容重跑一轮
+   *  （历史本就由前端全量携带，服务端无状态，纯前端即可完成） */
+  const regenerateFrom = useCallback(
+    async (msgId: string, newText: string) => {
+      const q = newText.trim();
+      if (!q || busy) return;
+      const idx = messages.findIndex((m) => m.id === msgId);
+      if (idx < 0 || messages[idx]!.role !== "user") return;
+      trackEvent("use_chat");
+      const history = messages
+        .slice(0, idx)
+        .filter((m) => !m.failed && !m.streaming);
+      await runTurn([...history, { id: uid(), role: "user" as const, content: q }]);
     },
     [busy, messages, runTurn],
   );
@@ -252,7 +285,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
 
   const clear = useCallback(() => {
     acRef.current?.abort();
-    setMessages([{ role: "assistant", content: welcome }]);
+    setMessages([{ id: uid(), role: "assistant", content: welcome }]);
     if (persistKey) {
       try {
         localStorage.removeItem(persistKey);
@@ -260,5 +293,5 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
     }
   }, [welcome, persistKey]);
 
-  return { messages, busy, send, retry, stop, clear };
+  return { messages, busy, send, retry, stop, clear, regenerateFrom };
 }

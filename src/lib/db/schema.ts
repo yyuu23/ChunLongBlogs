@@ -105,6 +105,9 @@ export const playlists = sqliteTable("playlists", {
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   cover: text("cover").notNull().default(""),
+  /** 导入来源标识（如 "netease:18350188579"）：同一歌单重复导入时覆盖更新而非堆同名歌单。
+   * 手工新建的歌单为 null */
+  sourceId: text("source_id"),
   createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
 });
 

@@ -402,59 +402,157 @@ export async function deleteSong(id: number) {
   revalidateAll();
 }
 
-/** 网易云歌单导入：拉取元数据，音频走官方外链（非 VIP 可直接播放） */
+/* ============ 网易云歌单导入 ============ */
+
+const NETEASE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+  Referer: "https://music.163.com/",
+};
+
+/** 曲目详情单批上限：一次塞太多 id，表单 body 过大会被网易云拒 */
+const DETAIL_BATCH = 200;
+/** 总量上限，防超大歌单把 server action 拖到超时 */
+const MAX_TRACKS = 500;
+
+/** 图片转 https：网易云给的封面多是 http://，https 站点下会被判混合内容拦掉 */
+function toHttps(url: string | undefined | null): string {
+  return (url ?? "").replace(/^http:\/\//, "https://");
+}
+
+/** 从输入里取歌单 ID：支持完整分享链接（含 /#/playlist?id=）与纯数字 */
+function parsePlaylistId(input: string): string | null {
+  const s = input.trim();
+  if (/^\d+$/.test(s)) return s;
+  const m = s.match(/[?&]id=(\d+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * 网易云歌单导入：音频走官方外链（非 VIP 可直接播放）。
+ *
+ * 分两步拉取 —— 歌单详情接口的 tracks 只返回前 10 首完整对象（trackCount 也可能
+ * 谎报成 10），只有 trackIds 是全的，必须再用 song/detail 批量补齐，否则会静默少导。
+ */
 export async function importNetease(playlistId: string) {
   await guard();
-  const pid = playlistId.trim();
-  if (!/^\d+$/.test(pid)) return { error: "请输入数字歌单 ID" };
+  const pid = parsePlaylistId(playlistId);
+  if (!pid) return { error: "请输入网易云歌单链接或数字 ID" };
+
   try {
-    const res = await fetch(`https://music.163.com/api/playlist/detail?id=${pid}`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-        Referer: "https://music.163.com/",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return { error: `网易云接口请求失败（${res.status}）` };
-    const data = (await res.json()) as {
+    // ① 歌单元信息 + 全部曲目 ID
+    const plRes = await fetch(
+      `https://music.163.com/api/v6/playlist/detail?id=${pid}&n=1000`,
+      { headers: NETEASE_HEADERS, signal: AbortSignal.timeout(15000) },
+    );
+    if (!plRes.ok) return { error: `网易云歌单接口请求失败（HTTP ${plRes.status}）` };
+
+    const plData = (await plRes.json()) as {
+      code?: number;
+      msg?: string;
       playlist?: {
         name?: string;
         coverImgUrl?: string;
-        tracks?: Array<{
-          id: number;
-          name: string;
-          artists?: Array<{ name?: string }>;
-          album?: { picUrl?: string };
-          lMusic?: { playTime?: number };
-        }>;
+        trackCount?: number;
+        trackIds?: Array<{ id: number }>;
       };
     };
-    const pl = data.playlist;
-    if (!pl?.tracks?.length) return { error: "歌单为空或接口返回结构变化" };
+    if (plData.code !== 200) {
+      return {
+        error: `网易云返回错误码 ${plData.code ?? "未知"}${plData.msg ? `：${plData.msg}` : ""}（歌单可能不存在或为私密）`,
+      };
+    }
+    const pl = plData.playlist;
+    if (!pl) return { error: "网易云未返回歌单数据（接口结构可能已变化）" };
 
-    const [row] = await db
-      .insert(playlists)
-      .values({
-        title: pl.name || `网易云歌单 ${pid}`,
-        description: `从网易云导入（${pl.tracks.length} 首）`,
-        cover: pl.coverImgUrl ?? "",
-      })
-      .returning();
+    const ids = (pl.trackIds ?? []).map((t) => t.id).filter((id) => Number.isFinite(id));
+    if (!ids.length) return { error: `歌单「${pl.name ?? pid}」里没有歌曲` };
 
-    await db.insert(songs).values(
-      pl.tracks.slice(0, 100).map((t, i) => ({
-        playlistId: row.id,
-        title: t.name,
-        artist: (t.artists ?? []).map((a) => a.name).filter(Boolean).join(" / "),
-        cover: t.album?.picUrl ?? "",
-        url: `https://music.163.com/song/media/outer/url?id=${t.id}.mp3`,
-        duration: Math.round((t.lMusic?.playTime ?? 0) / 1000),
+    const wanted = ids.slice(0, MAX_TRACKS);
+
+    // ② 分批补齐曲目详情（返回顺序不保证，用 Map 按 trackIds 原序回填）
+    const detailMap = new Map<
+      number,
+      { name?: string; ar?: Array<{ name?: string }>; al?: { picUrl?: string }; dt?: number }
+    >();
+    for (let i = 0; i < wanted.length; i += DETAIL_BATCH) {
+      const batch = wanted.slice(i, i + DETAIL_BATCH);
+      const body = new URLSearchParams({
+        c: JSON.stringify(batch.map((id) => ({ id }))),
+      });
+      const dRes = await fetch("https://music.163.com/api/v3/song/detail", {
+        method: "POST",
+        headers: { ...NETEASE_HEADERS, "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!dRes.ok) return { error: `曲目详情接口请求失败（HTTP ${dRes.status}）` };
+      const dData = (await dRes.json()) as {
+        code?: number;
+        songs?: Array<{
+          id: number;
+          name?: string;
+          ar?: Array<{ name?: string }>;
+          al?: { picUrl?: string };
+          dt?: number;
+        }>;
+      };
+      for (const s of dData.songs ?? []) detailMap.set(s.id, s);
+    }
+    if (!detailMap.size) {
+      return { error: `拿到 ${wanted.length} 个曲目 ID，但详情接口未返回任何曲目` };
+    }
+
+    const rows = wanted
+      .map((id) => ({ id, d: detailMap.get(id) }))
+      .filter((x): x is { id: number; d: NonNullable<typeof x.d> } => !!x.d)
+      .map(({ id, d }, i) => ({
+        title: d.name ?? `未知曲目 ${id}`,
+        artist: (d.ar ?? []).map((a) => a.name).filter(Boolean).join(" / "),
+        cover: toHttps(d.al?.picUrl),
+        url: `https://music.163.com/song/media/outer/url?id=${id}.mp3`,
+        duration: Math.round((d.dt ?? 0) / 1000),
         sort: i + 1,
-      })),
-    );
+      }));
+
+    // ③ 按来源 upsert：同一歌单重复导入则覆盖，不堆同名歌单
+    const sourceId = `netease:${pid}`;
+    const meta = {
+      title: pl.name || `网易云歌单 ${pid}`,
+      description: `从网易云导入（${rows.length} 首）`,
+      cover: toHttps(pl.coverImgUrl),
+      sourceId,
+    };
+
+    const [existing] = await db
+      .select({ id: playlists.id })
+      .from(playlists)
+      .where(eq(playlists.sourceId, sourceId))
+      .limit(1);
+
+    let targetId: number;
+    let updated = false;
+    if (existing) {
+      await db.update(playlists).set(meta).where(eq(playlists.id, existing.id));
+      await db.delete(songs).where(eq(songs.playlistId, existing.id));
+      targetId = existing.id;
+      updated = true;
+    } else {
+      const [row] = await db.insert(playlists).values(meta).returning();
+      targetId = row.id;
+    }
+
+    await db.insert(songs).values(rows.map((r) => ({ ...r, playlistId: targetId })));
+
     revalidateAll();
-    return { ok: true as const, count: pl.tracks.length };
+    return {
+      ok: true as const,
+      count: rows.length,
+      updated,
+      title: meta.title,
+      // trackCount 与实际拿到的数目不一致时（个别曲目已下架）告知，避免"少了几首"的困惑
+      missing: wanted.length - rows.length,
+    };
   } catch (e) {
     return { error: e instanceof Error ? `导入失败：${e.message}` : "导入失败" };
   }

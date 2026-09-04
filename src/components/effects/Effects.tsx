@@ -23,7 +23,7 @@ const LAYERS: Record<string, (props: { count?: number }) => React.ReactNode> = {
  */
 export function ThemeParticles() {
   const { theme } = useTheme();
-  const { effects, particleTheme, hydrated } = useEffects();
+  const { effects, particleTheme, hydrated, isNight } = useEffects();
 
   let active: ActiveParticle = null;
   if (hydrated && effects.particles) {
@@ -74,7 +74,7 @@ export function ThemeParticles() {
             style={{ opacity: active === key ? 1 : 0 }}
             aria-hidden
           >
-            <Layer />
+            <Layer count={key === "firefly" && isNight ? 55 : undefined} />
           </div>
         );
       })}

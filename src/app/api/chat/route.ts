@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getSiteConfig } from "@/lib/site";
 import { retrieveContext } from "@/lib/rag";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { db } from "@/lib/db";
+import { visitors } from "@/lib/db/schema";
+import { TOPIC_BOUNDARY, timeTonePrompt } from "@/lib/chatPolicy";
+import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +61,8 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     messages?: ChatMessage[];
     stream?: boolean;
+    localHour?: unknown;
+    visitorId?: unknown;
   } | null;
   const history = (body?.messages ?? [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
@@ -77,6 +84,24 @@ export async function POST(request: Request) {
 
   // ===== RAG：检索与最新提问最相关的文章与说说 =====
   const lastQuestion = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+
+  // 好感度语气：主键单行读，与 RAG 检索并行互相隐藏延迟；失败 fail-open 不注入
+  const affinityPromise = (async () => {
+    const vid = typeof body?.visitorId === "string" ? body.visitorId.trim() : "";
+    if (!vid || vid.length > 64) return "";
+    try {
+      const rows = await db
+        .select({ stats: visitors.stats })
+        .from(visitors)
+        .where(eq(visitors.id, vid))
+        .limit(1);
+      const raw = rows[0] ? (JSON.parse(rows[0].stats) as { affinityPoints?: number }) : null;
+      return affinityTonePrompt(affinityOf(Number(raw?.affinityPoints) || 0).level);
+    } catch {
+      return "";
+    }
+  })();
+
   let ragBlock = "";
   const related: RelatedItem[] = [];
   try {
@@ -100,8 +125,17 @@ export async function POST(request: Request) {
     console.error("[rag] retrieve failed:", e);
   }
 
-  const system =
-    `${persona}\n\n[以下为本站事实信息，回答站点相关问题时必须以此为准，不知道的就说不知道]\n${facts}${ragBlock}`;
+  // system 分段组装：人设 → 话题边界 → 时段语气 → 好感语气 → 站点事实 → RAG 片段
+  const system = [
+    persona,
+    TOPIC_BOUNDARY,
+    timeTonePrompt(body?.localHour),
+    await affinityPromise,
+    `[以下为本站事实信息，回答站点相关问题时必须以此为准，不知道的就说不知道]\n${facts}`,
+    ragBlock.trim(),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const streamMode = body?.stream === true;
 

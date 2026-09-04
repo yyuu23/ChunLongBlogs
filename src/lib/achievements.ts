@@ -34,6 +34,10 @@ export interface PlayerStats {
   streak: number;
   /** 历史最长连续天数（暂无成就引用，留作未来用） */
   bestStreak: number;
+  /** 看板娘好感度（聊天/摸头/每日首见累积，等级见 lib/affinity.ts） */
+  affinityPoints: number;
+  /** 摸头次数 */
+  mascotPats: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -58,6 +62,8 @@ export const EMPTY_STATS: PlayerStats = {
   visitDays: 0,
   streak: 0,
   bestStreak: 0,
+  affinityPoints: 0,
+  mascotPats: 0,
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -76,6 +82,7 @@ export const XP_RULES = {
   poke_sun: 1,
   visit_planet: 2,
   view_star: 2,
+  pat_mascot: 1,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -95,6 +102,7 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   poke_sun: 5,
   visit_planet: 5,
   view_star: 5,
+  pat_mascot: 5,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

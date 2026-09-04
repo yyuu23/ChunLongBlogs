@@ -14,6 +14,8 @@ import {
   type PlayerStats,
   type XpEvent,
 } from "@/lib/achievements";
+import { grantBottle, themeFromMeta } from "@/lib/bottles";
+import { festivalOf } from "@/lib/festivals";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +39,12 @@ function daysBetween(a: Date, b: Date) {
  * 每次请求结算一次「到访」：时段统计 + 累计天数 + 连续天数。
  * 用 daily.counts.__visit 做当天去重 —— 否则一次浏览里每个埋点都会 +1，
  * 夜访次数会被灌水成几十次。
+ * 返回是否为当日首见（供节日发瓶判定）。
  */
-function touchVisit(stats: PlayerStats, daily: DayCounter, lastSeen: Date | null) {
-  if (daily.counts.__visit) return;
+function touchVisit(stats: PlayerStats, daily: DayCounter, lastSeen: Date | null): boolean {
+  if (daily.counts.__visit) return false;
   daily.counts.__visit = 1;
+  stats.affinityPoints += 3; // 每日首见：好感 +3（去重由 __visit 保证）
 
   const now = new Date();
   const h = now.getHours();
@@ -51,13 +55,14 @@ function touchVisit(stats: PlayerStats, daily: DayCounter, lastSeen: Date | null
     stats.visitDays = 1;
     stats.streak = 1;
     stats.bestStreak = Math.max(stats.bestStreak, 1);
-    return;
+    return true;
   }
   const diff = daysBetween(lastSeen, now);
-  if (diff <= 0) return; // 同一天，天数不动
+  if (diff <= 0) return true; // 同一天，天数不动
   stats.visitDays += 1;
   stats.streak = diff === 1 ? stats.streak + 1 : 1; // 断签则重新从 1 开始
   stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
+  return true;
 }
 
 /** 结算一个行为事件：更新统计/经验/单日计数，返回新进度 */
@@ -104,6 +109,7 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       break;
     case "use_chat":
       stats.chatUsed += 1;
+      if (gained > 0) stats.affinityPoints += 2; // 好感随聊天累积（受 use_chat 单日上限防刷）
       break;
     case "toggle_theme":
       stats.themeToggles += 1;
@@ -135,6 +141,10 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
     case "view_star":
       stats.starViews += 1;
       break;
+    case "pat_mascot":
+      stats.mascotPats += 1;
+      if (gained > 0) stats.affinityPoints += 2; // 摸头 +2（受单日上限防刷）
+      break;
   }
   return gained;
 }
@@ -146,6 +156,7 @@ export async function POST(request: Request) {
     visitorId?: string;
     event?: XpEvent;
     payload?: Record<string, unknown>;
+    __meta?: { theme?: unknown };
   } | null;
 
   const visitorId = (body?.visitorId ?? "").trim();
@@ -169,7 +180,9 @@ export async function POST(request: Request) {
   const daily: DayCounter =
     __daily && __daily.date === today() ? __daily : { date: today(), counts: {} };
 
-  touchVisit(stats, daily, existing?.lastSeen ?? null);
+  // 成就 diff 的基线要含 touchVisit 之前的状态（夜之住民等首见成就也算"本次解锁"）
+  const beforeKeys = new Set(unlockedAchievements(stats));
+  const firstVisitToday = touchVisit(stats, daily, existing?.lastSeen ?? null);
   const gained = applyEvent(stats, daily, event, body?.payload);
   const xp = (existing?.xp ?? 0) + gained;
 
@@ -183,6 +196,20 @@ export async function POST(request: Request) {
       target: visitors.id,
       set: { xp, stats: JSON.stringify(statsWithDaily), lastSeen: new Date() },
     });
+
+  // ===== 漂流瓶（幂等，失败不阻断结算）=====
+  const theme = themeFromMeta(body?.__meta);
+  try {
+    // 当日首见撞上节气/农历节日 → 封一只节日限定瓶
+    if (firstVisitToday) {
+      const fest = festivalOf(new Date());
+      if (fest) await grantBottle(visitorId, "festival", fest.key, theme);
+    }
+    // 本次新解锁的成就逐个封瓶（纪念瓶）
+    for (const key of unlockedAchievements(stats)) {
+      if (!beforeKeys.has(key)) await grantBottle(visitorId, "achievement", key, theme);
+    }
+  } catch {}
 
   const lvl = levelOf(xp);
   return NextResponse.json({

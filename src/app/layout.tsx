@@ -68,6 +68,9 @@ const initScript = `
     document.documentElement.classList.add('splash-seen');
   }
 }catch(e){}})();
+(function(){try{
+  if(new Date().getHours() < 5){ document.documentElement.classList.add('cl-night'); }
+}catch(e){}})();
 `;
 
 export default async function RootLayout({

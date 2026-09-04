@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useChat, type ChatMsg, type RelatedRef } from "./useChat";
+import { AffinityBadge } from "@/components/chat/AffinityBadge";
 
 const PERSIST_KEY = "cl-chat-history";
 
@@ -57,7 +58,8 @@ export function ChatPageClient() {
   return (
     <div className="mx-auto flex w-[min(96%,48rem)] flex-col">
       {/* 工具条 */}
-      <div className="mb-3 flex items-center justify-end">
+      <div className="mb-3 flex items-center justify-between">
+        <AffinityBadge />
         <button
           onClick={clear}
           className="glass-button flex items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"

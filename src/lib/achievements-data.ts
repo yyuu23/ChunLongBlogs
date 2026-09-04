@@ -362,6 +362,24 @@ export const EXPLORE: AchievementDef[] = [
 /* ============================ 交情 ============================ */
 export const SOCIAL: AchievementDef[] = [
   {
+    key: "pat_1",
+    name: { zh: "摸头杀", en: "Head Pat", ja: "頭撫で", ko: "머리 쓰다듬기" },
+    description: { zh: "第一次摸看板娘的头", en: "Pat the mascot's head for the first time", ja: "看板娘の頭を初めて撫でる", ko: "마스코트 머리를 처음 쓰다듬기" },
+    emoji: "🤚",
+    category: "social",
+    check: (s) => s.mascotPats >= 1,
+    progress: { stat: "mascotPats", target: 1 },
+  },
+  {
+    key: "affinity_3",
+    name: { zh: "老朋友", en: "Old Friend", ja: "旧友", ko: "오랜 친구" },
+    description: { zh: "与看板娘的好感达到「常伴」", en: "Reach the Good Company affinity level", ja: "看板娘との好感度が「いつもそばに」に到達", ko: "마스코트와의 호감도가 '늘 곁에' 도달" },
+    emoji: "💗",
+    category: "social",
+    check: (s) => s.affinityPoints >= 90,
+    progress: { stat: "affinityPoints", target: 90 },
+  },
+  {
     key: "star_1",
     name: { zh: "摘星人", en: "Star Picker", ja: "星摘み人", ko: "별따기" },
     description: { zh: "在夜空留下第一颗星", en: "Leave your first star in the night sky", ja: "夜空に最初の星を残す", ko: "밤하늘에 첫 별 남기기" },

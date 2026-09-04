@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
+import { trackEvent } from "@/lib/track";
 
 /** 加载本地 Cubism2 core 脚本（幂等） */
 async function loadCore() {
@@ -27,10 +28,13 @@ async function loadCore() {
 export function Mascot() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [bubble, setBubble] = useState<string | null>(null);
-  const { effects, hydrated } = useEffects();
+  const { effects, hydrated, isNight } = useEffects();
   const t = useT();
   const { tArr } = useLocale();
   const bubbleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // 深夜标志走 ref 供模型闭包读取：不进下方 effect deps，避免日夜翻转时销毁重建 2MB 模型
+  const nightRef = useRef(false);
+  nightRef.current = isNight;
 
   const showBubble = (text: string) => {
     setBubble(text);
@@ -38,9 +42,9 @@ export function Mascot() {
     bubbleTimer.current = setTimeout(() => setBubble(null), 3200);
   };
 
-  /** 随机台词（词典数组，随语言切换） */
+  /** 随机台词（词典数组，随语言切换；深夜换瞌睡词） */
   const randomLine = () => {
-    const lines = tArr("mascot.lines");
+    const lines = tArr(nightRef.current ? "mascot.nightLines" : "mascot.lines");
     return lines[Math.floor(Math.random() * lines.length)] ?? "";
   };
 
@@ -116,13 +120,14 @@ export function Mascot() {
             clearTimeout(dimTimer);
             dimTimer = null;
           }
-          if (app?.ticker) app.ticker.maxFPS = 0; // 0 = 不限帧
+          // 0 = 不限帧；深夜瞌睡状态即使有人互动也只回到 12fps（呼吸都变慢了）
+          if (app?.ticker) app.ticker.maxFPS = nightRef.current ? 12 : 0;
         };
         const scheduleDim = () => {
           if (dimTimer) clearTimeout(dimTimer);
           dimTimer = setTimeout(() => {
             dimTimer = null;
-            if (app?.ticker) app.ticker.maxFPS = 30;
+            if (app?.ticker) app.ticker.maxFPS = nightRef.current ? 12 : 30;
           }, 10000);
         };
         app.view.addEventListener("pointerenter", undim);
@@ -134,6 +139,7 @@ export function Mascot() {
           if (area === "head") {
             model.motion("flick_head");
             showBubble(t("mascot.flickHead"));
+            trackEvent("pat_mascot"); // 摸头攒好感（服务端按单日上限结算）
           } else {
             model.motion("tap_body");
             showBubble(randomLine());
@@ -184,7 +190,7 @@ export function Mascot() {
         };
         scheduleDim(); // 初始：加载后无人互动满 10s 即降帧
 
-        showBubble(t("mascot.greeting"));
+        showBubble(t(nightRef.current ? "mascot.nightGreeting" : "mascot.greeting"));
       } catch {
         // 模型加载失败（罕见）：静默隐藏
       }
@@ -220,6 +226,14 @@ export function Mascot() {
   return (
     <div className="pointer-events-none fixed bottom-0 left-0 z-40 hidden md:block" aria-hidden>
       <div ref={wrapRef} className="pointer-events-auto cursor-grab active:cursor-grabbing" />
+      {/* 深夜瞌睡：头顶 Zzz 轻轻上浮；说话时让位给气泡 */}
+      {isNight && !bubble && (
+        <div className="cl-zzz" aria-hidden>
+          <span>Z</span>
+          <span>z</span>
+          <span>z</span>
+        </div>
+      )}
       <AnimatePresence>
         {bubble && (
           <motion.div

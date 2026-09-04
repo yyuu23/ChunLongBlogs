@@ -4,10 +4,11 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useProgress } from "@react-three/drei";
 import { Loader2, SendHorizonal, Sparkles } from "lucide-react";
-import { fetchProgress, getVisitorId, trackEvent, type PlayerProgress } from "@/lib/track";
+import { fetchProgress, getVisitorId, trackEvent, currentParticleTheme, type PlayerProgress } from "@/lib/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { DATE_LOCALE } from "@/lib/i18n/config";
 import { AchievementWall } from "@/components/lab/AchievementWall";
+import { BottleShelf } from "@/components/lab/BottleShelf";
 import type { MomentItem, StarItem, PlanetCounts } from "@/components/lab/LabScene";
 
 /** three.js 场景只在客户端加载（WebGL 不能 SSR） */
@@ -61,7 +62,7 @@ export function LabClient({
       const res = await fetch("/api/stars", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, visitorId: getVisitorId() }),
+        body: JSON.stringify({ content, visitorId: getVisitorId(), theme: currentParticleTheme() }),
       });
       const data = (await res.json()) as { star?: StarItem; error?: string };
       if (data.star) {
@@ -69,6 +70,8 @@ export function LabClient({
         setStarInput("");
         setStarMsg(t("lab.starOk"));
         trackEvent("leave_star");
+        // 通知瓶子架重拉（留星会封存一只新瓶子）
+        window.dispatchEvent(new Event("cl-bottle-refresh"));
       } else {
         setStarMsg(`❌ ${data.error ?? ""}`);
       }
@@ -141,6 +144,9 @@ export function LabClient({
 
       {/* 成就徽章墙（按分类分组折叠） */}
       <AchievementWall progress={progress} />
+
+      {/* 漂流瓶架：留星 / 成就 / 节气来访的封存纪念 */}
+      <BottleShelf />
     </div>
   );
 }

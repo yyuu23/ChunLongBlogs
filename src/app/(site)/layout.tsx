@@ -26,6 +26,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
         palette={config.gradientPalette}
       />
       <ThemeParticles />
+      {/* 深夜模式夜幕层：0-4 点由 cl-night 类点亮（initScript 首帧 + EffectProvider 轮询），只压暗背景与粒子 */}
+      <div className="cl-night-overlay" aria-hidden />
       <ClickEffect />
       <SelectionSparkle />
       <ReadingProgress />

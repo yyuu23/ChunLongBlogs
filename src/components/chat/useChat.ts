@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { trackEvent } from "@/lib/track";
+import { trackEvent, getVisitorId } from "@/lib/track";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /** 参考来源（与 /api/chat 的 related 同构） */
@@ -106,7 +106,12 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history.slice(-16), stream: true }),
+          body: JSON.stringify({
+            messages: history.slice(-16),
+            stream: true,
+            localHour: new Date().getHours(),
+            visitorId: getVisitorId(),
+          }),
           signal: ac.signal,
         });
 

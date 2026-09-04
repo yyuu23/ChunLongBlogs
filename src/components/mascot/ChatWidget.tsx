@@ -7,6 +7,7 @@ import { MessageCircle, X, SendHorizonal, Loader2, Square } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useChat } from "@/components/chat/useChat";
+import { AffinityBadge } from "@/components/chat/AffinityBadge";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -70,7 +71,10 @@ export function ChatWidget() {
             }`}
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
-              <p className="text-sm font-semibold">AI 小助手</p>
+              <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                <span className="truncate">AI 小助手</span>
+                <AffinityBadge />
+              </p>
               <button onClick={() => setOpen(false)} aria-label={t("chat.closeAria")} className="rounded-full p-1 text-muted hover:text-rose-400">
                 <X className="h-4 w-4" />
               </button>

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 const ts = { withTimezone: false, mode: "timestamp_ms" } as const;
@@ -147,3 +147,22 @@ export const stars = sqliteTable("stars", {
   visitorId: text("visitor_id").notNull().default(""),
   createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+/**
+ * 访客漂流瓶：留星 / 解锁成就 / 节气节日来访 的纪念收藏（实验室瓶子架展示）。
+ * theme 记录"获得当时的粒子季节"，瓶内永远封着那一天的风景。
+ * (visitorId, kind, refKey) 唯一 —— 同一来源幂等，不重复发瓶。
+ */
+export const bottles = sqliteTable(
+  "bottles",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    visitorId: text("visitor_id").notNull(),
+    kind: text("kind").notNull(), // star | achievement | festival
+    refKey: text("ref_key").notNull().default(""), // 留星=starId、成就=key、节日=festival key
+    title: text("title").notNull().default(""), // 留星内容摘录（展示快照）
+    theme: text("theme").notNull().default("sakura"), // sakura | firefly | leaf | snow
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("bottles_visitor_kind_ref_idx").on(t.visitorId, t.kind, t.refKey)],
+);

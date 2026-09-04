@@ -50,6 +50,8 @@ interface EffectCtx {
   particleTheme: ParticleTheme;
   setParticleTheme: (t: ParticleTheme) => void;
   hydrated: boolean;
+  /** 深夜（0-4 点）：首帧类名由 initScript 静态添加（微缓存安全），这里供 React 侧响应式使用 */
+  isNight: boolean;
 }
 
 const Ctx = createContext<EffectCtx>({
@@ -58,6 +60,7 @@ const Ctx = createContext<EffectCtx>({
   particleTheme: "auto",
   setParticleTheme: () => {},
   hydrated: false,
+  isNight: false,
 });
 
 export const useEffects = () => useContext(Ctx);
@@ -66,6 +69,7 @@ export function EffectProvider({ children }: { children: ReactNode }) {
   const [effects, setEffects] = useState<EffectFlags>(DEFAULTS);
   const [particleTheme, setParticleThemeState] = useState<ParticleTheme>("auto");
   const [hydrated, setHydrated] = useState(false);
+  const [isNight, setIsNight] = useState(false);
 
   useEffect(() => {
     try {
@@ -104,8 +108,21 @@ export function EffectProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
+  // 深夜时段（0-4 点）：与 initScript 首帧加的类保持同步（幂等 toggle），
+  // 60s 轮询跨零点无缝切换。不加用户开关——受 particles 开关与 reduced-motion 管辖。
+  useEffect(() => {
+    const apply = () => {
+      const night = new Date().getHours() < 5;
+      setIsNight(night);
+      document.documentElement.classList.toggle("cl-night", night);
+    };
+    apply();
+    const id = setInterval(apply, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
-    <Ctx.Provider value={{ effects, toggle, particleTheme, setParticleTheme, hydrated }}>
+    <Ctx.Provider value={{ effects, toggle, particleTheme, setParticleTheme, hydrated, isNight }}>
       {children}
     </Ctx.Provider>
   );

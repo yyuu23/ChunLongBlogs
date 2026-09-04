@@ -5,6 +5,7 @@ import { HeroBanner } from "@/components/home/HeroBanner";
 import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
 import { AnnouncementBar } from "@/components/home/AnnouncementBar";
 import { WeatherCard } from "@/components/home/WeatherCard";
+import { HouseWindow } from "@/components/home/HouseWindow";
 import { PostCard } from "@/components/posts/PostCard";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
@@ -64,6 +65,7 @@ export default async function HomePage() {
                 ]}
               />
               <WeatherCard />
+              <HouseWindow />
             </div>
           </FadeIn>
         </div>

@@ -28,6 +28,27 @@ export interface PlayerProgress {
   stats: PlayerStats;
 }
 
+/**
+ * 解析当前"实际生效"的粒子主题：auto/season 在客户端展开成具体主题
+ * （与 Effects.tsx 的判定口径一致），供服务端给瓶子记录获得时的季节。
+ */
+export function currentParticleTheme(): string {
+  try {
+    const saved = localStorage.getItem("cl-particle-theme");
+    const theme = saved && saved !== "off" ? saved : "auto";
+    if (theme === "auto") {
+      return matchMedia("(prefers-color-scheme: dark)").matches ? "firefly" : "sakura";
+    }
+    if (theme === "season") {
+      const m = new Date().getMonth() + 1;
+      return m >= 3 && m <= 5 ? "sakura" : m >= 6 && m <= 8 ? "firefly" : m >= 9 && m <= 11 ? "leaf" : "snow";
+    }
+    return theme;
+  } catch {
+    return "sakura";
+  }
+}
+
 /** 行为埋点：fire-and-forget 上报经验事件，附带本地事件供 HUD 即时刷新 */
 export function trackEvent(event: XpEvent, payload?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
@@ -50,7 +71,7 @@ export function trackEvent(event: XpEvent, payload?: Record<string, unknown>) {
   fetch("/api/player", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ visitorId, event, payload }),
+    body: JSON.stringify({ visitorId, event, payload, __meta: { theme: currentParticleTheme() } }),
     // 页面即将卸载（如点行星外链跳走）时也别丢上报
     keepalive: true,
   })

@@ -30,3 +30,28 @@ export function clientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
   return xff?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
 }
+
+/** 每日计数器（内存，按服务器本地日期分桶）——防脚本低频长跑刷爆 API 账单。
+ *  与 rateLimit 的区别：限流挡"快"，这里挡"久"。
+ *  pm2 重启清零可接受（重启后从 0 重新累计，只损失当日已计额度，不会超卖）。
+ *  Map 无限增长防护：超过 1000 个 key 时清扫过期日期桶。 */
+const dayCounters = new Map<string, { d: string; n: number }>();
+
+export function dailyCount(key: string, limit: number): { ok: boolean; resetIn: number } {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const cur = dayCounters.get(key);
+  const entry = cur && cur.d === todayStr ? cur : { d: todayStr, n: 0 };
+  if (entry.n >= limit) {
+    dayCounters.set(key, entry);
+    // 到本地午夜的秒数（Retry-After 用）
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+    return { ok: false, resetIn: Math.max(1, Math.ceil((midnight - now.getTime()) / 1000)) };
+  }
+  entry.n += 1;
+  dayCounters.set(key, entry);
+  if (dayCounters.size > 1000) {
+    for (const [k, v] of dayCounters) if (v.d !== todayStr) dayCounters.delete(k);
+  }
+  return { ok: true, resetIn: 0 };
+}

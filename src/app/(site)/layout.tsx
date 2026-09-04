@@ -12,6 +12,7 @@ import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
 import { ChatWidget } from "@/components/mascot/ChatWidget";
+import { ProactiveChat } from "@/components/mascot/ProactiveChat";
 import { getSiteConfig } from "@/lib/site";
 
 /** 公开站点布局：背景三明治 + 粒子 + 导航 + 页脚 */
@@ -44,6 +45,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <FloatingTools />
       <Mascot />
       <ChatWidget />
+      <ProactiveChat />
       <AchievementToasts />
     </>
   );

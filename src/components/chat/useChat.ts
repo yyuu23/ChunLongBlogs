@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { trackEvent, getVisitorId } from "@/lib/track";
 import { useT } from "@/components/providers/LocaleProvider";
+import { createMoodFilter } from "@/lib/moodStream";
+import { readDigest, noteTurn } from "@/lib/chatMemory";
 
 /** 参考来源（与 /api/chat 的 related 同构） */
 export interface RelatedRef {
@@ -40,6 +43,7 @@ interface SsePayload {
  */
 export function useChat({ welcome, persistKey }: { welcome: string; persistKey?: string }) {
   const t = useT();
+  const pathname = usePathname();
   const [messages, setMessages] = useState<ChatMsg[]>([{ role: "assistant", content: welcome }]);
   const [busy, setBusy] = useState(false);
   const acRef = useRef<AbortController | null>(null);
@@ -102,6 +106,8 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
       const ac = new AbortController();
       acRef.current = ac;
       let gotAny = false;
+      let replyText = ""; // 剥离标记后的完整回复(记忆提取的输入)
+      const moodFilter = createMoodFilter(); // 每轮一个:流式剥离 [mood:xxx],append 前剥离故持久化天然干净
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -111,14 +117,27 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             stream: true,
             localHour: new Date().getHours(),
             visitorId: getVisitorId(),
+            // 页面感知：/chat 页跳过（该页注入无意义）；文章详情页带标题让 AI 知道访客在读什么
+            page: pathname === "/chat" ? undefined : pathname,
+            pageTitle:
+              pathname && /^\/posts\/[^/]+$/.test(pathname)
+                ? document.title.split(" - ")[0].slice(0, 60)
+                : undefined,
+            // 记忆小本本：本机 localStorage 的长期记忆注入（服务端按不可信数据包裹）
+            memory: readDigest(),
           }),
           signal: ac.signal,
         });
 
         if (!res.ok) {
+          // 先读 body 再判类型：429 可能是分钟限流(无 code)也可能是日限额(chat_daily_limit)
           let msg = t("chat.unknownError");
           if (res.status === 429) {
             msg = t("chat.rateLimited");
+            try {
+              const j = (await res.json()) as { code?: string };
+              if (j.code === "chat_daily_limit") msg = t("chat.dailyLimit");
+            } catch {}
           } else {
             try {
               const j = (await res.json()) as { error?: string };
@@ -160,7 +179,9 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
               patchLast({ related: Array.isArray(payload) ? (payload as unknown as RelatedRef[]) : [] });
             } else if (event === "delta" && typeof payload.text === "string") {
               gotAny = true;
-              appendDelta(payload.text);
+              const safe = moodFilter.feed(payload.text);
+              replyText += safe;
+              if (safe) appendDelta(safe);
             } else if (event === "error") {
               patchLast({
                 content: `${t("chat.errorPrefix")}${payload.message ?? t("chat.unknownError")}`,
@@ -179,6 +200,15 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             }
           }
         }
+        // 流收尾:吐回被扣留的残缺尾部 + 分发情绪给看板娘(仅 mood 非空时)
+        const rest = moodFilter.flush();
+        replyText += rest;
+        if (rest) appendDelta(rest);
+        if (moodFilter.mood) {
+          window.dispatchEvent(new CustomEvent("cl-mascot-mood", { detail: { mood: moodFilter.mood } }));
+        }
+        // 本轮成功:记忆小本本计数(达阈值自动异步提取)
+        if (gotAny) noteTurn([...history, { role: "assistant", content: replyText }]);
         patchLast({ streaming: false }); // 上游没发 done 的兜底
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
@@ -192,7 +222,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         acRef.current = null;
       }
     },
-    [t],
+    [t, pathname],
   );
 
   const send = useCallback(

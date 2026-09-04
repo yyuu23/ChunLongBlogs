@@ -170,6 +170,7 @@ export const en: Dictionary = {
     unknownError: "Unknown error",
     stopAria: "Stop generating",
     rateLimited: "That's a lot of questions — take a breather and retry in a minute (＞﹏＜)",
+    dailyLimit: "Today's chat quota is used up — come play with me again tomorrow (´-ω-`)",
     affinityTitle: "Affinity with the mascot: chatting, head pats and daily visits all help",
   },
   chatPage: {
@@ -210,6 +211,20 @@ export const en: Dictionary = {
       "The night is quiet — nice for daydreaming...",
       "Get some rest soon, see you tomorrow...",
     ],
+    proactive: {
+      postRead: [
+        "All done reading? Want to chat about any part of it~",
+        "Making it all the way here — you're a careful reader (＾▽＾)",
+        "The keeper spent a long time on this one. Liked it? Maybe leave a star?",
+      ],
+      night: ["Still awake at this hour... I'll stay with you a bit (¦3)", "It's quiet at night — go easy on your eyes..."],
+      linger: [
+        "You've been here a while — how about a short eye break?",
+        "Tired of browsing? There's a nice tune in the music room~",
+      ],
+      lab: ["Welcome to the Lab! Try poking the sun?", "Every planet is a kind of content — look around~"],
+      music: ["All the songs here are good picks~", "Music keeps playing when you switch pages ✨"],
+    },
   },
   weather: {
     codes: {

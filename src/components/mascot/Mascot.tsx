@@ -35,6 +35,9 @@ export function Mascot() {
   // 深夜标志走 ref 供模型闭包读取：不进下方 effect deps，避免日夜翻转时销毁重建 2MB 模型
   const nightRef = useRef(false);
   nightRef.current = isNight;
+  // 模型句柄转接：大 effect 内创建后挂到组件级 ref，供情绪联动/主动搭话的外部事件监听使用
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modelRef = useRef<any>(null);
 
   const showBubble = (text: string) => {
     setBubble(text);
@@ -103,6 +106,7 @@ export function Mascot() {
         model.interactive = false;
         model.interactiveChildren = false;
         app.stage.addChild(model);
+        modelRef.current = model;
 
         // 标签页切后台时冻结渲染循环（呼吸/物理暂停），切回无缝续播
         const onVisibility = () => {
@@ -206,6 +210,7 @@ export function Mascot() {
 
     return () => {
       destroyed = true;
+      modelRef.current = null;
       if (startIdleId !== null) cancelIdleCallback(startIdleId);
       if (startTimerId !== null) clearTimeout(startTimerId);
       clearTimeout(bubbleTimer.current);
@@ -220,6 +225,47 @@ export function Mascot() {
       } catch {}
     };
   }, [hydrated, effects.mascot]);
+
+  // 情绪联动 + 主动搭话:独立于大 effect 的轻监听(不怕模型重建),事件由 useChat/ProactiveChat 分发。
+  // showBubble 只 set state 与操作稳定 ref,旧闭包安全,deps 留空
+  useEffect(() => {
+    const MOOD_ACTIONS: Record<string, { motion?: string; expression?: string }> = {
+      happy: { motion: "tap_body", expression: "f02" },
+      comfort: { motion: "flick_head", expression: "f03" },
+      sleepy: { motion: "idle", expression: "f04" },
+      wink: { expression: "f02" },
+      surprise: { motion: "shake" },
+    };
+    let lastMoodAt = 0;
+    const onMood = (e: Event) => {
+      const mood = (e as CustomEvent<{ mood?: string }>).detail?.mood;
+      const action = mood ? MOOD_ACTIONS[mood] : undefined;
+      const model = modelRef.current;
+      if (!action || !model) return;
+      const now = Date.now();
+      if (now - lastMoodAt < 8000) return; // 节流:正常一轮只动一次
+      lastMoodAt = now;
+      try {
+        if (action.motion) model.motion(action.motion);
+        if (action.expression) model.expression(action.expression);
+      } catch {}
+    };
+    const onSay = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (!text) return;
+      showBubble(text);
+      try {
+        modelRef.current?.motion("tap_body");
+      } catch {}
+    };
+    window.addEventListener("cl-mascot-mood", onMood);
+    window.addEventListener("cl-mascot-say", onSay);
+    return () => {
+      window.removeEventListener("cl-mascot-mood", onMood);
+      window.removeEventListener("cl-mascot-say", onSay);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (hydrated && !effects.mascot) return null;
 

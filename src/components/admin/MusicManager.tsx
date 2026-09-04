@@ -75,7 +75,14 @@ export function MusicManager({
     setImporting(false);
     if ("error" in r && r.error) setMessage(`❌ ${r.error}`);
     else if ("ok" in r) {
-      setMessage(`✅ 成功导入 ${r.count} 首`);
+      // 已下架的曲目详情接口不返回，说明差额免得看着像少导了
+      const skipped = r.missing ?? 0;
+      const missing = skipped > 0 ? `，${skipped} 首已下架跳过` : "";
+      setMessage(
+        r.updated
+          ? `✅ 已更新歌单「${r.title}」：${r.count} 首${missing}`
+          : `✅ 成功导入「${r.title}」${r.count} 首${missing}`,
+      );
       setNeteaseId("");
     }
   };
@@ -91,7 +98,7 @@ export function MusicManager({
           <input
             value={neteaseId}
             onChange={(e) => setNeteaseId(e.target.value)}
-            placeholder="歌单 ID（网址里 id= 后面的数字）"
+            placeholder="歌单链接或 ID（直接粘分享链接也行）"
             className={`${input} min-w-56 flex-1`}
           />
           <button

@@ -30,22 +30,34 @@ export function createMoodFilter() {
     feed(text: string): string {
       const { text: stripped, mood: m } = stripMood(hold + text);
       if (m) mood = m;
-      // 尾部若可能是被拆开的标记前缀("[" ~ "[mood:"),扣下等下一轮
+      // 尾部若可能是被拆开的"半个标记"则整段扣下等下一轮。两种形态都要接住:
+      //   "[" ~ "[mood:"   —— 前缀被拆（原有行为）
+      //   "[mood:ha"       —— 前缀完整、词或 ] 半截（曾泄漏进正文的形态）
       let keep = stripped.length;
-      const maxCheck = Math.min(stripped.length, PREFIX.length);
-      for (let l = maxCheck; l > 0; l--) {
-        if (PREFIX.startsWith(stripped.slice(stripped.length - l))) {
-          keep = stripped.length - l;
-          break;
+      const li = stripped.lastIndexOf("[");
+      if (li >= 0) {
+        const tail = stripped.slice(li);
+        if (
+          stripped.length - li <= 20 && // 防正文中的 "[" 误扣长段
+          ((tail.startsWith(PREFIX) && !tail.includes("]")) || PREFIX.startsWith(tail))
+        ) {
+          keep = li;
         }
       }
       hold = stripped.slice(keep);
       return stripped.slice(0, keep);
     },
-    /** 流结束:吐回残缺部分(不是完整标记就当正文,肉眼无感) */
+    /** 流结束:吐回残缺部分 —— 但半个情绪标记永不展示,直接丢弃 */
     flush(): string {
       const rest = hold;
       hold = "";
+      const li = rest.lastIndexOf("[");
+      if (li >= 0) {
+        const tail = rest.slice(li);
+        if ((tail.startsWith(PREFIX) && !tail.includes("]")) || PREFIX.startsWith(tail)) {
+          return rest.slice(0, li);
+        }
+      }
       return rest;
     },
   };

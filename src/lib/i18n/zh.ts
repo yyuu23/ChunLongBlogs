@@ -165,6 +165,7 @@ export const zh = {
     prevTrack: "上一首",
     nextTrack: "下一首",
     mute: "静音",
+    volume: "音量",
     play: "播放",
     pause: "暂停",
     closePlayer: "关闭播放器",

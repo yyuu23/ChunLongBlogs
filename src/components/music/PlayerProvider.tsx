@@ -46,6 +46,17 @@ export const usePlayer = () => useContext(Ctx);
 const fmt = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
+/** 音量偏好持久化（cl-volume / cl-muted），读写失败静默 */
+function loadVolumePref(): { volume: number; muted: boolean } {
+  try {
+    const v = parseFloat(localStorage.getItem("cl-volume") ?? "");
+    const m = localStorage.getItem("cl-muted") === "1";
+    return { volume: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8, muted: m };
+  } catch {
+    return { volume: 0.8, muted: false };
+  }
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [current, setCurrent] = useState<PlayerSong | null>(null);
@@ -57,11 +68,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [muted, setMuted] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  // 单例 audio 元素：跨页面唯一实例
+  // 单例 audio 元素：跨页面唯一实例；音量/静音从访客偏好恢复
   if (typeof window !== "undefined" && !audioRef.current) {
     const audio = new Audio();
     audio.preload = "metadata";
-    audio.volume = 0.8;
+    const pref = loadVolumePref();
+    audio.volume = pref.volume;
+    audio.muted = pref.muted;
     audioRef.current = audio;
   }
 
@@ -157,16 +170,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 状态与 audio 单例的音量偏好对齐（单例在创建时已应用，这里同步 UI 展示值）
+  useEffect(() => {
+    const pref = loadVolumePref();
+    setVolumeState(pref.volume);
+    setMuted(pref.muted);
+  }, []);
+
   const setVolume = useCallback((v: number) => {
     const audio = audioRef.current;
-    setVolumeState(v);
-    if (audio) audio.volume = v;
+    const clamped = Math.min(1, Math.max(0, v));
+    setVolumeState(clamped);
+    if (audio) audio.volume = clamped;
+    try {
+      localStorage.setItem("cl-volume", String(clamped));
+    } catch {}
   }, []);
 
   const setMutedAll = useCallback((m: boolean) => {
     const audio = audioRef.current;
     setMuted(m);
     if (audio) audio.muted = m;
+    try {
+      localStorage.setItem("cl-muted", m ? "1" : "0");
+    } catch {}
   }, []);
 
   const close = useCallback(() => {
@@ -213,6 +240,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 function MiniPlayer({ failed }: { failed: boolean }) {
   const p = usePlayer();
   const t = useT();
+
+  // 播放条在场标记：让右下角工具列（globals.css）上移让位，
+  // 避免 z-50 的设置面板盖住播放条右端的按钮（×/切歌点不到）。
+  // MiniPlayer 实例常驻（无歌时 return null 不卸载），必须按 current 变化同步类
+  const hasSong = !!p?.current;
+  useEffect(() => {
+    document.documentElement.classList.toggle("cl-player-on", hasSong);
+  }, [hasSong]);
+
   if (!p?.current) return null;
 
   return (
@@ -277,13 +313,37 @@ function MiniPlayer({ failed }: { failed: boolean }) {
           <button onClick={p.next} aria-label={t("music.nextTrack")} className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
             <SkipForward className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => p.setMuted(!p.muted)}
-            aria-label={t("music.mute")}
-            className="hidden rounded-full p-2 text-muted hover:text-[var(--accent-text)] sm:block"
-          >
-            {p.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
+          {/* 音量：hover 展开滑杆（触屏点按 = 静音切换） */}
+          <div className="group/vol relative hidden sm:block">
+            <button
+              onClick={() => p.setMuted(!p.muted)}
+              aria-label={t("music.volume")}
+              className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]"
+            >
+              {p.muted || p.volume === 0 ? (
+                <VolumeX className="h-4 w-4" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 opacity-0 transition-opacity group-hover/vol:pointer-events-auto group-hover/vol:opacity-100">
+              <div className="glass-card flex w-24 items-center !rounded-xl px-2 py-1.5">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round((p.muted ? 0 : p.volume) * 100)}
+                  onChange={(e) => {
+                    p.setVolume(Number(e.target.value) / 100);
+                    if (p.muted) p.setMuted(false); // 拖动即取消静音，否则拖了没声
+                  }}
+                  aria-label={t("music.volume")}
+                  className="setting-slider !h-1.5"
+                />
+              </div>
+            </div>
+          </div>
           <button onClick={p.close} aria-label={t("music.closePlayer")} className="rounded-full p-2 text-muted hover:text-rose-400">
             <X className="h-4 w-4" />
           </button>

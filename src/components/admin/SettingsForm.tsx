@@ -303,6 +303,28 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
             className={`font-mono text-xs ${input}`}
           />
         </label>
+        <label className={label}>
+          <span className="text-xs font-medium text-slate-500">遮罩浓度（0–100%，动漫图建议 10–20%）</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={Math.round((config.bgMaskOpacity ?? 0.15) * 100)}
+            onChange={(e) => set("bgMaskOpacity", Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100)}
+            className={input}
+          />
+        </label>
+        <label className={label}>
+          <span className="text-xs font-medium text-slate-500">磨砂模糊（0–30px，动漫图建议 0）</span>
+          <input
+            type="number"
+            min={0}
+            max={30}
+            value={config.bgMaskBlur ?? 0}
+            onChange={(e) => set("bgMaskBlur", Math.min(30, Math.max(0, Number(e.target.value) || 0)))}
+            className={input}
+          />
+        </label>
         <label className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">背景图列表（每行一个 URL）</span>
           <textarea

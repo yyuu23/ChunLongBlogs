@@ -38,6 +38,8 @@ export interface PlayerStats {
   affinityPoints: number;
   /** 摸头次数 */
   mascotPats: number;
+  /** 累计签到天数（每日上限 1 次） */
+  checkinDays: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -64,6 +66,7 @@ export const EMPTY_STATS: PlayerStats = {
   bestStreak: 0,
   affinityPoints: 0,
   mascotPats: 0,
+  checkinDays: 0,
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -83,6 +86,7 @@ export const XP_RULES = {
   visit_planet: 2,
   view_star: 2,
   pat_mascot: 1,
+  daily_checkin: 15,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -103,6 +107,7 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   visit_planet: 5,
   view_star: 5,
   pat_mascot: 5,
+  daily_checkin: 1,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

@@ -6,6 +6,8 @@ import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
 import { AnnouncementBar } from "@/components/home/AnnouncementBar";
 import { WeatherCard } from "@/components/home/WeatherCard";
 import { HouseWindow } from "@/components/home/HouseWindow";
+import { HitokotoCard } from "@/components/home/HitokotoCard";
+import { DailyCheckinCard } from "@/components/home/DailyCheckinCard";
 import { PostCard } from "@/components/posts/PostCard";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
@@ -47,16 +49,15 @@ export default async function HomePage() {
         </FadeIn>
 
         <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
-          <FadeIn delay={0.15}>
-            <ProfileCard
-              avatar={config.avatar}
-              authorName={config.authorName}
-              bio={config.bio}
-              socials={config.socials}
-            />
-          </FadeIn>
-          <FadeIn delay={0.22}>
-            <div className="flex flex-col gap-6">
+          {/* 左栏：个人卡 + 站点统计 + 一言，h-full + flex-1 让一言卡拉伸补齐与右栏的高度差 */}
+          <FadeIn delay={0.15} className="h-full">
+            <div className="flex h-full flex-col gap-6">
+              <ProfileCard
+                avatar={config.avatar}
+                authorName={config.authorName}
+                bio={config.bio}
+                socials={config.socials}
+              />
               <StatsRow
                 stats={[
                   { label: t("home.statsPosts"), value: stats.posts, icon: <FileText className="h-5 w-5" /> },
@@ -64,11 +65,20 @@ export default async function HomePage() {
                   { label: t("home.statsViews"), value: stats.views, icon: <Eye className="h-5 w-5" /> },
                 ]}
               />
+              <HitokotoCard />
+            </div>
+          </FadeIn>
+          <FadeIn delay={0.22}>
+            <div className="flex flex-col gap-6">
               <WeatherCard />
               <HouseWindow />
             </div>
           </FadeIn>
         </div>
+
+        <FadeIn delay={0.1}>
+          <DailyCheckinCard />
+        </FadeIn>
 
         <FadeIn delay={0.05}>
           <div className="mt-4 flex items-center justify-between">

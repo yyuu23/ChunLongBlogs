@@ -145,6 +145,10 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       stats.mascotPats += 1;
       if (gained > 0) stats.affinityPoints += 2; // 摸头 +2（受单日上限防刷）
       break;
+    case "daily_checkin":
+      // gained > 0 说明今日首次签到（DAILY_CAPS 限 1 次/天）
+      if (gained > 0) stats.checkinDays += 1;
+      break;
   }
   return gained;
 }

@@ -6,14 +6,24 @@ interface BackgroundLayerProps {
   mode: "image" | "gradient";
   images: string[];
   palette: string[];
+  /** 遮罩浓度 0–1（暗色模式自动加深 1.6 倍保证正文可读） */
+  maskOpacity: number;
+  /** 磨砂模糊 px */
+  maskBlur: number;
 }
 
 /**
  * 全站分层背景（固定定位，z-0）：
- * 背景图轮播（交叉淡入 + Ken Burns）→ 毛玻璃遮罩 → 模糊光球
+ * 背景图轮播（交叉淡入 + Ken Burns）→ 可调遮罩 → 模糊光球
  * mode=gradient 时只保留流动渐变 + 光球
  */
-export function BackgroundLayer({ mode, images, palette }: BackgroundLayerProps) {
+export function BackgroundLayer({
+  mode,
+  images,
+  palette,
+  maskOpacity,
+  maskBlur,
+}: BackgroundLayerProps) {
   const slides = images.length ? images : ["/assets/bg/bg-1.svg"];
   const [index, setIndex] = useState(0);
 
@@ -43,8 +53,19 @@ export function BackgroundLayer({ mode, images, palette }: BackgroundLayerProps)
               }}
             />
           ))}
-          {/* 毛玻璃遮罩：让任何背景图都变得柔和 */}
-          <div className="absolute inset-0 bg-white/35 backdrop-blur-[18px] dark:bg-slate-950/55" />
+          {/* 遮罩：浓度/磨砂由后台配置。亮色白遮罩；暗色用较淡的深色遮罩（保留背景图可见度） */}
+          <div
+            className="absolute inset-0 bg-[var(--bg-mask-light)] dark:bg-[var(--bg-mask-dark)]"
+            style={
+              {
+                "--bg-mask-light": `rgba(255,255,255,${maskOpacity})`,
+                "--bg-mask-dark": `rgba(2,6,23,${Math.min(0.8, 0.35 + maskOpacity)})`,
+                backdropFilter: maskBlur > 0 ? `blur(${maskBlur}px)` : undefined,
+                WebkitBackdropFilter: maskBlur > 0 ? `blur(${maskBlur}px)` : undefined,
+              } as React.CSSProperties
+            }
+          />
+
         </>
       ) : (
         /* 流动渐变：原先是 400% 尺寸背景动画 background-position（每帧全屏重绘）。

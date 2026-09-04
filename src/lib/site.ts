@@ -32,6 +32,10 @@ export interface SiteConfig {
   announcement: { enabled: boolean; customText?: string };
   bgMode: "image" | "gradient";
   bgImages: string[];
+  /** 背景图遮罩浓度 0–1（亮色模式白色遮罩，暗色模式自动加深保证可读） */
+  bgMaskOpacity: number;
+  /** 背景图磨砂模糊强度 px（0 = 清晰显示背景图） */
+  bgMaskBlur: number;
   banners: Banner[];
   gradientPalette: string[];
   giscus: GiscusConfig | null;
@@ -57,24 +61,28 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   announcement: { enabled: true },
   bgMode: "image",
   bgImages: [
-    "/assets/bg/bg-1.svg",
-    "/assets/bg/bg-2.svg",
-    "/assets/bg/bg-3.svg",
-    "/assets/bg/bg-4.svg",
+    "/assets/bg/anime-1.webp",
+    "/assets/bg/anime-2.webp",
+    "/assets/bg/anime-3.webp",
+    "/assets/bg/anime-4.webp",
+    "/assets/bg/anime-5.webp",
+    "/assets/bg/anime-6.webp",
   ],
+  bgMaskOpacity: 0.15,
+  bgMaskBlur: 0,
   banners: [
     {
-      image: "/assets/bg/bg-1.svg",
+      image: "/assets/bg/anime-1.webp",
       title: "你好，我是 ChunLong",
       subtitle: "这里记录我的代码、思考与生活",
     },
     {
-      image: "/assets/bg/bg-2.svg",
+      image: "/assets/bg/anime-3.webp",
       title: "代码即诗",
       subtitle: "用 Next.js 与毛玻璃打造的一方天地",
     },
     {
-      image: "/assets/bg/bg-4.svg",
+      image: "/assets/bg/anime-5.webp",
       title: "慢下来，写点东西",
       subtitle: "技术 · 随笔 · 日常",
     },

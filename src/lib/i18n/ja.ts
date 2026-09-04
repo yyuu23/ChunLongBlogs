@@ -169,6 +169,7 @@ export const ja: Dictionary = {
     prevTrack: "前の曲",
     nextTrack: "次の曲",
     mute: "ミュート",
+    volume: "音量",
     play: "再生",
     pause: "一時停止",
     closePlayer: "プレイヤーを閉じる",

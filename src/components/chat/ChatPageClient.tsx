@@ -120,12 +120,18 @@ export function ChatPageClient() {
   const onlyWelcome = messages.length === 1 && messages[0]!.role === "assistant";
   const suggestions = onlyWelcome ? tArr("chatPage.suggestions") : [];
 
-  // 对话进行中常驻的小提示：按用户轮次从建议池确定性轮换 3 枚（不闪变）
+  // 对话进行中常驻的小提示：从"还没问过的"里按用户轮次确定性轮换 3 枚。
+  // asked 由 messages 派生 —— 天然覆盖历史恢复/会话切换/编辑重生成三种场景
   const pool = tArr("chatPage.suggestions");
   const turnCount = messages.filter((m) => m.role === "user").length;
+  const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
+  const freshPool = pool.filter((s) => !asked.has(s));
+  const source = freshPool.length >= 3 ? freshPool : pool; // 全问完则允许重新轮换
   const quickAsks = onlyWelcome
     ? []
-    : [0, 1, 2].map((i) => pool[(turnCount * 3 + i) % pool.length] ?? "").filter(Boolean);
+    : [0, 1, 2]
+        .map((i) => source[(turnCount * 3 + i) % source.length] ?? "")
+        .filter(Boolean);
 
   const sidebar = (
     <SessionSidebar
@@ -139,14 +145,14 @@ export function ChatPageClient() {
 
   return (
     <div className="mx-auto flex w-[min(96%,64rem)] gap-4">
-      {/* 桌面侧栏 */}
-      <aside className="hidden h-[calc(100dvh-21rem)] min-h-[22rem] w-56 shrink-0 lg:block">
-        {sidebar}
-      </aside>
+      {/* 桌面侧栏：pt-12 精确跳过工具条高度（h-9 + mb-3 = 48px），
+          aside 本身不设高 —— 由外层 stretch 拉到主列总高，玻璃卡 flex-1 填满，
+          顶部/底部即与聊天卡严格平齐 */}
+      <aside className="hidden w-56 shrink-0 flex-col pt-12 lg:flex">{sidebar}</aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 工具条 */}
-        <div className="mb-3 flex items-center justify-between">
+        {/* 工具条（定高 h-9：侧栏的 pt-12 与它精确配对） */}
+        <div className="mb-3 flex h-9 items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDrawerOpen(true)}
@@ -277,7 +283,7 @@ export function ChatPageClient() {
               onClick={() => setDrawerOpen(false)}
             />
             <motion.div
-              className="fixed bottom-4 left-3 top-20 z-[61] lg:hidden"
+              className="fixed bottom-4 left-3 top-20 z-[61] w-64 lg:hidden"
               initial={{ x: -24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -24, opacity: 0 }}
@@ -317,7 +323,7 @@ function SessionSidebar({
   const t = useT();
   const groups = groupSessions(sessions);
   return (
-    <div className="glass-card flex h-full w-64 flex-col overflow-hidden">
+    <div className="glass-card flex h-full w-full min-h-0 flex-col overflow-hidden">
       <div className="p-3">
         <button
           onClick={onNew}
@@ -458,7 +464,7 @@ function MessageRow({
     }
     return (
       <div className="group flex flex-col items-end">
-        <span className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-gradient px-4 py-2.5 text-sm leading-relaxed text-white">
+        <span className="max-w-[calc(100%-2.75rem)] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-gradient px-4 py-2.5 text-sm leading-relaxed text-white">
           {m.content}
         </span>
         <div className="cl-msg-actions mt-0.5 flex gap-0.5">

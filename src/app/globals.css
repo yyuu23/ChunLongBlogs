@@ -1509,3 +1509,13 @@ html.splash-seen .splash-overlay {
     translate: -1px 0;
   }
 }
+
+/* 迷你播放条在场（html.cl-player-on）时，右下角工具列上移让位：
+   播放条 bottom-6(1.5rem) + 条高约 78px + 间隙 ≈ 7rem。
+   选择器 specificity 高于 Tailwind 的 .md\:bottom-8，无需 !important。
+   移动端两者本就垂直错开（bottom-20 / bottom-24），不需要处理。 */
+@media (min-width: 768px) {
+  html.cl-player-on .cl-tools-dock {
+    bottom: 7rem;
+  }
+}

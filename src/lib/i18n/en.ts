@@ -167,6 +167,7 @@ export const en: Dictionary = {
     prevTrack: "Previous track",
     nextTrack: "Next track",
     mute: "Mute",
+    volume: "Volume",
     play: "Play",
     pause: "Pause",
     closePlayer: "Close player",

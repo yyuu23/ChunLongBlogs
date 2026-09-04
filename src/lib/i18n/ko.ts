@@ -167,6 +167,7 @@ export const ko: Dictionary = {
     prevTrack: "이전 곡",
     nextTrack: "다음 곡",
     mute: "음소거",
+    volume: "볼륨",
     play: "재생",
     pause: "일시정지",
     closePlayer: "플레이어 닫기",

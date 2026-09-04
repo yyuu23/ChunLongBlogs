@@ -40,7 +40,7 @@ export const zh = {
     albumPhotosCount: "{n} 张照片",
     viewAlbums: "查看相册 →",
     bannerAria: "切换到第 {i} 张照片",
-    hitokotoTitle: "一言",
+    hitokotoTitle: "一言 · 名句",
     hitokotoRefresh: "换一句",
     fortuneLabel: "今日运势",
     fortuneLuck: { best: "大吉", good: "中吉", mid: "小吉", bad: "凶" },

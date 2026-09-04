@@ -1,57 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Quote, RefreshCw } from "lucide-react";
+import { QUOTES, type Quote as QuoteItem } from "@/lib/quotes";
 import { useT } from "@/components/providers/LocaleProvider";
 
-interface Hitokoto {
-  text: string;
-  from: string;
+/** 本地随机一条（避开当前条目） */
+function localPick(current?: QuoteItem): QuoteItem {
+  if (QUOTES.length <= 1) return QUOTES[0];
+  let next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  while (current && next.text === current.text) {
+    next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  }
+  return next;
 }
 
-/** API 不可达时的离线语录（动漫向），保证卡片永远有内容 */
-const FALLBACK_QUOTES: Hitokoto[] = [
-  { text: "我们所度过的每个平凡的日常，也许就是连续发生的奇迹。", from: "日常" },
-  { text: "无论如何都要向前走，哪怕脚步再小。", from: "紫罗兰永恒花园" },
-  { text: "只要活着，哪里都是天堂。", from: "EVA" },
-  { text: "世界是美丽的，就算充满悲伤和泪水。", from: "Clannad" },
-  { text: "有思念你的人在的地方，就是你的归处。", from: "火影忍者" },
-  { text: "不要哭，真难看，哭也不会改变什么。", from: "海贼王" },
-];
-
-/** 一言卡：动画/漫画分类的一句话 + 出处，点击刷新换一句 */
+/**
+ * 一言卡：名言与诗词轮换，全部来自本地精选语料（src/lib/quotes.ts，181 条）。
+ * 不接在线接口 —— hitotocn 各分类实测：动漫 a/b 之外，"文学 d"是网文台词、
+ * "哲学 j"是网络原创句，"诗词 i"库容小（连抽重复率高）且混有约一成半的
+ * 现代言情短句，纯度与数量都不及本地库，索性全本地。
+ */
 export function HitokotoCard() {
   const t = useT();
-  const [quote, setQuote] = useState<Hitokoto>(FALLBACK_QUOTES[0]);
+  // 确定性初始值（按当日日期取模）：SSR 与客户端首渲染一致零 mismatch，且每天不同
+  const [quote, setQuote] = useState<QuoteItem>(
+    () => QUOTES[new Date().getDate() % QUOTES.length],
+  );
   const [spinning, setSpinning] = useState(false);
 
-  const next = useCallback(async () => {
+  const next = useCallback(() => {
     setSpinning(true);
     setTimeout(() => setSpinning(false), 600);
-    try {
-      const res = await fetch("https://v1.hitokoto.cn/?c=a&c=b&max_length=30", {
-        signal: AbortSignal.timeout(6000),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { hitokoto: string; from?: string };
-        if (data.hitokoto) {
-          setQuote({ text: data.hitokoto, from: data.from || "" });
-          return;
-        }
-      }
-    } catch {
-      // 网络失败：轮换离线语录
-    }
-    setQuote((q) => {
-      const i = FALLBACK_QUOTES.findIndex((f) => f.text === q.text);
-      return FALLBACK_QUOTES[(i + 1) % FALLBACK_QUOTES.length];
-    });
-  }, []);
-
-  useEffect(() => {
-    void next();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setQuote((q) => localPick(q));
   }, []);
 
   return (

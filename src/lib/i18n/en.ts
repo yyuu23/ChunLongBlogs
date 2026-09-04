@@ -42,7 +42,7 @@ export const en: Dictionary = {
     albumPhotosCount: "{n} photo | {n} photos",
     viewAlbums: "View albums →",
     bannerAria: "Switch to photo {i}",
-    hitokotoTitle: "Hitokoto",
+    hitokotoTitle: "Quotes",
     hitokotoRefresh: "Another one",
     fortuneLabel: "Daily Fortune",
     fortuneLuck: { best: "Great Luck", good: "Good Luck", mid: "Fair Luck", bad: "Bad Luck" },

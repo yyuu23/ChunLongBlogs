@@ -71,6 +71,10 @@ export const zh = {
     views: "{n} 次阅读",
     prevPost: "上一篇",
     nextPost: "下一篇",
+    copyCode: "复制代码",
+    copied: "已复制",
+    immersive: "沉浸阅读",
+    exitImmersive: "退出沉浸阅读",
     toc: "目录",
     comments: "评论",
     commentsEmpty: "评论区尚未配置 · 站长可在后台「站点设置」中开启 giscus",
@@ -304,6 +308,12 @@ export const zh = {
     ariaPrev: "上一个月",
     ariaNext: "下一个月",
     drillHint: "点击标题可返回上一级 · 再次点击月份查看日历",
+  },
+  search: {
+    title: "搜索文章",
+    placeholder: "输入关键词…",
+    empty: "没有找到相关文章",
+    hint: "↑↓ 选择 · Enter 打开 · Esc 关闭",
   },
   tools: {
     accentColor: "主题色",

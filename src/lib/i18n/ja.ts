@@ -75,6 +75,10 @@ export const ja: Dictionary = {
     views: "{n} 回閲覧",
     prevPost: "前の記事",
     nextPost: "次の記事",
+    copyCode: "コードをコピー",
+    copied: "コピーしました",
+    immersive: "没入読書",
+    exitImmersive: "没入読書を終了",
     toc: "目次",
     comments: "コメント",
     commentsEmpty: "コメント欄は未設定です · 管理画面の「サイト設定」で giscus を有効にできます",
@@ -305,6 +309,12 @@ export const ja: Dictionary = {
     ariaPrev: "前の月",
     ariaNext: "次の月",
     drillHint: "タイトルをクリックで戻る · 月をクリックでカレンダーを表示",
+  },
+  search: {
+    title: "記事を検索",
+    placeholder: "キーワードを入力…",
+    empty: "該当する記事がありません",
+    hint: "↑↓ 選択 · Enter 開く · Esc 閉じる",
   },
   tools: {
     accentColor: "テーマカラー",

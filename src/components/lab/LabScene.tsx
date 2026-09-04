@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
-import { usePlayer } from "@/components/music/PlayerProvider";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { pick } from "@/lib/i18n/config";
 import { trackEvent } from "@/lib/track";
@@ -75,28 +74,19 @@ function PlanetLabel({
   );
 }
 
-/** 轨道线（受音乐律动微微起伏） */
+/** 轨道线 */
 function OrbitRing({
   radius,
   incl,
   tone,
-  playing,
 }: {
   radius: number;
   incl: number;
   tone: ToneKey;
-  playing: boolean;
 }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = state.clock.elapsedTime;
-    const wob = playing ? 1 + 0.012 * Math.sin(t * Math.PI * 3.6) : 1;
-    ref.current.scale.set(wob, 1, wob);
-  });
   return (
     <group rotation={[THREE.MathUtils.degToRad(incl), 0, 0]}>
-      <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[radius - 0.5, radius + 0.5, 160]} />
         <meshBasicMaterial
           color={TONE[tone].glow}
@@ -109,17 +99,14 @@ function OrbitRing({
   );
 }
 
-/* ============ 恒星（音乐律动的全局氛围层核心） ============ */
+/* ============ 恒星 ============ */
 function Sun({ onClick }: { onClick: () => void }) {
   const core = useRef<THREE.Mesh>(null);
-  const { playing } = usePlayer() ?? {};
 
   useFrame((state) => {
+    // 极缓呼吸（与音乐无关）
     const t = state.clock.elapsedTime;
-    const pulse = playing
-      ? 0.045 * Math.sin(t * Math.PI * 3.6) + 0.025 * Math.sin(t * Math.PI * 1.8 + 1.3)
-      : 0.015 * Math.sin(t * Math.PI * 0.5);
-    if (core.current) core.current.scale.setScalar(1 + pulse);
+    if (core.current) core.current.scale.setScalar(1 + 0.015 * Math.sin(t * Math.PI * 0.5));
   });
 
   return (
@@ -259,7 +246,6 @@ export default function LabScene({
   const [bursts, setBursts] = useState<number[]>([]);
   const [openStar, setOpenStar] = useState<StarItem | null>(null);
   const [memoryIdx, setMemoryIdx] = useState<number | null>(null);
-  const { playing } = usePlayer() ?? {};
   const t = useT();
 
   /* 太阳连点合并上报：600ms 内的点击攒成一次 { count }。
@@ -330,7 +316,7 @@ export default function LabScene({
       {/* 轨道线 + 标签 */}
       {PLANETS.map((def) => (
         <group key={def.id}>
-          <OrbitRing radius={def.orbit} incl={def.incl} tone={def.tone} playing={!!playing} />
+          <OrbitRing radius={def.orbit} incl={def.incl} tone={def.tone} />
           <PlanetLabel def={def} count={countOf(def.id)} onClick={() => openPlanet(def)} />
         </group>
       ))}

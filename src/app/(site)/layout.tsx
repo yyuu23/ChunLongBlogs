@@ -13,6 +13,7 @@ import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
 import { ChatWidget } from "@/components/mascot/ChatWidget";
 import { ProactiveChat } from "@/components/mascot/ProactiveChat";
+import { SearchPalette } from "@/components/layout/SearchPalette";
 import { WallpaperProvider } from "@/components/providers/WallpaperProvider";
 import { getSiteConfig } from "@/lib/site";
 
@@ -42,6 +43,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <SplashScreen siteName={config.siteName} avatar={config.avatar} />
 
       <Navbar siteName={config.siteName} avatar={config.avatar} />
+      {/* ⌘K / Ctrl+K 全站搜索（Navbar 点搜索框也会派发 cl-open-search 唤起） */}
+      <SearchPalette />
 
       <PlayerProvider>
         <main className="relative z-10 flex-1 pt-20 md:pt-24">{children}</main>

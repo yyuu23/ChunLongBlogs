@@ -38,11 +38,31 @@ const resolve = (m: ThemeMode): Theme =>
       ? "dark"
       : "light";
 
-/** 把解析结果落到 <html>（dark 类 + colorScheme），返回 resolved 值 */
+/**
+ * 把解析结果落到 <html>（dark 类 + colorScheme），返回 resolved 值。
+ * 支持 View Transitions 的浏览器走 0.5s 交叉淡化（样式见 globals.css
+ * ::view-transition-old/new(root)）；不支持的自动回落硬切。
+ * resolved 先算好再改 DOM —— 调用方依赖它同步返回，不能挪进异步回调。
+ */
 const apply = (m: ThemeMode): Theme => {
   const resolved = resolve(m);
-  document.documentElement.classList.toggle("dark", resolved === "dark");
-  document.documentElement.style.colorScheme = resolved;
+  const mutate = () => {
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+    document.documentElement.style.colorScheme = resolved;
+  };
+
+  const startViewTransition = (
+    document as Document & {
+      startViewTransition?: (cb: () => void) => unknown;
+    }
+  ).startViewTransition;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (startViewTransition && !reduceMotion) {
+    startViewTransition.call(document, mutate);
+  } else {
+    mutate();
+  }
   return resolved;
 };
 

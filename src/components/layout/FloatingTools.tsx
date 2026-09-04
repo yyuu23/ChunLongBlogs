@@ -59,7 +59,7 @@ export function FloatingTools() {
   }, []);
 
   return (
-    <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-3 md:bottom-8 md:right-6">
+    <div data-cl-chrome className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-3 md:bottom-8 md:right-6">
       <AnimatePresence>
         {panelOpen && (
           <motion.div

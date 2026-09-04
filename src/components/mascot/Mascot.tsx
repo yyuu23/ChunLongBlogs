@@ -270,7 +270,7 @@ export function Mascot() {
   if (hydrated && !effects.mascot) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-0 left-0 z-40 hidden md:block" aria-hidden>
+    <div data-cl-chrome className="pointer-events-none fixed bottom-0 left-0 z-40 hidden md:block" aria-hidden>
       <div ref={wrapRef} className="pointer-events-auto cursor-grab active:cursor-grabbing" />
       {/* 深夜瞌睡：头顶 Zzz 轻轻上浮；说话时让位给气泡 */}
       {isNight && !bubble && (

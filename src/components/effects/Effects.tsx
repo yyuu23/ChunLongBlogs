@@ -70,6 +70,7 @@ export function ThemeParticles() {
         return (
           <div
             key={key}
+            data-cl-chrome
             className="fixed inset-0 z-[1] transition-opacity duration-1000"
             style={{ opacity: active === key ? 1 : 0 }}
             aria-hidden

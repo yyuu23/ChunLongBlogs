@@ -43,6 +43,13 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const themeWrapRef = useRef<HTMLDivElement>(null);
+  // 搜索快捷键角标（Mac 显示 ⌘K，其余 Ctrl K）；挂载后判定，SSR 时不渲染
+  const [shortcutKey, setShortcutKey] = useState("");
+  useEffect(() => {
+    setShortcutKey(
+      /mac|iphone|ipad/i.test(navigator.userAgent) ? "⌘K" : "Ctrl K",
+    );
+  }, []);
   const [q, setQ] = useState("");
   // 光标点当前挂在哪个链接上：hover 优先（跑过去"接你"），离开导航后弹回激活项
   const [hovered, setHovered] = useState<string | null>(null);
@@ -95,6 +102,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
     <>
       <LogoEgg trigger={eggTrigger} />
       <header
+        data-cl-chrome
         className={`fixed inset-x-0 top-0 z-50 transition-transform duration-300 ${
           hidden ? "-translate-y-full" : "translate-y-0"
         }`}
@@ -177,7 +185,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
             <div className="hidden min-w-0 items-center xl:flex">
               {/* 搜索：之前 border-0 bg-transparent，只剩一个孤零零的放大镜。
                   现在做成跟整条导航一致的毛玻璃胶囊，focus 时高亮边框。 */}
-              <label className="flex w-44 items-center gap-2 rounded-full border border-white/30 bg-white/35 px-3 py-1.5 backdrop-blur-md transition-colors focus-within:border-indigo-400/70 focus-within:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:focus-within:bg-white/10">
+              <label className="flex w-52 items-center gap-2 rounded-full border border-white/30 bg-white/35 px-3 py-1.5 backdrop-blur-md transition-colors focus-within:border-indigo-400/70 focus-within:bg-white/60 dark:border-white/10 dark:bg-white/5 dark:focus-within:bg-white/10">
                 <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
                 <input
                   value={q}
@@ -186,6 +194,19 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                   placeholder={t("nav.searchPlaceholder")}
                   className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-muted/70"
                 />
+                {/* 快捷键角标：点击唤起命令面板。修饰键按平台显示，
+                    挂载后再判定，避免 SSR/客户端不一致 */}
+                {shortcutKey && (
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new Event("cl-open-search"))}
+                    aria-label={t("search.title")}
+                    title={t("search.title")}
+                    className="shrink-0 rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-[10px] text-muted transition-colors hover:text-accent"
+                  >
+                    {shortcutKey}
+                  </button>
+                )}
               </label>
             </div>
             <div className="hidden md:block"><CalendarPopover /></div>

@@ -7,6 +7,8 @@ import { LazyImage } from "@/components/effects/Typewriter";
 import { AutoCover } from "@/components/posts/AutoCover";
 import { Toc } from "@/components/posts/Toc";
 import { ViewCounter, GiscusComments } from "@/components/posts/PostExtras";
+import { CodeBlockTools } from "@/components/posts/CodeBlockTools";
+import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
 import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
@@ -58,7 +60,7 @@ export default async function PostDetailPage({ params }: PageProps) {
 
   return (
     <PageTransition>
-      <article className="mx-auto w-[min(96%,72rem)] pb-8">
+      <article data-cl-article className="mx-auto w-[min(96%,72rem)] pb-8">
         {/* 面包屑 */}
         <nav className="mb-5 flex items-center gap-1.5 text-xs text-muted">
           <Link href="/" className="inline-flex items-center gap-1 hover-text-accent">
@@ -81,7 +83,7 @@ export default async function PostDetailPage({ params }: PageProps) {
           <span className="max-w-[16rem] truncate">{post.title}</span>
         </nav>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div data-cl-article-grid className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
           <div className="min-w-0">
             <FadeIn>
               <div className="glass-card overflow-hidden">
@@ -100,6 +102,7 @@ export default async function PostDetailPage({ params }: PageProps) {
                       {t("posts.wordMinute", { w: post.wordCount, m: post.readingTime })}
                     </span>
                     <ViewCounter slug={post.slug} initial={post.views} postId={post.id} />
+                    <ImmersiveToggle />
                   </div>
                   {post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -137,6 +140,8 @@ export default async function PostDetailPage({ params }: PageProps) {
                   className="md px-6 py-6 md:px-8 md:py-8"
                   dangerouslySetInnerHTML={{ __html: html }}
                 />
+                {/* 给上面注入的代码块补语言标签 + 复制按钮（slug 变则重新注入） */}
+                <CodeBlockTools slug={post.slug} />
               </div>
             </FadeIn>
 

@@ -21,7 +21,7 @@ export function MobileTabBar() {
   const t = useT();
 
   return (
-    <nav className="glass-card fixed inset-x-4 bottom-4 z-50 flex items-center justify-around !rounded-3xl py-1.5 md:hidden">
+    <nav data-cl-chrome className="glass-card fixed inset-x-4 bottom-4 z-50 flex items-center justify-around !rounded-3xl py-1.5 md:hidden">
       {TABS.slice(0, 2).map((tab) => (
         <TabItem key={tab.href} tab={tab} pathname={pathname} label={t(tab.key)} />
       ))}

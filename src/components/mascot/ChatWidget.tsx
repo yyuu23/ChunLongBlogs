@@ -47,6 +47,7 @@ export function ChatWidget() {
   return (
     <>
       <button
+        data-cl-chrome
         onClick={() => setOpen((v) => !v)}
         aria-label={t("chat.openAria")}
         className={`glass-button accent-glow fixed left-3 z-40 !rounded-full !p-3 ${
@@ -60,6 +61,7 @@ export function ChatWidget() {
       <AnimatePresence>
         {open && (
           <motion.div
+            data-cl-chrome
             initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}

@@ -6,7 +6,7 @@ import { getT } from "@/lib/i18n/server";
 export async function Footer({ config }: { config: SiteConfig }) {
   const { t } = await getT();
   return (
-    <footer className="relative z-10 mt-16 pb-24 md:pb-8">
+    <footer data-cl-chrome className="relative z-10 mt-16 pb-24 md:pb-8">
       <div className="mx-auto w-[min(96%,72rem)] px-2 text-center text-sm text-muted">
         <div className="mb-3 flex items-center justify-center gap-4">
           <Link href="/feed" aria-label="RSS" className="transition-colors hover-text-accent">

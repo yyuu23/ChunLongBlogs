@@ -73,6 +73,10 @@ export const en: Dictionary = {
     views: "{n} view | {n} views",
     prevPost: "Previous post",
     nextPost: "Next post",
+    copyCode: "Copy code",
+    copied: "Copied",
+    immersive: "Immersive reading",
+    exitImmersive: "Exit immersive reading",
     toc: "Contents",
     comments: "Comments",
     commentsEmpty: "Comments are not configured yet — the owner can enable giscus in admin settings",
@@ -306,6 +310,12 @@ export const en: Dictionary = {
     ariaPrev: "Previous month",
     ariaNext: "Next month",
     drillHint: "Click the title to go back · click a month to open its calendar",
+  },
+  search: {
+    title: "Search posts",
+    placeholder: "Type a keyword…",
+    empty: "No matching posts",
+    hint: "↑↓ navigate · Enter open · Esc close",
   },
   tools: {
     accentColor: "Accent color",

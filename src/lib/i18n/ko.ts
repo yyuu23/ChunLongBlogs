@@ -73,6 +73,10 @@ export const ko: Dictionary = {
     views: "{n}회 조회",
     prevPost: "이전 글",
     nextPost: "다음 글",
+    copyCode: "코드 복사",
+    copied: "복사됨",
+    immersive: "몰입 읽기",
+    exitImmersive: "몰입 읽기 종료",
     toc: "목차",
     comments: "댓글",
     commentsEmpty: "댓글 기능이 아직 설정되지 않았어요 · 관리자 설정에서 giscus를 켤 수 있어요",
@@ -303,6 +307,12 @@ export const ko: Dictionary = {
     ariaPrev: "이전 달",
     ariaNext: "다음 달",
     drillHint: "제목을 누르면 뒤로 · 월을 누르면 달력이 열려요",
+  },
+  search: {
+    title: "글 검색",
+    placeholder: "키워드를 입력하세요…",
+    empty: "관련 글이 없습니다",
+    hint: "↑↓ 선택 · Enter 열기 · Esc 닫기",
   },
   tools: {
     accentColor: "테마 색",

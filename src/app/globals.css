@@ -1204,6 +1204,117 @@ html[data-accent="cyan"].dark .md pre code span[data-line] span {
   counter-reset: line;
 }
 
+/* ===== 代码块工具条（语言标签 + 复制按钮，由 CodeBlockTools 注入） =====
+   挂在 figure 上而非 pre 内：pre 会横向滚动，放里面按钮会跟着滑走。
+   外边距从 pre 移到 figure，否则按钮会浮到代码块上方的空白里 */
+.md figure[data-rehype-pretty-code-figure] {
+  position: relative;
+  margin: 1.3em 0;
+}
+.md figure[data-rehype-pretty-code-figure] > pre {
+  margin: 0;
+}
+
+.cl-code-tools {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.md figure[data-rehype-pretty-code-figure]:hover .cl-code-tools,
+.cl-code-tools:focus-within {
+  opacity: 1;
+}
+
+/* 触屏无 hover，常显 */
+@media (hover: none) {
+  .cl-code-tools {
+    opacity: 1;
+  }
+}
+
+.cl-code-lang {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.cl-code-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cl-code-copy:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-solid);
+}
+
+.cl-code-copy.is-copied {
+  color: #10b981;
+  border-color: #10b981;
+}
+
+/* ================= 沉浸阅读（html.cl-immersive） =================
+   导航/看板娘/粒子/TabBar 等都是 (site)/layout 的兄弟节点，不在文章页
+   组件树内，只能走全局类 + [data-cl-chrome] 钩子（同 cl-night 的路子）。
+   不用 Tailwind 工具类当选择器 —— 那些类名随手一改样式就断 */
+.cl-immersive [data-cl-chrome],
+.cl-immersive .cl-night-overlay {
+  display: none !important;
+}
+
+/* 导航隐藏了，顶部就不用再留它的高度 */
+.cl-immersive main {
+  padding-top: 2.5rem !important;
+}
+
+/* 正文收窄到舒适阅读宽度，TOC 侧栏让位 */
+.cl-immersive [data-cl-article] {
+  width: min(94%, 48rem);
+}
+.cl-immersive [data-cl-article] aside {
+  display: none;
+}
+/* 解除 lg:grid-cols-[minmax(0,1fr)_16rem] 的两栏，正文独占整宽 */
+.cl-immersive [data-cl-article-grid] {
+  display: block;
+}
+
+/* ================= 主题切换动画（View Transitions） =================
+   Chrome 系走交叉淡化；不支持的浏览器（Firefox/Safari 部分版本）
+   ThemeProvider 里自动回落为硬切，无需额外兜底 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.5s;
+  animation-timing-function: ease-in-out;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 /* 表格 */
 .md table {
   width: 100%;

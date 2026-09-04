@@ -10,14 +10,16 @@ import {
   type ReactNode,
 } from "react";
 
-/** 访客壁纸偏好；null = 未覆盖 → 用后台配置值 */
+/** 访客壁纸偏好；null = 未覆盖 → 用默认值/后台配置值 */
 export interface WallpaperPrefs {
-  /** "auto" = 9s 轮播（默认）；数字 = 固定第 N 张 */
+  /** "auto" = 自动轮播（默认）；数字 = 固定第 N 张 */
   pick: "auto" | number;
   /** 遮罩浓度覆盖 0–0.8 */
   mask: number | null;
   /** 磨砂模糊覆盖 px 0–24 */
   blur: number | null;
+  /** 轮播间隔覆盖（秒）10–120 */
+  intervalS: number | null;
 }
 
 /** 服务端下发的背景配置（getSiteConfig → (site)/layout → Provider） */
@@ -30,7 +32,9 @@ export interface WallpaperServerConfig {
 }
 
 const LS_KEY = "cl-wallpaper";
-const DEFAULT_PREFS: WallpaperPrefs = { pick: "auto", mask: null, blur: null };
+const DEFAULT_PREFS: WallpaperPrefs = { pick: "auto", mask: null, blur: null, intervalS: null };
+/** 轮播默认间隔（秒）：背景是氛围面而非展示墙，宁慢勿快 */
+export const DEFAULT_INTERVAL_S = 45;
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(max, Math.max(min, v));
@@ -48,6 +52,8 @@ interface WallpaperCtx {
     fixedIndex: number | null;
     maskOpacity: number;
     maskBlur: number;
+    /** 轮播间隔（秒），默认 45 */
+    intervalS: number;
   };
 }
 
@@ -56,7 +62,7 @@ const Ctx = createContext<WallpaperCtx>({
   prefs: DEFAULT_PREFS,
   setPrefs: () => {},
   reset: () => {},
-  effective: { fixedIndex: null, maskOpacity: 0.15, maskBlur: 0 },
+  effective: { fixedIndex: null, maskOpacity: 0.15, maskBlur: 0, intervalS: DEFAULT_INTERVAL_S },
 });
 
 export const useWallpaper = () => useContext(Ctx);
@@ -72,6 +78,8 @@ const sanitize = (
       : "auto",
   mask: prefs.mask === null ? null : clamp(prefs.mask, 0, 0.8),
   blur: prefs.blur === null ? null : clamp(prefs.blur, 0, 24),
+  intervalS:
+    prefs.intervalS === null ? null : clamp(prefs.intervalS, 10, 120),
 });
 
 /**
@@ -118,6 +126,7 @@ export function WallpaperProvider({
       fixedIndex: prefs.pick === "auto" ? null : prefs.pick,
       maskOpacity: prefs.mask ?? server.maskOpacity,
       maskBlur: prefs.blur ?? server.maskBlur,
+      intervalS: prefs.intervalS ?? DEFAULT_INTERVAL_S,
     }),
     [prefs, server.maskOpacity, server.maskBlur],
   );

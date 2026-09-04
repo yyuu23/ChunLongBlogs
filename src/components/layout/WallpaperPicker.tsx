@@ -70,6 +70,18 @@ export function WallpaperPicker() {
         format={(v) => `${v}px`}
         onChange={(v) => setPrefs({ blur: v })}
       />
+      {/* 固定某张壁纸时没有切换概念，滑杆随之隐藏 */}
+      {prefs.pick === "auto" && (
+        <SettingSlider
+          label={t("tools.switchInterval")}
+          value={effective.intervalS}
+          min={10}
+          max={120}
+          step={5}
+          format={(v) => `${v}s`}
+          onChange={(v) => setPrefs({ intervalS: v })}
+        />
+      )}
     </>
   );
 }

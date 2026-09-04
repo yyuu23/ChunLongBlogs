@@ -335,17 +335,7 @@ export default function LabScene({
         }}
       />
 
-      {/* 标题 */}
-      <Html position={[0, 108, 0]} center distanceFactor={230}>
-        <div style={{ pointerEvents: "none", textAlign: "center", userSelect: "none" }}>
-          <p className="font-serif text-3xl font-black tracking-[0.3em] text-white drop-shadow-lg">
-            CHUNLONG LAB
-          </p>
-          <p className="mt-1 text-xs tracking-[0.25em] text-white/50">
-            {t("lab.sceneHint")}
-          </p>
-        </div>
-      </Html>
+      {/* 场景内不放任何标题/说明（宇宙中只有宇宙），文字在页面 header 里 */}
 
       {/* 留声星弹卡 */}
       {openStar && (

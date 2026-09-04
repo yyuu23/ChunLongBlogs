@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
 import { BookOpenText, FileText, Eye, PenLine, Images } from "lucide-react";
-import { HeroBanner } from "@/components/home/HeroBanner";
+import { TextHero } from "@/components/home/TextHero";
 import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
 import { AnnouncementBar } from "@/components/home/AnnouncementBar";
 import { WeatherCard } from "@/components/home/WeatherCard";
@@ -39,9 +39,9 @@ export default async function HomePage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto flex w-[min(96%,72rem)] flex-col gap-6">
+      <div className="mx-auto flex w-[min(96%,72rem)] flex-col gap-8">
         <FadeIn>
-          <HeroBanner banners={config.banners} />
+          <TextHero />
         </FadeIn>
 
         <FadeIn delay={0.1}>
@@ -104,7 +104,7 @@ export default async function HomePage() {
         {/* 最新相册海报卡 */}
         {latestAlbum && (
           <FadeIn delay={0.1}>
-            <Link href="/albums" className="group mt-6 block">
+            <Link href="/albums" className="group mt-8 block">
               <div className="glass-card glass-hover relative h-44 overflow-hidden md:h-56">
                 <LazyImage
                   src={latestAlbum.cover || "/assets/photos/p1.svg"}

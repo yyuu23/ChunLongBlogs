@@ -20,10 +20,10 @@ export function BackgroundLayer() {
       return;
     const timer = setInterval(
       () => setCarouselIndex((i) => (i + 1) % slides.length),
-      9000,
+      effective.intervalS * 1000,
     );
     return () => clearInterval(timer);
-  }, [server.mode, effective.fixedIndex, slides.length]);
+  }, [server.mode, effective.fixedIndex, effective.intervalS, slides.length]);
 
   // 固定时同步轮播指针：切回「自动」从当前这张无缝继续
   useEffect(() => {
@@ -33,6 +33,8 @@ export function BackgroundLayer() {
   const index = effective.fixedIndex ?? carouselIndex;
   const maskOpacity = effective.maskOpacity;
   const maskBlur = effective.maskBlur;
+  // Ken Burns 与切换间隔同长：画面始终保持极缓缩放，没有"推进一下就停"的突兀
+  const kenburns = `kenburns ${Math.round(effective.intervalS * 1000)}ms ease-out forwards`;
 
   const gradient = `linear-gradient(-45deg, ${(server.palette.length ? server.palette : ["#a18cd1", "#fbc2eb", "#a1c4fd", "#c2e9fb"]).join(", ")})`;
 
@@ -47,7 +49,7 @@ export function BackgroundLayer() {
               style={{
                 backgroundImage: `url(${src})`,
                 opacity: i === index ? 1 : 0,
-                animation: i === index ? "kenburns 12s ease-out forwards" : undefined,
+                animation: i === index ? kenburns : undefined,
               }}
             />
           ))}
@@ -59,7 +61,7 @@ export function BackgroundLayer() {
             style={
               {
                 "--bg-mask-light": `rgba(255,255,255,${maskOpacity})`,
-                "--bg-mask-dark": `rgba(2,6,23,${Math.min(0.8, 0.35 + maskOpacity)})`,
+                "--bg-mask-dark": `rgba(2,6,23,${Math.min(0.85, 0.45 + maskOpacity)})`,
                 backdropFilter: maskBlur > 0 ? `blur(${maskBlur}px)` : undefined,
                 WebkitBackdropFilter: maskBlur > 0 ? `blur(${maskBlur}px)` : undefined,
               } as React.CSSProperties

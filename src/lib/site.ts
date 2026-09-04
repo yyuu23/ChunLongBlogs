@@ -68,7 +68,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     "/assets/bg/anime-5.webp",
     "/assets/bg/anime-6.webp",
   ],
-  bgMaskOpacity: 0.15,
+  bgMaskOpacity: 0.3,
   bgMaskBlur: 0,
   banners: [
     {

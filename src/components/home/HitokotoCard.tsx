@@ -64,7 +64,7 @@ export function HitokotoCard() {
           transition={{ duration: 0.35 }}
           className="mt-2 flex flex-1 flex-col justify-center"
         >
-          <p className="font-serif text-[15px] leading-relaxed">{quote.text}</p>
+          <p className="font-serif text-[0.9375rem] leading-relaxed">{quote.text}</p>
           {quote.from && (
             <footer className="mt-1.5 text-right text-xs text-muted">—— {quote.from}</footer>
           )}

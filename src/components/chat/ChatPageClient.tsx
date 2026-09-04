@@ -220,7 +220,7 @@ export function ChatPageClient() {
                 <button
                   key={s}
                   onClick={() => doSend(s)}
-                  className="glass-button shrink-0 !rounded-full !px-3 !py-1 text-[11px] text-muted transition-colors hover:text-accent"
+                  className="glass-button shrink-0 !rounded-full !px-3 !py-1 text-[0.6875rem] text-muted transition-colors hover:text-accent"
                 >
                   {s}
                 </button>
@@ -336,7 +336,7 @@ function SessionSidebar({
           if (!list.length) return null;
           return (
             <div key={g}>
-              <p className="px-2 pb-1 text-[10px] font-semibold tracking-widest text-muted">
+              <p className="px-2 pb-1 text-[0.625rem] font-semibold tracking-widest text-muted">
                 {t(`chatPage.${g}`)}
               </p>
               {list.map((s) => (
@@ -497,7 +497,7 @@ function MessageRow({
         {/* 参考来源 */}
         {m.related && m.related.length > 0 && !m.streaming && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] text-muted">{t("chatPage.sources")}</span>
+            <span className="text-[0.625rem] text-muted">{t("chatPage.sources")}</span>
             {m.related.map((r) => (
               <SourceChip key={r.slug ?? r.momentId} r={r} />
             ))}

@@ -146,7 +146,7 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
                   onMouseEnter={() => setHovered(link.href)}
                   /* shrink-0 + whitespace-nowrap：CJK 在窄宽度下会按字换行（首/页 两行），
                      强制不换行并保持链接宽度；空间不够时由中间的搜索框先压缩。 */
-                  className={`relative shrink-0 whitespace-nowrap rounded-full px-2 py-1.5 text-sm transition-colors ${
+                  className={`relative shrink-0 whitespace-nowrap rounded-full px-2 py-1.5 text-base transition-colors ${
                     active
                       ? "text-accent-gradient font-semibold"
                       : "text-muted hover-text-accent"

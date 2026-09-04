@@ -2,10 +2,16 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
+  Check,
+  Copy,
   FileText,
+  History,
   MessageSquareText,
+  Pencil,
+  Plus,
   RotateCcw,
   SendHorizonal,
   Square,
@@ -14,15 +20,29 @@ import {
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useChat, type ChatMsg, type RelatedRef } from "./useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
-
-const PERSIST_KEY = "cl-chat-history";
+import {
+  groupSessions,
+  lastActiveId,
+  loadSessions,
+  newSessionId,
+  rememberActive,
+  removeSession,
+  saveSessions,
+  sessionKey,
+  titleOf,
+  type ChatSessionMeta,
+} from "@/lib/chatSessions";
 
 export function ChatPageClient() {
   const t = useT();
   const { tArr } = useLocale();
-  const { messages, busy, send, retry, stop, clear } = useChat({
+  // 初始恢复上次活跃会话（无记录才新开）；该 id 不在索引/无数据时 useChat 会重置为欢迎语
+  const [activeId, setActiveId] = useState<string>(() => lastActiveId() ?? newSessionId());
+  const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { messages, busy, send, retry, stop, clear, regenerateFrom } = useChat({
     welcome: t("chatPage.welcomeLong"),
-    persistKey: PERSIST_KEY,
+    persistKey: sessionKey(activeId),
   });
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -32,9 +52,54 @@ export function ChatPageClient() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
+  // 挂载载入会话索引（含旧 cl-chat-history 的一次性迁移）
+  useEffect(() => {
+    setSessions(loadSessions());
+  }, []);
+
+  const setActive = (id: string) => {
+    setActiveId(id);
+    rememberActive(id);
+  };
+
+  /**
+   * 会话入索引/刷新时间 —— 只在明确的用户动作点调用（发送/重生成）。
+   * 不监听 messages 流：切换会话时 persistKey 重载是异步的，中间渲染里
+   * "旧会话消息 + 新会话 id"会污染新会话的标题。
+   */
+  const touchSession = (currentText?: string) => {
+    setSessions((prev) => {
+      const existing = prev.find((s) => s.id === activeId);
+      const meta: ChatSessionMeta = {
+        id: activeId,
+        title: existing?.title ?? titleOf(currentText ?? "对话"),
+        updatedAt: Date.now(),
+      };
+      return saveSessions([meta, ...prev.filter((s) => s.id !== activeId)]);
+    });
+  };
+  const dropFromIndex = (id: string) => {
+    setSessions((prev) => saveSessions(prev.filter((s) => s.id !== id)));
+  };
+
+  const switchTo = (id: string) => {
+    stop(); // 在途流随会话一起放下
+    setActive(id);
+    setDrawerOpen(false);
+  };
+  const startNew = () => switchTo(newSessionId());
+  const dropSession = (id: string) => {
+    setSessions((prev) => removeSession(prev, id));
+    if (id === activeId) {
+      stop();
+      setActive(newSessionId());
+    }
+  };
+
   const doSend = (text?: string) => {
     const q = (text ?? input).trim();
     if (!q || busy) return;
+    touchSession(q); // 首次发送入索引（title 取本轮问题），此后刷新时间
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
     void send(q);
@@ -55,90 +120,174 @@ export function ChatPageClient() {
   const onlyWelcome = messages.length === 1 && messages[0]!.role === "assistant";
   const suggestions = onlyWelcome ? tArr("chatPage.suggestions") : [];
 
+  // 对话进行中常驻的小提示：按用户轮次从建议池确定性轮换 3 枚（不闪变）
+  const pool = tArr("chatPage.suggestions");
+  const turnCount = messages.filter((m) => m.role === "user").length;
+  const quickAsks = onlyWelcome
+    ? []
+    : [0, 1, 2].map((i) => pool[(turnCount * 3 + i) % pool.length] ?? "").filter(Boolean);
+
+  const sidebar = (
+    <SessionSidebar
+      sessions={sessions}
+      activeId={activeId}
+      onSwitch={switchTo}
+      onNew={startNew}
+      onRemove={dropSession}
+    />
+  );
+
   return (
-    <div className="mx-auto flex w-[min(96%,48rem)] flex-col">
-      {/* 工具条 */}
-      <div className="mb-3 flex items-center justify-between">
-        <AffinityBadge />
-        <button
-          onClick={clear}
-          className="glass-button flex items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
-          aria-label={t("chatPage.clearAria")}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("chatPage.clear")}
-        </button>
-      </div>
+    <div className="mx-auto flex w-[min(96%,64rem)] gap-4">
+      {/* 桌面侧栏 */}
+      <aside className="hidden h-[calc(100dvh-21rem)] min-h-[22rem] w-56 shrink-0 lg:block">
+        {sidebar}
+      </aside>
 
-      {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩 */}
-      <div className="glass-card flex h-[calc(100dvh-21rem)] min-h-[22rem] flex-col overflow-hidden">
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          {messages.map((m, i) => (
-            <MessageRow key={i} m={m} onRetry={retry} />
-          ))}
-          {busy && !messages.at(-1)?.content && (
-            <div className="flex items-start gap-2.5">
-              <Avatar />
-              <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3.5 py-3 dark:bg-white/10">
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
-              </span>
-            </div>
-          )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 工具条 */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label={t("chatPage.history")}
+              className="glass-button !rounded-full !p-2 lg:hidden"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <AffinityBadge />
+          </div>
+          <button
+            onClick={() => {
+              clear();
+              dropFromIndex(activeId); // 回到欢迎态的会话不再挂侧栏
+            }}
+            className="glass-button flex items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
+            aria-label={t("chatPage.clearAria")}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("chatPage.clear")}
+          </button>
+        </div>
 
-          {/* 空会话：快捷问题 */}
-          {onlyWelcome && suggestions.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {suggestions.map((s) => (
+        {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩 */}
+        <div className="glass-card flex h-[calc(100dvh-21rem)] min-h-[22rem] flex-col overflow-hidden">
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+            {messages.map((m) => (
+              <MessageRow
+                key={m.id}
+                m={m}
+                busy={busy}
+                onRetry={retry}
+                onRegenerate={(id, text) => {
+                  touchSession(text);
+                  void regenerateFrom(id, text);
+                }}
+              />
+            ))}
+            {busy && !messages.at(-1)?.content && (
+              <div className="flex items-start gap-2.5">
+                <Avatar />
+                <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3.5 py-3 dark:bg-white/10">
+                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
+                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
+                </span>
+              </div>
+            )}
+
+            {/* 空会话：快捷问题（大版） */}
+            {onlyWelcome && suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => doSend(s)}
+                    className="glass-button !rounded-full !px-3.5 !py-1.5 text-xs text-muted transition-colors hover:text-accent"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* 对话进行中的常驻小提示（首轮后不再裸奔） */}
+          {quickAsks.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {quickAsks.map((s) => (
                 <button
                   key={s}
                   onClick={() => doSend(s)}
-                  className="glass-button !rounded-full !px-3.5 !py-1.5 text-xs text-muted transition-colors hover:text-accent"
+                  className="glass-button shrink-0 !rounded-full !px-3 !py-1 text-[11px] text-muted transition-colors hover:text-accent"
                 >
                   {s}
                 </button>
               ))}
             </div>
           )}
-          <div ref={endRef} />
-        </div>
 
-        {/* 输入区 */}
-        <div className="flex items-end gap-2 border-t border-[var(--glass-border)] p-3">
-          <textarea
-            ref={taRef}
-            rows={1}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              autoGrow(e.currentTarget);
-            }}
-            onKeyDown={onKeyDown}
-            placeholder={t("chatPage.inputPlaceholder")}
-            className="glass-input max-h-32 flex-1 resize-none !rounded-2xl text-sm leading-relaxed"
-          />
-          {busy ? (
-            <button
-              onClick={stop}
-              aria-label={t("chat.stopAria")}
-              title={t("chat.stopAria")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white"
-            >
-              <Square className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              onClick={() => doSend()}
-              disabled={!input.trim()}
-              aria-label={t("chat.sendAria")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
-            >
-              <SendHorizonal className="h-4 w-4" />
-            </button>
-          )}
+          {/* 输入区 */}
+          <div className="flex items-end gap-2 border-t border-[var(--glass-border)] p-3">
+            <textarea
+              ref={taRef}
+              rows={1}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                autoGrow(e.currentTarget);
+              }}
+              onKeyDown={onKeyDown}
+              placeholder={t("chatPage.inputPlaceholder")}
+              className="glass-input max-h-32 flex-1 resize-none !rounded-2xl text-sm leading-relaxed"
+            />
+            {busy ? (
+              <button
+                onClick={stop}
+                aria-label={t("chat.stopAria")}
+                title={t("chat.stopAria")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white"
+              >
+                <Square className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => doSend()}
+                disabled={!input.trim()}
+                aria-label={t("chat.sendAria")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
+              >
+                <SendHorizonal className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 移动端历史抽屉 */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-[60] bg-black/25 backdrop-blur-sm lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDrawerOpen(false)}
+            />
+            <motion.div
+              className="fixed bottom-4 left-3 top-20 z-[61] lg:hidden"
+              initial={{ x: -24, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -24, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {sidebar}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -151,16 +300,183 @@ function Avatar() {
   );
 }
 
-/** 单条消息：用户右侧渐变气泡 / AI 左侧带头像气泡 + 参考来源卡片 + 失败重试 */
-function MessageRow({ m, onRetry }: { m: ChatMsg; onRetry: () => void }) {
+/** 历史会话侧栏（桌面左栏与移动抽屉共用，高度由父容器定） */
+function SessionSidebar({
+  sessions,
+  activeId,
+  onSwitch,
+  onNew,
+  onRemove,
+}: {
+  sessions: ChatSessionMeta[];
+  activeId: string;
+  onSwitch: (id: string) => void;
+  onNew: () => void;
+  onRemove: (id: string) => void;
+}) {
   const t = useT();
+  const groups = groupSessions(sessions);
+  return (
+    <div className="glass-card flex h-full w-64 flex-col overflow-hidden">
+      <div className="p-3">
+        <button
+          onClick={onNew}
+          className="glass-button flex w-full items-center justify-center gap-1.5 !rounded-xl !py-2 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t("chatPage.newChat")}
+        </button>
+      </div>
+      <div className="flex-1 space-y-3 overflow-y-auto px-2 pb-3">
+        {sessions.length === 0 && (
+          <p className="px-2 py-6 text-center text-xs text-muted">{t("chatPage.noSessions")}</p>
+        )}
+        {(["today", "yesterday", "earlier"] as const).map((g) => {
+          const list = groups.get(g) ?? [];
+          if (!list.length) return null;
+          return (
+            <div key={g}>
+              <p className="px-2 pb-1 text-[10px] font-semibold tracking-widest text-muted">
+                {t(`chatPage.${g}`)}
+              </p>
+              {list.map((s) => (
+                <div key={s.id} className="group/session relative">
+                  <button
+                    onClick={() => onSwitch(s.id)}
+                    title={s.title}
+                    className={`w-full truncate rounded-lg px-2 py-1.5 pr-7 text-left text-xs transition-colors ${
+                      s.id === activeId
+                        ? "bg-accent-soft font-medium text-accent"
+                        : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    {s.title}
+                  </button>
+                  <button
+                    onClick={() => onRemove(s.id)}
+                    aria-label={t("chatPage.deleteSessionAria")}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted opacity-0 transition-all hover:text-rose-500 group-hover/session:opacity-100 max-lg:opacity-100"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 消息复制小按钮：成功换 ✓ 两秒回弹（CodeBlockTools 同款交互） */
+function CopyBtn({ text }: { text: string }) {
+  const t = useT();
+  const [ok, setOk] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            setOk(true);
+            window.setTimeout(() => setOk(false), 2000);
+          })
+          .catch(() => {}); // 非 https / 无权限：静默失败
+      }}
+      aria-label={ok ? t("chatPage.copied") : t("chatPage.copyAria")}
+      className="cl-msg-action"
+    >
+      {ok ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
+
+/** 单条消息：用户右侧渐变气泡（可编辑重生成）/ AI 左侧带头像气泡 + 来源卡 + 失败重试；两者都可复制 */
+function MessageRow({
+  m,
+  busy,
+  onRetry,
+  onRegenerate,
+}: {
+  m: ChatMsg;
+  busy: boolean;
+  onRetry: () => void;
+  onRegenerate: (id: string, text: string) => void;
+}) {
+  const t = useT();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   if (m.role === "user") {
+    if (editing) {
+      const submit = () => {
+        const q = draft.trim();
+        if (!q) return;
+        setEditing(false);
+        onRegenerate(m.id, q);
+      };
+      return (
+        <div className="flex justify-end">
+          <div className="flex w-[min(100%,26rem)] flex-col gap-1.5">
+            <textarea
+              autoFocus
+              rows={2}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditing(false);
+                }
+              }}
+              className="glass-input resize-none !rounded-2xl text-sm leading-relaxed"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(false)}
+                className="glass-button !rounded-full !px-3 !py-1 text-xs"
+              >
+                {t("chatPage.cancelEdit")}
+              </button>
+              <button
+                onClick={submit}
+                disabled={!draft.trim()}
+                className="flex items-center gap-1 rounded-full bg-accent-gradient px-3 py-1 text-xs text-white transition-opacity disabled:opacity-40"
+              >
+                <RotateCcw className="h-3 w-3" />
+                {t("chatPage.confirmEdit")}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="flex justify-end">
+      <div className="group flex flex-col items-end">
         <span className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-gradient px-4 py-2.5 text-sm leading-relaxed text-white">
           {m.content}
         </span>
+        <div className="cl-msg-actions mt-0.5 flex gap-0.5">
+          <CopyBtn text={m.content} />
+          {!busy && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(m.content);
+                setEditing(true);
+              }}
+              aria-label={t("chatPage.edit")}
+              className="cl-msg-action"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -168,7 +484,7 @@ function MessageRow({ m, onRetry }: { m: ChatMsg; onRetry: () => void }) {
   return (
     <div className="flex items-start gap-2.5">
       <Avatar />
-      <div className="min-w-0 max-w-[calc(100%-2.75rem)]">
+      <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
         <span
           className={`inline-block whitespace-pre-wrap rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed ${
             m.failed ? "bg-rose-500/10 text-rose-600 dark:text-rose-300" : "bg-white/50 dark:bg-white/10"
@@ -182,22 +498,25 @@ function MessageRow({ m, onRetry }: { m: ChatMsg; onRetry: () => void }) {
         {m.related && m.related.length > 0 && !m.streaming && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-[10px] text-muted">{t("chatPage.sources")}</span>
-            {m.related.map((r, i) => (
-              <SourceChip key={i} r={r} />
+            {m.related.map((r) => (
+              <SourceChip key={r.slug ?? r.momentId} r={r} />
             ))}
           </div>
         )}
 
-        {/* 失败重试 */}
-        {m.failed && !m.streaming && (
-          <button
-            onClick={onRetry}
-            className="mt-1.5 flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
-          >
-            <RotateCcw className="h-3 w-3" />
-            {t("chatPage.retry")}
-          </button>
-        )}
+        {/* 复制 + 失败重试 */}
+        <div className="cl-msg-actions mt-0.5 flex items-center gap-2">
+          {!m.streaming && !m.failed && <CopyBtn text={m.content} />}
+          {m.failed && !m.streaming && (
+            <button
+              onClick={onRetry}
+              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
+            >
+              <RotateCcw className="h-3 w-3" />
+              {t("chatPage.retry")}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -249,6 +249,21 @@ function MiniPlayer({ failed }: { failed: boolean }) {
     document.documentElement.classList.toggle("cl-player-on", hasSong);
   }, [hasSong]);
 
+  // 音量滑杆显隐：hover 容器即开、移开 350ms 后收。
+  // 用 JS 状态而非 group-hover + delay（Tailwind 变体在 dev 下表现不稳定，
+  // 且 JS 版对"拖动中不许收起"这类细节控制更直接）
+  const [volOpen, setVolOpen] = useState(false);
+  const volTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepVolOpen = () => {
+    if (volTimer.current) clearTimeout(volTimer.current);
+    setVolOpen(true);
+  };
+  const scheduleHideVol = () => {
+    if (volTimer.current) clearTimeout(volTimer.current);
+    volTimer.current = setTimeout(() => setVolOpen(false), 350);
+  };
+  useEffect(() => () => { if (volTimer.current) clearTimeout(volTimer.current); }, []);
+
   if (!p?.current) return null;
 
   return (
@@ -313,8 +328,12 @@ function MiniPlayer({ failed }: { failed: boolean }) {
           <button onClick={p.next} aria-label={t("music.nextTrack")} className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
             <SkipForward className="h-4 w-4" />
           </button>
-          {/* 音量：hover 展开滑杆（触屏点按 = 静音切换） */}
-          <div className="group/vol relative hidden sm:block">
+          {/* 音量：hover 容器（含按钮与滑杆的连续区域）展开滑杆，移开 350ms 后收起；触屏点按 = 静音切换 */}
+          <div
+            className="relative hidden sm:block"
+            onMouseEnter={keepVolOpen}
+            onMouseLeave={scheduleHideVol}
+          >
             <button
               onClick={() => p.setMuted(!p.muted)}
               aria-label={t("music.volume")}
@@ -326,14 +345,20 @@ function MiniPlayer({ failed }: { failed: boolean }) {
                 <Volume2 className="h-4 w-4" />
               )}
             </button>
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 opacity-0 transition-opacity group-hover/vol:pointer-events-auto group-hover/vol:opacity-100">
-              <div className="glass-card flex w-24 items-center !rounded-xl px-2 py-1.5">
+            {/* pb-1 把"按钮→滑杆"的间隙包进 hover 容器（margin 会断 hover，padding 不会） */}
+            <div
+              className={`absolute bottom-full left-1/2 -translate-x-1/2 pb-1 transition-opacity duration-200 ${
+                volOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <div className="glass-card flex w-24 items-center !rounded-xl px-2.5 py-2.5">
                 <input
                   type="range"
                   min={0}
                   max={100}
                   step={1}
                   value={Math.round((p.muted ? 0 : p.volume) * 100)}
+                  onMouseDown={keepVolOpen}
                   onChange={(e) => {
                     p.setVolume(Number(e.target.value) / 100);
                     if (p.muted) p.setMuted(false); // 拖动即取消静音，否则拖了没声

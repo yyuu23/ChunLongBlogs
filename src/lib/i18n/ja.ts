@@ -44,7 +44,7 @@ export const ja: Dictionary = {
     albumPhotosCount: "{n} 枚の写真",
     viewAlbums: "アルバムを見る →",
     bannerAria: "{i} 枚目の写真へ切替",
-    hitokotoTitle: "ひとこと",
+    hitokotoTitle: "名句",
     hitokotoRefresh: "もう一句",
     fortuneLabel: "今日の運勢",
     fortuneLuck: { best: "大吉", good: "中吉", mid: "小吉", bad: "凶" },

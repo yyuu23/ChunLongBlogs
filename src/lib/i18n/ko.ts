@@ -42,7 +42,7 @@ export const ko: Dictionary = {
     albumPhotosCount: "사진 {n}장",
     viewAlbums: "앨범 보기 →",
     bannerAria: "{i}번째 사진으로 전환",
-    hitokotoTitle: "한마디",
+    hitokotoTitle: "명구",
     hitokotoRefresh: "다른 문장",
     fortuneLabel: "오늘의 운세",
     fortuneLuck: { best: "대길", good: "중길", mid: "소길", bad: "흉" },

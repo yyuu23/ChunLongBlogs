@@ -79,7 +79,9 @@ export function LazyImage({
           width={width}
           height={height}
           sizes={sizes}
-          priority={priority}
+          /* Next 16 起废弃 priority 改名 preload（语义相同：LCP 图预加载），
+           * 这里做映射，调用方继续用 priority 命名 */
+          preload={priority}
           className={`transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}

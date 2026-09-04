@@ -67,7 +67,9 @@ export function HeroBanner({ banners }: { banners: BannerType[] }) {
                 alt={current.title}
                 fill
                 priority
-                sizes="100vw"
+                /* 首页容器是 w-[min(96%,72rem)]：≥1200px 视口时卡片恒为 1152px 宽，
+                 * 按 100vw 声明会让大屏访客多下 2 倍以上分辨率的大图 */
+                sizes="(min-width: 1200px) 1152px, 96vw"
                 className="object-cover"
               />
             </div>

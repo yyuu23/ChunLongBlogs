@@ -87,6 +87,9 @@ export const XP_RULES = {
   view_star: 2,
   pat_mascot: 1,
   daily_checkin: 15,
+  set_theme_mode: 2,
+  set_custom_hue: 2,
+  pick_wallpaper: 2,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -108,6 +111,9 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   view_star: 5,
   pat_mascot: 5,
   daily_checkin: 1,
+  set_theme_mode: 3,
+  set_custom_hue: 3,
+  pick_wallpaper: 5,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

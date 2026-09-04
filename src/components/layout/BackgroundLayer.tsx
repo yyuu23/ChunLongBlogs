@@ -1,46 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-interface BackgroundLayerProps {
-  mode: "image" | "gradient";
-  images: string[];
-  palette: string[];
-  /** 遮罩浓度 0–1（暗色模式自动加深 1.6 倍保证正文可读） */
-  maskOpacity: number;
-  /** 磨砂模糊 px */
-  maskBlur: number;
-}
+import { useWallpaper } from "@/components/providers/WallpaperProvider";
 
 /**
  * 全站分层背景（固定定位，z-0）：
  * 背景图轮播（交叉淡入 + Ken Burns）→ 可调遮罩 → 模糊光球
+ * 数据来自 WallpaperProvider（后台配置 + 访客本地偏好合并的 effective）；
  * mode=gradient 时只保留流动渐变 + 光球
  */
-export function BackgroundLayer({
-  mode,
-  images,
-  palette,
-  maskOpacity,
-  maskBlur,
-}: BackgroundLayerProps) {
-  const slides = images.length ? images : ["/assets/bg/bg-1.svg"];
-  const [index, setIndex] = useState(0);
+export function BackgroundLayer() {
+  const { server, effective } = useWallpaper();
+  const slides = server.images.length ? server.images : ["/assets/bg/bg-1.svg"];
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   useEffect(() => {
-    if (mode !== "image" || slides.length < 2) return;
+    // 固定某张（fixedIndex 非 null）时不启动轮播
+    if (server.mode !== "image" || effective.fixedIndex !== null || slides.length < 2)
+      return;
     const timer = setInterval(
-      () => setIndex((i) => (i + 1) % slides.length),
+      () => setCarouselIndex((i) => (i + 1) % slides.length),
       9000,
     );
     return () => clearInterval(timer);
-  }, [mode, slides.length]);
+  }, [server.mode, effective.fixedIndex, slides.length]);
 
-  const gradient = `linear-gradient(-45deg, ${(palette.length ? palette : ["#a18cd1", "#fbc2eb", "#a1c4fd", "#c2e9fb"]).join(", ")})`;
+  // 固定时同步轮播指针：切回「自动」从当前这张无缝继续
+  useEffect(() => {
+    if (effective.fixedIndex !== null) setCarouselIndex(effective.fixedIndex);
+  }, [effective.fixedIndex]);
+
+  const index = effective.fixedIndex ?? carouselIndex;
+  const maskOpacity = effective.maskOpacity;
+  const maskBlur = effective.maskBlur;
+
+  const gradient = `linear-gradient(-45deg, ${(server.palette.length ? server.palette : ["#a18cd1", "#fbc2eb", "#a1c4fd", "#c2e9fb"]).join(", ")})`;
 
   return (
     <div aria-hidden className="fixed inset-0 z-0 overflow-hidden">
-      {mode === "image" ? (
+      {server.mode === "image" ? (
         <>
           {slides.map((src, i) => (
             <div
@@ -53,9 +51,11 @@ export function BackgroundLayer({
               }}
             />
           ))}
-          {/* 遮罩：浓度/磨砂由后台配置。亮色白遮罩；暗色用较淡的深色遮罩（保留背景图可见度） */}
+          {/* 遮罩：默认由后台配置，访客可在设置面板本地微调覆盖。
+           * 亮色白遮罩；暗色用较淡的深色遮罩（保留背景图可见度）。
+           * 短过渡抹平「后台默认 → 访客覆盖」切换时的跳变 */}
           <div
-            className="absolute inset-0 bg-[var(--bg-mask-light)] dark:bg-[var(--bg-mask-dark)]"
+            className="absolute inset-0 bg-[var(--bg-mask-light)] transition-[opacity,backdrop-filter] duration-700 dark:bg-[var(--bg-mask-dark)]"
             style={
               {
                 "--bg-mask-light": `rgba(255,255,255,${maskOpacity})`,

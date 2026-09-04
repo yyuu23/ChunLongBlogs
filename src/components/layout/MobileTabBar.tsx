@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, BookOpen, MessageCircleHeart, Info, Moon, Sun } from "lucide-react";
+import { Home, BookOpen, MessageCircleHeart, Info, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useT } from "@/components/providers/LocaleProvider";
 
@@ -17,7 +17,7 @@ const TABS = [
 /** 移动端底部 Tab 栏（md 以上隐藏），中间为主题切换 */
 export function MobileTabBar() {
   const pathname = usePathname();
-  const { theme, toggle } = useTheme();
+  const { theme, mode, cycleMode } = useTheme();
   const t = useT();
 
   return (
@@ -26,11 +26,24 @@ export function MobileTabBar() {
         <TabItem key={tab.href} tab={tab} pathname={pathname} label={t(tab.key)} />
       ))}
       <button
-        onClick={toggle}
-        aria-label={t("nav.toggleTheme")}
+        onClick={cycleMode}
+        aria-label={t("nav.themeMode")}
+        title={
+          mode === "light"
+            ? t("tools.themeLight")
+            : mode === "dark"
+              ? t("tools.themeDark")
+              : t("tools.themeSystem")
+        }
         className="relative -mt-6 flex h-12 w-12 items-center justify-center rounded-full bg-accent-br-gradient text-white accent-glow transition-transform active:scale-90"
       >
-        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        {mode === "system" ? (
+          <Monitor className="h-5 w-5" />
+        ) : theme === "dark" ? (
+          <Sun className="h-5 w-5" />
+        ) : (
+          <Moon className="h-5 w-5" />
+        )}
       </button>
       {TABS.slice(2).map((tab) => (
         <TabItem key={tab.href} tab={tab} pathname={pathname} label={t(tab.key)} />

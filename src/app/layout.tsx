@@ -51,14 +51,19 @@ export const viewport: Viewport = {
 /** 首帧脚本：主题初始化（localStorage/系统偏好）+ 启动屏"已看过"判断，避免闪烁 */
 const initScript = `
 (function(){try{
+  // 三态主题：显式 light/dark 直接用；system / 未设置沿用系统偏好（无偏好 → dark）
   var t = localStorage.getItem('cl-theme');
-  if(!t){ t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+  if(t !== 'dark' && t !== 'light'){ t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
   if(t === 'dark'){ document.documentElement.classList.add('dark'); }
   document.documentElement.style.colorScheme = t;
 }catch(e){}})();
 (function(){try{
   var a = localStorage.getItem('cl-accent');
   if(a){ document.documentElement.dataset.accent = a; }
+}catch(e){}})();
+(function(){try{
+  var h = localStorage.getItem('cl-custom-hue');
+  if(h){ document.documentElement.style.setProperty('--custom-hue', h); }
 }catch(e){}})();
 (function(){try{
   var seen = sessionStorage.getItem('cl-splash-seen')==='1';

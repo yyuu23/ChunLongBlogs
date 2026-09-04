@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
+import { Search, Sun, Moon, Monitor, Menu, X, Sparkles } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { usePlayer } from "@/components/music/PlayerProvider";
 import { useT } from "@/components/providers/LocaleProvider";
@@ -35,17 +35,31 @@ function isActive(pathname: string, href: string) {
 export function Navbar({ siteName, avatar }: { siteName: string; avatar: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggle } = useTheme();
+  const { theme, mode, setMode } = useTheme();
   const { playing } = usePlayer() ?? {};
   const t = useT();
   const [hidden, setHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const themeWrapRef = useRef<HTMLDivElement>(null);
   const [q, setQ] = useState("");
+  // 光标点当前挂在哪个链接上：hover 优先（跑过去"接你"），离开导航后弹回激活项
+  const [hovered, setHovered] = useState<string | null>(null);
   const lastY = useRef(0);
   // Logo 彩蛋：3 秒窗口内连击 7 次
   const [eggTrigger, setEggTrigger] = useState(0);
   const logoClicks = useRef<number[]>([]);
+  // 主题弹层：点击外部关闭（CalendarPopover 同款模式）
+  useEffect(() => {
+    if (!themeOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (themeWrapRef.current && !themeWrapRef.current.contains(e.target as Node))
+        setThemeOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [themeOpen]);
   const onLogoClick = () => {
     const now = Date.now();
     logoClicks.current = [...logoClicks.current.filter((t) => now - t < 3000), now];
@@ -107,60 +121,51 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
               justify-evenly + gap-1 就是 Word 里「分散对齐」的 CSS 等价物：
               多余空间平均分配到每个间隔（含首尾两端），标签短（中韩 2 字）间距自动变宽，
               标签长（英文/日文）自动收缩；gap-1 是下限兜底，再挤也不会贴死。
-              lg 才显示：9 个链接在 768–1024px 放不下，交给汉堡菜单。 */}
-          <div className="ml-2 hidden min-w-0 flex-1 items-center justify-evenly gap-1 lg:flex">
+              lg 才显示：9 个链接在 768–1024px 放不下，交给汉堡菜单。
+              激活态 = 渐变文字（标"你在这里"）+ 文字下方一枚呼吸发光的光标点；
+              hover 其他项时光标点先滑过去"接你"，移开导航后弹回激活项。 */}
+          <div
+            className="ml-2 hidden min-w-0 flex-1 items-center justify-evenly gap-1 lg:flex"
+            onMouseLeave={() => setHovered(null)}
+          >
             {LINKS.map((link) => {
               const active = isActive(pathname, link.href);
+              const dotHere = (hovered ?? (active ? link.href : null)) === link.href;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
+                  onMouseEnter={() => setHovered(link.href)}
                   /* shrink-0 + whitespace-nowrap：CJK 在窄宽度下会按字换行（首/页 两行），
                      强制不换行并保持链接宽度；空间不够时由中间的搜索框先压缩。 */
                   className={`relative shrink-0 whitespace-nowrap rounded-full px-2 py-1.5 text-sm transition-colors ${
-                    active ? "text-white" : "text-muted hover-text-accent"
+                    active
+                      ? "text-accent-gradient font-semibold"
+                      : "text-muted hover-text-accent"
                   }`}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="navbar-indicator"
-                      /* -inset-y/x-1.5：紫色块比文字四周各多 6px，文字不再贴边。
-                         border-white/25：1px 玻璃质感亮边，让渐变有个清晰的轮廓。
-                         overflow-hidden：把下面那层高光裁成同样的胶囊形。
-                         用 border 而不是 ring：ring 也用 box-shadow，会把 accent-glow 盖掉。 */
-                      className="absolute -inset-y-1.5 -inset-x-1.5 overflow-hidden rounded-full border border-white/25 bg-accent-gradient accent-glow"
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    >
-                      {/* 顶部高光：只取上半截的白色→透明渐变，模拟光从上方打过来。
-                          裁在胶囊里，边缘自然跟着弧度走。 */}
-                      <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-linear-to-b from-white/35 to-transparent" />
-                    </motion.span>
-                  )}
-                  {/* 前导小点：只在选中时出现，所以不占未选中项的宽度
-                      （常驻会多出 9×8=72px，1024px 下日语会挤爆）。
-                      文字随之左移约 4px，由 layoutId 的弹簧动画一起吃进去。
-                      两种语义分开：
-                        白点 = 「你在这里」（位置），跟随选中项
-                        绿点 = 「此刻正在发生」（状态），只挂在音乐且有歌在放时
-                      闪烁是强符号，不该用来标位置；表示"正在播放"才是它的本义。 */}
                   <span className="relative z-10 flex items-center justify-center gap-1 whitespace-nowrap">
-                    {link.href === "/music" && playing ? (
+                    {/* 绿点 = 「此刻正在发生」（状态），只挂在音乐且有歌在放时；
+                        位置语义已由渐变文字 + 光标点承担，不再需要白点。 */}
+                    {link.href === "/music" && playing && (
                       <span className="relative flex h-1.5 w-1.5 shrink-0" title={t("nav.musicPlaying")}>
                         <span className="live-ring absolute inset-0 rounded-full bg-emerald-400" />
                         <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
                       </span>
-                    ) : (
-                      active && (
-                        <motion.span
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="h-1 w-1 shrink-0 rounded-full bg-white"
-                        />
-                      )
                     )}
                     {t(link.key)}
                   </span>
+                  {dotHere && (
+                    /* 外层只做位移（layoutId 弹簧滑到目标链接下居中），
+                       内层做呼吸动画，两层 transform 互不打架 */
+                    <motion.span
+                      layoutId="navbar-cursor"
+                      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center"
+                    >
+                      <span className="nav-cursor-dot h-1 w-1 rounded-full bg-accent-solid" />
+                    </motion.span>
+                  )}
                 </Link>
               );
             })}
@@ -185,24 +190,68 @@ export function Navbar({ siteName, avatar }: { siteName: string; avatar: string 
             </div>
             <div className="hidden md:block"><CalendarPopover /></div>
             <LanguageSwitcher />
-            <button
-              onClick={toggle}
-              aria-label={t("nav.toggleTheme")}
-              className="glass-button !rounded-full !p-2.5"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={theme}
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex"
-                >
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </motion.span>
+            <div ref={themeWrapRef} className="relative">
+              <button
+                onClick={() => setThemeOpen((v) => !v)}
+                aria-label={t("nav.themeMode")}
+                aria-expanded={themeOpen}
+                className="glass-button !rounded-full !p-2.5"
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={mode}
+                    initial={{ rotate: -90, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: 90, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex"
+                  >
+                    {mode === "system" ? (
+                      <Monitor className="h-4 w-4" />
+                    ) : theme === "dark" ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                  </motion.span>
+                </AnimatePresence>
+              </button>
+              <AnimatePresence>
+                {themeOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                    transition={{ duration: 0.18 }}
+                    className="glass-card absolute right-0 top-12 z-50 w-36 p-1.5"
+                  >
+                    {(
+                      [
+                        ["light", Sun, "tools.themeLight"],
+                        ["dark", Moon, "tools.themeDark"],
+                        ["system", Monitor, "tools.themeSystem"],
+                      ] as const
+                    ).map(([m, Icon, labelKey]) => (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setMode(m);
+                          setThemeOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+                          mode === m
+                            ? "bg-accent-soft font-semibold text-accent"
+                            : "text-muted hover:bg-white/40 dark:hover:bg-white/10"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {t(labelKey)}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
               </AnimatePresence>
-            </button>
+            </div>
             <button
               onClick={() => setDrawerOpen((v) => !v)}
               aria-label={t("nav.menu")}

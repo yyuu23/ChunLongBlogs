@@ -112,6 +112,7 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       if (gained > 0) stats.affinityPoints += 2; // 好感随聊天累积（受 use_chat 单日上限防刷）
       break;
     case "toggle_theme":
+    case "set_theme_mode": // 三态切换与旧 toggle 同计一份统计
       stats.themeToggles += 1;
       break;
     case "use_search":

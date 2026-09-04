@@ -22,6 +22,8 @@ html[data-accent="violet"] {
   --accent-to: #a855f7;
   --accent-solid: #6366f1;
   --accent-text: #6366f1;
+  /* 自定义色相默认值（近似星紫），data-accent="custom" 时生效 */
+  --custom-hue: 262;
   color-scheme: light;
 }
 
@@ -53,6 +55,15 @@ html[data-accent="cyan"] {
   --accent-text: #0e7490;
 }
 
+/* 自定义色相：只依赖 --custom-hue 一个变量（initScript / AccentProvider 首帧写入），
+ * hue 超 360 时 CSS 自动环绕，calc(+45) 无需取模 */
+html[data-accent="custom"] {
+  --accent-from: hsl(var(--custom-hue) 85% 62%);
+  --accent-to: hsl(calc(var(--custom-hue) + 45) 80% 58%);
+  --accent-solid: hsl(var(--custom-hue) 75% 52%);
+  --accent-text: hsl(var(--custom-hue) 70% 40%);
+}
+
 .dark {
   --glass-bg: rgba(15, 23, 42, 0.55);
   --glass-bg-strong: rgba(15, 23, 42, 0.75);
@@ -78,6 +89,10 @@ html[data-accent="cyan"] {
 
 .dark[data-accent="amber"] {
   --accent-text: #fbbf24;
+}
+
+.dark[data-accent="custom"] {
+  --accent-text: hsl(var(--custom-hue) 85% 74%);
 }
 
 html {
@@ -631,10 +646,113 @@ body {
   color: var(--text-muted);
 }
 
+/* ================= 设置面板滑杆（Firefly 模式） ================= */
+
+/* 通用滑杆：已走过部分填充 accent 色（--range-progress 由 SettingSlider 组件内联写入） */
+.setting-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-solid) 0 var(--range-progress, 0%),
+    rgba(148, 163, 184, 0.35) var(--range-progress, 0%) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.setting-slider::-webkit-slider-thumb,
+.hue-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2.5px solid var(--accent-solid);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.setting-slider::-webkit-slider-thumb:hover,
+.hue-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.setting-slider::-moz-range-thumb,
+.hue-slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2.5px solid var(--accent-solid);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+/* 色相滑杆：轨道即色相刻度（360° 彩虹渐变），thumb 用当前色相（--hue-thumb 组件内联写入） */
+.hue-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    hsl(0 80% 60%),
+    hsl(60 80% 60%),
+    hsl(120 80% 60%),
+    hsl(180 80% 60%),
+    hsl(240 80% 60%),
+    hsl(300 80% 60%),
+    hsl(360 80% 60%)
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.hue-slider::-webkit-slider-thumb {
+  border-color: var(--hue-thumb, var(--accent-solid));
+}
+
+.hue-slider::-moz-range-thumb {
+  border-color: var(--hue-thumb, var(--accent-solid));
+}
+
 /* ================= 主题色工具类（跟随 data-accent） ================= */
 
 .bg-accent-gradient {
   background-image: linear-gradient(to right, var(--accent-from), var(--accent-to));
+}
+
+/* 导航激活文字：主题渐变填充（clip 到文字上） */
+.text-accent-gradient {
+  background-image: linear-gradient(to right, var(--accent-from), var(--accent-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 导航光标点：呼吸发光。动画放在内层元素上，
+   外层交给 framer-motion layoutId 做位移，transform 互不冲突 */
+.nav-cursor-dot {
+  animation: nav-cursor-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes nav-cursor-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-solid) 55%, transparent);
+  }
+  50% {
+    transform: scale(1.55);
+    box-shadow: 0 0 11px 3px color-mix(in srgb, var(--accent-solid) 75%, transparent);
+  }
 }
 
 .bg-accent-br-gradient {

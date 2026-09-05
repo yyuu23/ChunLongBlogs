@@ -416,6 +416,50 @@ const NETEASE_HEADERS = {
 const DETAIL_BATCH = 200;
 /** 总量上限，防超大歌单把 server action 拖到超时 */
 const MAX_TRACKS = 500;
+/** 歌词抓取节流：小批并发 + 批间停顿，降低触发风控的概率 */
+const LYRIC_BATCH = 8;
+const LYRIC_PAUSE_MS = 250;
+
+/**
+ * 抓单曲歌词（公开歌词接口，与歌单导入同族）。失败/无词返回空串，不阻断导入。
+ * 返回的 LRC 原文存 songs.lrc，前台歌词面板按时间轴逐行渲染。
+ */
+async function fetchLyric(id: number): Promise<string> {
+  try {
+    const res = await fetch(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, {
+      headers: NETEASE_HEADERS,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return "";
+    const data = (await res.json()) as { nolyric?: boolean; lrc?: { lyric?: string } };
+    if (data.nolyric) return "";
+    return (data.lrc?.lyric ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** 批量按节流抓歌词，返回 id → lrc（仅含抓到的） */
+async function fetchLyricBatched(ids: number[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>();
+  for (let i = 0; i < ids.length; i += LYRIC_BATCH) {
+    const batch = ids.slice(i, i + LYRIC_BATCH);
+    const results = await Promise.all(
+      batch.map(async (id) => [id, await fetchLyric(id)] as const),
+    );
+    for (const [id, lrc] of results) if (lrc) map.set(id, lrc);
+    if (i + LYRIC_BATCH < ids.length) {
+      await new Promise((r) => setTimeout(r, LYRIC_PAUSE_MS));
+    }
+  }
+  return map;
+}
+
+/** 从网易云外链音频 URL 反解曲目 ID（非网易云上传的歌没有，返回 null） */
+function neteaseIdFromUrl(url: string): number | null {
+  const m = url.match(/[?&]id=(\d+)/);
+  return m ? Number(m[1]) : null;
+}
 
 /** 图片转 https：网易云给的封面多是 http://，https 站点下会被判混合内容拦掉 */
 function toHttps(url: string | undefined | null): string {
@@ -505,6 +549,9 @@ export async function importNetease(playlistId: string) {
       return { error: `拿到 ${wanted.length} 个曲目 ID，但详情接口未返回任何曲目` };
     }
 
+    // ②.5 歌词：节流批量抓取，失败/无词留空（后台可一键补抓），不阻断导入
+    const lyricMap = await fetchLyricBatched(wanted);
+
     const rows = wanted
       .map((id) => ({ id, d: detailMap.get(id) }))
       .filter((x): x is { id: number; d: NonNullable<typeof x.d> } => !!x.d)
@@ -515,6 +562,7 @@ export async function importNetease(playlistId: string) {
         url: `https://music.163.com/song/media/outer/url?id=${id}.mp3`,
         duration: Math.round((d.dt ?? 0) / 1000),
         sort: i + 1,
+        lrc: lyricMap.get(id) ?? "",
       }));
 
     // ③ 按来源 upsert：同一歌单重复导入则覆盖，不堆同名歌单
@@ -554,10 +602,39 @@ export async function importNetease(playlistId: string) {
       title: meta.title,
       // trackCount 与实际拿到的数目不一致时（个别曲目已下架）告知，避免"少了几首"的困惑
       missing: wanted.length - rows.length,
+      // 成功抓到歌词的曲目数（0 也照常告知，纯音乐/风控都可能）
+      lyricsCount: lyricMap.size,
     };
   } catch (e) {
     return { error: e instanceof Error ? `导入失败：${e.message}` : "导入失败" };
   }
+}
+
+/**
+ * 为指定歌单里缺歌词的网易云歌曲补抓歌词（从音频外链反解曲目 ID）。
+ * 用于导入早期版本没抓歌词、或当时接口抖动导致漏抓的老歌单。
+ */
+export async function fetchMissingLyrics(playlistId: number) {
+  await guard();
+  const list = await db.select().from(songs).where(eq(songs.playlistId, playlistId));
+  const targets = list.filter((s) => !s.lrc.trim());
+  const withIds = targets
+    .map((s) => ({ song: s, nid: neteaseIdFromUrl(s.url) }))
+    .filter((x): x is { song: typeof targets[number]; nid: number } => x.nid !== null);
+  if (!withIds.length) {
+    return { ok: true as const, fetched: 0, missing: 0 };
+  }
+
+  const lyricMap = await fetchLyricBatched(withIds.map((x) => x.nid));
+  let fetched = 0;
+  for (const { song, nid } of withIds) {
+    const lrc = lyricMap.get(nid);
+    if (!lrc) continue;
+    await db.update(songs).set({ lrc }).where(eq(songs.id, song.id));
+    fetched += 1;
+  }
+  revalidateAll();
+  return { ok: true as const, fetched, missing: targets.length - fetched };
 }
 
 /**

@@ -12,8 +12,9 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { trackEvent } from "@/lib/track";
-import { Play, Pause, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
+import { Heart, Play, Pause, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
+import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
 
 export interface PlayerSong {
   id: number;
@@ -21,6 +22,21 @@ export interface PlayerSong {
   artist: string;
   cover: string;
   url: string;
+  /** LRC 歌词原文（歌词面板逐行滚动用；最近播放/收藏队列里同样携带） */
+  lrc?: string;
+}
+
+/** 播放模式：顺序 / 单曲循环 / 随机 */
+export type PlayMode = "sequential" | "repeat-one" | "shuffle";
+const MODE_KEY = "cl-play-mode";
+
+function loadModePref(): PlayMode {
+  try {
+    const m = localStorage.getItem(MODE_KEY);
+    return m === "repeat-one" || m === "shuffle" ? m : "sequential";
+  } catch {
+    return "sequential";
+  }
 }
 
 interface PlayerCtx {
@@ -30,10 +46,12 @@ interface PlayerCtx {
   duration: number;
   volume: number;
   muted: boolean;
+  mode: PlayMode;
   play: (song: PlayerSong, queue?: PlayerSong[]) => void;
   toggle: () => void;
   next: () => void;
   prev: () => void;
+  cycleMode: () => void;
   seek: (t: number) => void;
   setVolume: (v: number) => void;
   setMuted: (m: boolean) => void;
@@ -67,6 +85,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [volume, setVolumeState] = useState(0.8);
   const [muted, setMuted] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [mode, setMode] = useState<PlayMode>("sequential");
 
   // 单例 audio 元素：跨页面唯一实例；音量/静音从访客偏好恢复
   if (typeof window !== "undefined" && !audioRef.current) {
@@ -143,17 +162,54 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [current, queue, startPlay],
   );
 
-  const next = useCallback(() => step(1), [step]);
-  const prev = useCallback(() => step(-1), [step]);
+  // 随机：从队列里挑一首非当前曲（队列只有一首时保持不动）
+  const pickRandom = useCallback(() => {
+    if (!current || queue.length < 2) return;
+    const others = queue.filter((s) => s.id !== current.id);
+    const pick = others[Math.floor(Math.random() * others.length)];
+    if (pick) startPlay(pick);
+  }, [current, queue, startPlay]);
 
-  // 播完自动下一首
+  // 播放模式偏好：与音量偏好同款 —— 挂载后读一次 localStorage（SSR 首帧固定顺序模式）
+  useEffect(() => {
+    setMode(loadModePref());
+  }, []);
+
+  const cycleMode = useCallback(() => {
+    setMode((prev) => {
+      const nextMode: PlayMode =
+        prev === "sequential" ? "repeat-one" : prev === "repeat-one" ? "shuffle" : "sequential";
+      try {
+        localStorage.setItem(MODE_KEY, nextMode);
+      } catch {}
+      return nextMode;
+    });
+  }, []);
+
+  const next = useCallback(() => {
+    if (mode === "shuffle") return pickRandom();
+    step(1);
+  }, [mode, pickRandom, step]);
+  const prev = useCallback(() => {
+    if (mode === "shuffle") return pickRandom();
+    step(-1);
+  }, [mode, pickRandom, step]);
+
+  // 播完自动续播：单曲循环原地重放（不重复计听歌次数，防挂机刷数）；其余走 next
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onEnded = () => next();
+    const onEnded = () => {
+      if (mode === "repeat-one") {
+        audio.currentTime = 0;
+        void audio.play().catch(() => setFailed(true));
+        return;
+      }
+      next();
+    };
     audio.addEventListener("ended", onEnded);
     return () => audio.removeEventListener("ended", onEnded);
-  }, [next]);
+  }, [next, mode]);
 
   const toggle = useCallback(() => {
     const audio = audioRef.current;
@@ -216,16 +272,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       duration,
       volume,
       muted,
+      mode,
       play,
       toggle,
       next,
       prev,
+      cycleMode,
       seek,
       setVolume,
       setMuted: setMutedAll,
       close,
     }),
-    [current, playing, progress, duration, volume, muted, play, toggle, next, prev, seek, setVolume, setMutedAll, close],
+    [current, playing, progress, duration, volume, muted, mode, play, toggle, next, prev, cycleMode, seek, setVolume, setMutedAll, close],
   );
 
   return (
@@ -240,6 +298,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 function MiniPlayer({ failed }: { failed: boolean }) {
   const p = usePlayer();
   const t = useT();
+
+  // 收藏红心状态：随当前曲变化 + 订阅其它入口（音乐馆列表）的切换
+  const currentSong = p?.current ?? null;
+  const [faved, setFaved] = useState(false);
+  useEffect(() => {
+    setFaved(currentSong ? isFavorite(currentSong.id) : false);
+    return subscribeFavorites(() => {
+      setFaved(currentSong ? isFavorite(currentSong.id) : false);
+    });
+  }, [currentSong]);
+
+  const favToggle = () => {
+    if (!currentSong) return;
+    setFaved(toggleFavorite(currentSong));
+  };
+
+  // 播放模式图标/文案三态
+  const mode = p?.mode ?? "sequential";
+  const modeMeta =
+    mode === "repeat-one"
+      ? { icon: <Repeat1 className="h-4 w-4" />, label: t("music.modeRepeatOne") }
+      : mode === "shuffle"
+        ? { icon: <Shuffle className="h-4 w-4" />, label: t("music.modeShuffle") }
+        : { icon: <Repeat className="h-4 w-4" />, label: t("music.modeSequential") };
 
   // 播放条在场标记：让右下角工具列（globals.css）上移让位，
   // 避免 z-50 的设置面板盖住播放条右端的按钮（×/切歌点不到）。
@@ -327,6 +409,28 @@ function MiniPlayer({ failed }: { failed: boolean }) {
           </button>
           <button onClick={p.next} aria-label={t("music.nextTrack")} className="rounded-full p-2 text-muted hover:text-[var(--accent-text)]">
             <SkipForward className="h-4 w-4" />
+          </button>
+          {/* 收藏红心：本地收藏，与音乐馆列表实时同步 */}
+          <button
+            onClick={favToggle}
+            aria-label={faved ? t("music.favRemove") : t("music.favAdd")}
+            title={faved ? t("music.favRemove") : t("music.favAdd")}
+            className={`rounded-full p-2 transition-colors ${
+              faved ? "text-rose-500" : "text-muted hover:text-rose-400"
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${faved ? "fill-current" : ""}`} />
+          </button>
+          {/* 播放模式：顺序 → 单曲循环 → 随机 循环切换 */}
+          <button
+            onClick={p.cycleMode}
+            aria-label={`${t("music.playMode")}: ${modeMeta.label}`}
+            title={`${t("music.playMode")}: ${modeMeta.label}`}
+            className={`rounded-full p-2 transition-colors ${
+              mode === "sequential" ? "text-muted hover:text-[var(--accent-text)]" : "text-[var(--accent-text)]"
+            }`}
+          >
+            {modeMeta.icon}
           </button>
           {/* 音量：hover 容器（含按钮与滑杆的连续区域）展开滑杆，移开 350ms 后收起；触屏点按 = 静音切换 */}
           <div

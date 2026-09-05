@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Play, Music2, Clock3, ListMusic } from "lucide-react";
+import { Play, Music2, Clock3, ListMusic, Heart, Headphones } from "lucide-react";
 import { usePlayer, type PlayerSong } from "@/components/music/PlayerProvider";
-import { useT } from "@/components/providers/LocaleProvider";
+import { useT, useLocale } from "@/components/providers/LocaleProvider";
+import { loadFavorites, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
+import { parseLrc } from "@/lib/lrc";
+import { fetchProgress, type PlayerProgress } from "@/lib/track";
+import { achievementProgress } from "@/lib/achievements";
+import { MUSIC } from "@/lib/achievements-data";
+import { pick } from "@/lib/i18n/config";
 
 export interface MusicPlaylist {
   id: number;
   title: string;
   description: string;
   cover: string;
-  songs: { id: number; title: string; artist: string; cover: string; url: string; duration: number }[];
+  songs: {
+    id: number;
+    title: string;
+    artist: string;
+    cover: string;
+    url: string;
+    duration: number;
+    lrc: string;
+  }[];
 }
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -21,6 +35,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
   const t = useT();
   const [activeId, setActiveId] = useState<number | null>(playlists[0]?.id ?? null);
   const [recent, setRecent] = useState<PlayerSong[]>([]);
+  const [favs, setFavs] = useState<PlayerSong[]>([]);
 
   useEffect(() => {
     try {
@@ -36,6 +51,12 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // 收藏列表：挂载读取 + 订阅迷你播放条/其它标签页的红心变化
+  useEffect(() => {
+    setFavs(loadFavorites());
+    return subscribeFavorites(setFavs);
+  }, []);
+
   const active = playlists.find((p) => p.id === activeId) ?? null;
   const toPlayerSong = (s: MusicPlaylist["songs"][number]): PlayerSong => ({
     id: s.id,
@@ -43,7 +64,9 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
     artist: s.artist,
     cover: s.cover,
     url: s.url,
+    lrc: s.lrc,
   });
+  const isFav = (id: number) => favs.some((f) => f.id === id);
 
   return (
     <div className="mx-auto grid w-[min(96%,64rem)] gap-6 lg:grid-cols-[20rem_1fr]">
@@ -84,6 +107,33 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
           ))}
         </div>
 
+        {/* 我的收藏：红心过的歌（本地存储），可整单播放 */}
+        {favs.length > 0 && (
+          <div className="glass-card p-4">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-muted">
+              <Heart className="h-3.5 w-3.5 text-rose-400" /> {t("music.favorites")}
+              <span className="ml-auto rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">
+                {favs.length}
+              </span>
+            </p>
+            <ul className="flex flex-col gap-1">
+              {favs.slice(0, 6).map((s) => (
+                <li key={s.id}>
+                  <button
+                    onClick={() => player?.play(s, favs)}
+                    className={`flex w-full items-center gap-2 truncate rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-white/40 dark:hover:bg-white/10 ${
+                      player?.current?.id === s.id ? "text-accent" : "text-muted"
+                    }`}
+                  >
+                    <Heart className="h-3 w-3 shrink-0 fill-current text-rose-400" />
+                    <span className="truncate">{s.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {recent.length > 0 && (
           <div className="glass-card p-4">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-muted">
@@ -108,9 +158,10 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
         )}
       </div>
 
-      {/* 右：歌曲列表 + 歌词 */}
+      {/* 右：听歌统计 + 歌曲列表 + 歌词 */}
       {active && (
         <div className="flex flex-col gap-5">
+          <MusicStatsCard />
           <motion.div
             key={active.id}
             initial={{ y: 16, opacity: 0 }}
@@ -137,11 +188,21 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
             <ul className="divide-y divide-[var(--glass-border)]">
               {active.songs.map((s, i) => {
                 const isCurrent = player?.current?.id === s.id;
+                const faved = isFav(s.id);
                 return (
                   <li key={s.id}>
-                    <button
+                    {/* 行本身可点播放；红心按钮是行内的独立交互，故用 div role=button 而非嵌套 button */}
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => player?.play(toPlayerSong(s), active.songs.map(toPlayerSong))}
-                      className={`flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition-colors hover:bg-white/40 dark:hover:bg-white/5 ${
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          player?.play(toPlayerSong(s), active.songs.map(toPlayerSong));
+                        }
+                      }}
+                      className={`flex w-full cursor-pointer items-center gap-3 px-5 py-3 text-left text-sm transition-colors hover:bg-white/40 dark:hover:bg-white/5 ${
                         isCurrent ? "text-accent" : ""
                       }`}
                     >
@@ -163,7 +224,20 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
                       <span className="shrink-0 text-xs tabular-nums text-muted">
                         {s.duration ? fmt(s.duration) : "--:--"}
                       </span>
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(toPlayerSong(s));
+                        }}
+                        aria-label={faved ? t("music.favRemove") : t("music.favAdd")}
+                        title={faved ? t("music.favRemove") : t("music.favAdd")}
+                        className={`shrink-0 rounded-full p-1 transition-colors ${
+                          faved ? "text-rose-500" : "text-muted/50 hover:text-rose-400"
+                        }`}
+                      >
+                        <Heart className={`h-4 w-4 ${faved ? "fill-current" : ""}`} />
+                      </button>
+                    </div>
                   </li>
                 );
               })}
@@ -180,14 +254,30 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
   );
 }
 
-/** 当前播放歌曲的歌词（无歌词时显示提示） */
+/** 当前播放歌曲的歌词：解析 LRC 时间轴，随播放进度逐行高亮滚动，点击歌词行跳转进度 */
 function LyricsPanel() {
   const player = usePlayer();
   const t = useT();
-  const lines = useMemo(() => {
-    // lrc 数据暂未接入逐行时间轴，这里先做静态展示占位
-    return null;
-  }, []);
+  const lrc = player?.current?.lrc ?? "";
+  const lines = useMemo(() => parseLrc(lrc), [lrc]);
+  const progress = player?.progress ?? 0;
+
+  // 当前行 = 最后一条 time <= 进度的行（线性扫，歌词行数量级很小）
+  let active = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].time <= progress) active = i;
+    else break;
+  }
+
+  // 跟随滚动：只滚歌词容器自己（scrollIntoView 会连带滚动页面），滚到当前行垂直居中
+  const boxRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const box = boxRef.current;
+    const el = activeRef.current;
+    if (!box || !el) return;
+    box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+  }, [active]);
 
   if (!player?.current) {
     return (
@@ -201,11 +291,99 @@ function LyricsPanel() {
       <p className="mb-2 text-xs font-semibold tracking-widest text-muted">{t("music.nowPlaying")}</p>
       <p className="font-serif text-xl font-bold">{player.current.title}</p>
       <p className="mt-0.5 text-sm text-muted">{player.current.artist}</p>
-      {lines ?? (
-        <p className="mt-4 text-xs text-muted opacity-70">
-          {lines === null ? t("music.noLyrics") : ""}
-        </p>
+      {lines.length > 0 ? (
+        <div ref={boxRef} className="relative mt-4 flex max-h-60 flex-col gap-0.5 overflow-y-auto pr-1">
+          {lines.map((line, i) => (
+            <button
+              key={`${line.time}-${i}`}
+              ref={i === active ? activeRef : undefined}
+              onClick={() => player.seek(line.time)}
+              title={t("music.progressBar")}
+              className={`rounded-lg px-2 py-1 text-left text-sm transition-all duration-300 ${
+                i === active
+                  ? "scale-[1.02] font-semibold text-accent"
+                  : "text-muted opacity-55 hover:opacity-100"
+              }`}
+            >
+              {line.text || "♪"}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-xs text-muted opacity-70">{t("music.noLyrics")}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * 听歌统计 + 聆听成就卡：数据来自 /api/player（fetchProgress），
+ * 每次播放都会派发 cl-player-update 事件，这里监听实现实时 +1。
+ */
+function MusicStatsCard() {
+  const t = useT();
+  const { locale } = useLocale();
+  const [prog, setProg] = useState<PlayerProgress | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchProgress().then((p) => {
+      if (alive && p) setProg(p);
+    });
+    const onUpdate = (e: Event) => {
+      const d = (e as CustomEvent<PlayerProgress | null>).detail;
+      if (d) setProg(d);
+    };
+    window.addEventListener("cl-player-update", onUpdate);
+    return () => {
+      alive = false;
+      window.removeEventListener("cl-player-update", onUpdate);
+    };
+  }, []);
+
+  if (!prog) return null;
+  const unlocked = new Set(prog.achievements);
+
+  return (
+    <div className="glass-card p-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <span className="flex items-center gap-1.5 font-medium">
+          <Headphones className="h-4 w-4 text-accent" />
+          {t("music.statsListens")}
+          <span className="tabular-nums text-accent">{prog.stats.songsPlayed}</span>
+        </span>
+        <span className="text-xs text-muted">
+          Lv.{prog.level} · {prog.title}
+        </span>
+      </div>
+      <p className="mb-1.5 mt-3 text-[11px] font-semibold tracking-widest text-muted">
+        {t("music.statsAchievements")}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {MUSIC.map((a) => {
+          const on = unlocked.has(a.key);
+          const pr = achievementProgress(a, prog.stats);
+          return (
+            <span
+              key={a.key}
+              title={pick(locale, a.description)}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition-colors ${
+                on
+                  ? "bg-accent-soft font-medium text-accent"
+                  : "bg-black/5 text-muted dark:bg-white/5"
+              }`}
+            >
+              <span>{a.emoji}</span>
+              <span>{pick(locale, a.name)}</span>
+              {!on && pr && (
+                <span className="tabular-nums opacity-70">
+                  {pr.current}/{pr.target}
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

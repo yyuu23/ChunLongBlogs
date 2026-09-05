@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, Trash2, Pencil, X, Check, CloudDownload, Loader2, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Pencil, X, Check, CloudDownload, Loader2, ArrowLeft, FileText } from "lucide-react";
 import {
   savePlaylist,
   deletePlaylist,
   saveSong,
   deleteSong,
   importNetease,
+  fetchMissingLyrics,
 } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
 
@@ -47,6 +48,7 @@ export function MusicManager({
   const [neteaseId, setNeteaseId] = useState("");
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState("");
+  const [lyricPending, setLyricPending] = useState<number | null>(null);
 
   const submitPlaylist = () => {
     if (!plForm || !plForm.title.trim()) return;
@@ -78,12 +80,29 @@ export function MusicManager({
       // 已下架的曲目详情接口不返回，说明差额免得看着像少导了
       const skipped = r.missing ?? 0;
       const missing = skipped > 0 ? `，${skipped} 首已下架跳过` : "";
+      const lyrics = `，含歌词 ${r.lyricsCount} 首`;
       setMessage(
         r.updated
-          ? `✅ 已更新歌单「${r.title}」：${r.count} 首${missing}`
-          : `✅ 成功导入「${r.title}」${r.count} 首${missing}`,
+          ? `✅ 已更新歌单「${r.title}」：${r.count} 首${missing}${lyrics}`
+          : `✅ 成功导入「${r.title}」${r.count} 首${missing}${lyrics}`,
       );
       setNeteaseId("");
+    }
+  };
+
+  // 为歌单里缺歌词的网易云歌曲补抓（导入早期版本/接口抖动漏抓的存量歌单）
+  const doFetchLyrics = async (playlistId: number) => {
+    setLyricPending(playlistId);
+    setMessage("");
+    const r = await fetchMissingLyrics(playlistId);
+    setLyricPending(null);
+    if ("error" in r && r.error) setMessage(`❌ ${r.error}`);
+    else if ("ok" in r) {
+      setMessage(
+        r.missing > 0
+          ? `✅ 歌词补抓完成：新抓到 ${r.fetched} 首，仍有 ${r.missing} 首无歌词（纯音乐或接口未收录）`
+          : `✅ 歌词补抓完成：新抓到 ${r.fetched} 首`,
+      );
     }
   };
 
@@ -180,14 +199,25 @@ export function MusicManager({
               {/* 展开的歌曲管理 */}
               {openPl === pl.id && (
                 <div className="mt-3 rounded-xl bg-slate-50 p-4">
-                  <div className="mb-3 flex justify-between">
+                  <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs font-semibold text-slate-500">歌曲（{songs[pl.id]?.length ?? 0}）</p>
-                    <button
-                      onClick={() => setSongForm({ id: 0, title: "", artist: "", cover: "", url: "", lrc: "", playlistId: pl.id })}
-                      className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs text-indigo-600"
-                    >
-                      <Plus className="h-3 w-3" /> 添加歌曲
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => doFetchLyrics(pl.id)}
+                        disabled={lyricPending === pl.id}
+                        className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-200 disabled:opacity-60"
+                        title="从网易云补抓缺失的歌词"
+                      >
+                        {lyricPending === pl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                        补抓歌词
+                      </button>
+                      <button
+                        onClick={() => setSongForm({ id: 0, title: "", artist: "", cover: "", url: "", lrc: "", playlistId: pl.id })}
+                        className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs text-indigo-600"
+                      >
+                        <Plus className="h-3 w-3" /> 添加歌曲
+                      </button>
+                    </div>
                   </div>
                   {songForm?.playlistId === pl.id && (
                     <div className="mb-3 grid gap-2 rounded-xl border border-indigo-200 bg-white p-3 sm:grid-cols-2">

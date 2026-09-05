@@ -109,7 +109,6 @@ export function HeroRotator() {
   }, [enabled, phase, idx, titleN, subN, sets]);
 
   const set = sets[idx % sets.length]!;
-  const showCaret = phase === "title" || phase === "sub" || phase === "hold";
 
   return (
     <div aria-live="off" className="flex w-full flex-col items-center gap-5">
@@ -129,7 +128,7 @@ export function HeroRotator() {
                 {ch}
               </span>
             ))}
-            {showCaret && <Caret />}
+            <Caret visible={phase === "title"} />
           </h1>
           <p className="whitespace-pre-wrap text-sm tracking-[0.3em] text-white/85 [text-shadow:0_1px_6px_rgb(0_0_0/0.5)] md:text-base">
             {Array.from(set.sub.slice(0, subN)).map((ch, i) => (
@@ -137,7 +136,7 @@ export function HeroRotator() {
                 {ch}
               </span>
             ))}
-            {showCaret && <Caret thin />}
+            <Caret thin visible={phase === "sub"} />
           </p>
         </motion.div>
       </AnimatePresence>
@@ -145,14 +144,25 @@ export function HeroRotator() {
   );
 }
 
-/** 打字光标：主题色渐变细条，复用全局 caret-blink 闪烁 */
-function Caret({ thin = false }: { thin?: boolean }) {
+/**
+ * 打字光标：主题色渐变细条，只在该行正在打字时可见（visible），打完即淡出。
+ * 需要双层结构：闪烁动画（caret-blink）动画的是 opacity，会盖掉同元素的
+ * opacity 类 —— 外层管可见性淡出、内层跑闪烁，互不干扰；常驻 DOM 也避免了
+ * 卸载时文字因失去光标宽度而发生的居中跳动。
+ */
+function Caret({ thin = false, visible = true }: { thin?: boolean; visible?: boolean }) {
   return (
     <span
       aria-hidden
-      className={`ml-1 inline-block translate-y-[0.06em] animate-[caret-blink_1.1s_step-end_infinite] rounded-full bg-gradient-to-b from-[var(--accent-from)] to-[var(--accent-to)] align-baseline ${
-        thin ? "h-[0.8em] w-[1.5px]" : "h-[0.95em] w-[2px]"
+      className={`ml-1 inline-block align-baseline transition-opacity duration-200 ${
+        visible ? "opacity-100" : "opacity-0"
       }`}
-    />
+    >
+      <span
+        className={`inline-block translate-y-[0.06em] animate-[caret-blink_1.1s_step-end_infinite] rounded-full bg-gradient-to-b from-[var(--accent-from)] to-[var(--accent-to)] ${
+          thin ? "h-[0.8em] w-[1.5px]" : "h-[0.95em] w-[2px]"
+        }`}
+      />
+    </span>
   );
 }

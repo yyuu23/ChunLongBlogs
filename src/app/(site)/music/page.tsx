@@ -35,6 +35,7 @@ export default async function MusicPage() {
         cover: s.cover,
         url: s.url,
         duration: s.duration,
+        lrc: s.lrc,
       })),
   }));
 

@@ -1,9 +1,11 @@
 import { excerpt } from "@/lib/utils";
+import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG, type LlmRequest } from "@/lib/llm";
+import { getSiteConfig } from "@/lib/site";
 
 /**
  * 后台 AI 编辑助手：摘要 / 标签 / 标题 / slug / 正文与说说润色。
  * 编辑器按钮（/api/admin/*）与设置页批量入口（backfill*Action）共用；
- * Key 只存服务端，与 /api/chat 复用同一套 LLM_* 环境变量。
+ * Key 只存服务端，供应商由 .env 的 LLM_PROVIDER 统一切换（见 lib/llm.ts）。
  */
 
 /** 喂给模型的正文上限：DeepSeek 上下文足够，但截断可控成本与延迟 */
@@ -50,18 +52,17 @@ const POLISH_MOMENT_PROMPT =
   "长度与原文相近（不要超过一倍）；保留原文已有的 emoji；不要添加话题标签，不要解释。" +
   "只输出改写后的说说文字。";
 
-function llmConfig() {
-  const base =
-    process.env.LLM_BASE_URL ??
-    process.env.DEEPSEEK_API_BASE ??
-    "https://api.deepseek.com/v1";
-  const key = process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY;
-  const model = process.env.LLM_MODEL ?? "deepseek-chat";
-  return { base, key, model };
+/** 后台编辑类任务跟随后台默认模型预设，固定关思考（要快） */
+async function llmConfig(): Promise<LlmRequest | null> {
+  const config = await getSiteConfig();
+  const choice = resolveAiChatChoice(config.aiChat);
+  return choice
+    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: false })
+    : null;
 }
 
-export function llmConfigured(): boolean {
-  return llmConfig().key != null;
+export async function llmConfigured(): Promise<boolean> {
+  return (await llmConfig())?.key != null;
 }
 
 /** OpenAI 兼容协议的单轮调用：六个 AI 功能共用的请求/错误样板 */
@@ -70,29 +71,26 @@ async function chatLLM(
   user: string,
   opts: { maxTokens: number; temperature: number; timeoutMs?: number },
 ): Promise<LLMResult> {
-  const { base, key, model } = llmConfig();
-  if (!base || !key) {
-    return {
-      ok: false,
-      status: 503,
-      error: "未配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务",
-    };
+  const llm = await llmConfig();
+  if (!llm) {
+    return { ok: false, status: 503, error: LLM_NOT_CONFIGURED_MSG };
   }
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
+    const res = await fetch(`${llm.base.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${llm.key}`,
       },
       body: JSON.stringify({
-        model,
+        model: llm.model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
         max_tokens: opts.maxTokens,
         temperature: opts.temperature,
+        ...llm.extraBody,
       }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
     });

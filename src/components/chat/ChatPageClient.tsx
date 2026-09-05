@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  Cpu,
   FileText,
   History,
   Loader2,
@@ -39,7 +40,14 @@ import {
 } from "@/lib/chatSessions";
 import { copyText } from "@/lib/clipboard";
 
-export function ChatPageClient() {
+/** 服务端下发的模型预设公开形态（只含 id/label，不泄露供应商与模型名） */
+export interface AiChoicesPublic {
+  allow: boolean;
+  defaultChoice: string;
+  choices: { id: string; label: string }[];
+}
+
+export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const t = useT();
   const { tArr } = useLocale();
   // 初始恢复上次活跃会话（无记录才新开）；该 id 不在索引/无数据时 useChat 会重置为欢迎语
@@ -53,6 +61,19 @@ export function ChatPageClient() {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // 模型选择（与悬浮窗共用 cl-chat-model 存储；后台关闭或预设 ≤1 时隐藏选择器）
+  const showModelSelector = !!aiChoices?.allow && (aiChoices?.choices.length ?? 0) > 1;
+  const [modelId, setModelId] = useState("");
+
+  useEffect(() => {
+    if (!aiChoices?.choices.length) return;
+    const stored = localStorage.getItem("cl-chat-model");
+    const id = stored && aiChoices.choices.some((c) => c.id === stored)
+      ? stored
+      : aiChoices.defaultChoice || aiChoices.choices[0]!.id;
+    setModelId(id);
+    localStorage.setItem("cl-chat-model", id);
+  }, [aiChoices]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -252,38 +273,60 @@ export function ChatPageClient() {
           )}
 
           {/* 输入区 */}
-          <div className="flex items-end gap-2 border-t border-[var(--glass-border)] p-3">
-            <textarea
-              ref={taRef}
-              rows={1}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                autoGrow(e.currentTarget);
-              }}
-              onKeyDown={onKeyDown}
-              placeholder={t("chatPage.inputPlaceholder")}
-              className="glass-input max-h-32 flex-1 resize-none !rounded-2xl text-sm leading-relaxed"
-            />
-            {busy ? (
-              <button
-                onClick={stop}
-                aria-label={t("chat.stopAria")}
-                title={t("chat.stopAria")}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white"
-              >
-                <Square className="h-4 w-4" />
-              </button>
-            ) : (
-              <button
-                onClick={() => doSend()}
-                disabled={!input.trim()}
-                aria-label={t("chat.sendAria")}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
-              >
-                <SendHorizonal className="h-4 w-4" />
-              </button>
+          <div className="border-t border-[var(--glass-border)] p-3">
+            {showModelSelector && (
+              <div className="mb-2 flex items-center gap-1.5 text-[0.6875rem] text-muted">
+                <Cpu className="h-3 w-3" />
+                {t("chat.modelLabel")}
+                <select
+                  value={modelId}
+                  onChange={(e) => {
+                    setModelId(e.target.value);
+                    localStorage.setItem("cl-chat-model", e.target.value);
+                  }}
+                  className="max-w-44 truncate rounded-full border border-[var(--glass-border)] bg-white/60 px-2.5 py-1 text-xs outline-none dark:bg-white/10"
+                >
+                  {aiChoices!.choices.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={taRef}
+                rows={1}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  autoGrow(e.currentTarget);
+                }}
+                onKeyDown={onKeyDown}
+                placeholder={t("chatPage.inputPlaceholder")}
+                className="glass-input max-h-32 flex-1 resize-none !rounded-2xl text-sm leading-relaxed"
+              />
+              {busy ? (
+                <button
+                  onClick={stop}
+                  aria-label={t("chat.stopAria")}
+                  title={t("chat.stopAria")}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white"
+                >
+                  <Square className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => doSend()}
+                  disabled={!input.trim()}
+                  aria-label={t("chat.sendAria")}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
+                >
+                  <SendHorizonal className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -559,7 +602,11 @@ function MessageRow({
             ) : (
               <span className="flex items-center gap-1.5 py-0.5 text-xs text-muted">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                {m.toolLabel ? `🔍 ${m.toolLabel}…` : t("chat.querying")}
+                {m.thinking
+                  ? `🧠 ${t("chat.thinking")}…`
+                  : m.toolLabel
+                    ? `🔍 ${m.toolLabel}…`
+                    : t("chat.querying")}
               </span>
             )}
           </div>

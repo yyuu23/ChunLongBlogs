@@ -102,7 +102,11 @@ export function ChatWidget() {
                           ) : (
                             <span className="flex items-center gap-1.5 text-muted">
                               <Loader2 className="h-3 w-3 animate-spin" />
-                              {m.toolLabel ? `🔍 ${m.toolLabel}…` : t("chat.querying")}
+                              {m.thinking
+                                ? `🧠 ${t("chat.thinking")}…`
+                                : m.toolLabel
+                                  ? `🔍 ${m.toolLabel}…`
+                                  : t("chat.querying")}
                             </span>
                           )}
                         </div>

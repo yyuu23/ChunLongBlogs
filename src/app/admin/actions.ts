@@ -20,7 +20,7 @@ import {
 } from "@/lib/db/schema";
 import { createSession, destroySession, getSession } from "@/lib/auth";
 import { llmConfigured, summarizeContent, suggestTags } from "@/lib/ai";
-import { saveSiteConfig, type SiteConfig } from "@/lib/site";
+import { saveSiteConfig, getSiteConfig, type SiteConfig, type AiChatConfig } from "@/lib/site";
 import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
 
 async function guard() {
@@ -565,8 +565,8 @@ export async function importNetease(playlistId: string) {
  */
 export async function backfillSummariesAction() {
   await guard();
-  if (!llmConfigured()) {
-    return { error: "未配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务" };
+  if (!(await llmConfigured())) {
+    return { error: "未配置 AI（DEEPSEEK_API_KEY / GLM_API_KEY / QWEN_API_KEY 任意一家），请在 .env 中设置后重启服务" };
   }
   const rows = await db
     .select({ id: posts.id, title: posts.title, content: posts.content })
@@ -618,8 +618,8 @@ export async function backfillSummariesAction() {
  */
 export async function backfillTagsAction() {
   await guard();
-  if (!llmConfigured()) {
-    return { error: "未配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务" };
+  if (!(await llmConfigured())) {
+    return { error: "未配置 AI（DEEPSEEK_API_KEY / GLM_API_KEY / QWEN_API_KEY 任意一家），请在 .env 中设置后重启服务" };
   }
   const existingNames = (
     await db.select({ name: tags.name }).from(tags).orderBy(asc(tags.name))
@@ -701,6 +701,50 @@ export async function rebuildEmbeddingsAction() {
 export async function saveSettings(config: SiteConfig) {
   await guard();
   await saveSiteConfig(config);
+  revalidateAll();
+  return { ok: true as const };
+}
+
+/* ============ AI 对话管理（/admin/ai-chat） ============ */
+
+const AI_PROVIDERS = new Set(["deepseek", "glm", "qwen"]);
+
+/** 保存模型预设与每访客限额：只合并进 aiChat 字段，其余站点设置不受影响 */
+export async function saveAiChat(input: AiChatConfig) {
+  await guard();
+  // 服务端清洗：客户端表单不可信
+  const choices = (Array.isArray(input.choices) ? input.choices : [])
+    .slice(0, 6)
+    .map((c) => ({
+      id: String(c.id ?? "").trim().slice(0, 64),
+      label: String(c.label ?? "").trim().slice(0, 24),
+      provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
+      model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
+      thinking: c.thinking === true,
+    }))
+    .filter((c) => c.id && c.label);
+  // id 去重（重复的丢弃）
+  const seen = new Set<string>();
+  const unique = choices.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true)));
+  if (!unique.length) return { error: "至少保留一个有效的模型预设" };
+  const defaultChoice = unique.some((c) => c.id === input.defaultChoice)
+    ? input.defaultChoice
+    : unique[0]!.id;
+  const clamp = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 999) : 0;
+  };
+  const current = await getSiteConfig();
+  await saveSiteConfig({
+    ...current,
+    aiChat: {
+      choices: unique,
+      defaultChoice,
+      allowVisitorChoice: input.allowVisitorChoice === true,
+      perVisitorHourly: clamp(input.perVisitorHourly),
+      perVisitorDaily: clamp(input.perVisitorDaily),
+    },
+  });
   revalidateAll();
   return { ok: true as const };
 }

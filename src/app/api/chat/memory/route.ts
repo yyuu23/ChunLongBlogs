@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
+import { getLlmRequest, resolveAiChatChoice } from "@/lib/llm";
+import { getSiteConfig } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +26,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "daily limit" }, { status: 429, headers: { "Retry-After": String(dl.resetIn) } });
   }
 
-  const base =
-    process.env.LLM_BASE_URL ?? process.env.DEEPSEEK_API_BASE ?? "https://api.deepseek.com/v1";
-  const key = process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY;
-  const model = process.env.LLM_MODEL ?? "deepseek-chat";
-  if (!base || !key) {
+  // 记忆蒸馏要快：跟随后台默认模型预设，但固定关思考
+  const config = await getSiteConfig();
+  const choice = resolveAiChatChoice(config.aiChat);
+  const llm = choice
+    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: false })
+    : null;
+  if (!llm) {
     return NextResponse.json({ error: "no key" }, { status: 503 });
   }
 
@@ -51,14 +55,15 @@ export async function POST(request: Request) {
     `严格输出不超过 10 行，每行以 "- " 开头、不超过 40 个字，不要输出任何其他文字。`;
 
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
+    const res = await fetch(`${llm.base.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${llm.key}` },
       body: JSON.stringify({
-        model,
+        model: llm.model,
         messages: [{ role: "system", content: system }, ...messages],
         max_tokens: 300,
         temperature: 0.2,
+        ...llm.extraBody,
       }),
       signal: AbortSignal.timeout(30_000),
     });

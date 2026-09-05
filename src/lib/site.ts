@@ -22,6 +22,35 @@ export interface GiscusConfig {
   categoryId: string;
 }
 
+/** 支持的 LLM 供应商（key 都放 .env，这里只决定路由） */
+export type AiProvider = "deepseek" | "glm" | "qwen";
+
+/** 一个暴露给访客的模型预设（/admin/ai-chat 管理） */
+export interface AiChatChoice {
+  /** 稳定 id（如 "glm-thinking"），访客选择时回传 */
+  id: string;
+  /** 访客可见名称 */
+  label: string;
+  provider: AiProvider;
+  /** 覆盖该供应商默认模型名（不填用 env/内置默认） */
+  model?: string;
+  /** 深度思考（按供应商自动适配开关方式） */
+  thinking: boolean;
+}
+
+export interface AiChatConfig {
+  /** 暴露给访客的模型预设（未配置 key 的供应商自动对访客隐藏） */
+  choices: AiChatChoice[];
+  /** 默认预设 id */
+  defaultChoice: string;
+  /** false = 访客无选择器，固定用默认预设 */
+  allowVisitorChoice: boolean;
+  /** 每访客每小时消息数（滑动窗口，0 = 不限） */
+  perVisitorHourly: number;
+  /** 每访客每天消息数（0 = 不限） */
+  perVisitorDaily: number;
+}
+
 export interface SiteConfig {
   siteName: string;
   siteDescription: string;
@@ -46,6 +75,8 @@ export interface SiteConfig {
   ccLicense: string;
   /** AI 聊天助手人设（system prompt） */
   aiPersona: string;
+  /** AI 对话模型预设与每访客限额（/admin/ai-chat 管理） */
+  aiChat: AiChatConfig;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -104,6 +135,20 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   footerText: "",
   ccLicense: "BY-NC-SA 4.0",
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
+  aiChat: {
+    choices: [
+      { id: "glm-standard", label: "GLM · 标准回复", provider: "glm", thinking: false },
+      { id: "glm-thinking", label: "GLM · 深度思考", provider: "glm", thinking: true },
+      { id: "deepseek-standard", label: "DeepSeek · 标准回复", provider: "deepseek", thinking: false },
+      { id: "deepseek-thinking", label: "DeepSeek · 深度思考", provider: "deepseek", thinking: true },
+      { id: "qwen-standard", label: "Qwen · 标准回复", provider: "qwen", thinking: false },
+      { id: "qwen-thinking", label: "Qwen · 深度思考", provider: "qwen", thinking: true },
+    ],
+    defaultChoice: "glm-standard",
+    allowVisitorChoice: true,
+    perVisitorHourly: 15,
+    perVisitorDaily: 60,
+  },
 };
 
 /** 请求内去重（React cache）：同一请求的多次 getSiteConfig 只查一次库 */
@@ -116,7 +161,12 @@ const loadSiteConfig = cache(async (): Promise<SiteConfig> => {
       .limit(1);
     if (!rows.length) return DEFAULT_SITE_CONFIG;
     const stored = JSON.parse(rows[0].value) as Partial<SiteConfig>;
-    return { ...DEFAULT_SITE_CONFIG, ...stored };
+    // aiChat 是嵌套对象，浅合并会整体替换——对它单独合默认值，防残缺数据缺字段
+    return {
+      ...DEFAULT_SITE_CONFIG,
+      ...stored,
+      aiChat: { ...DEFAULT_SITE_CONFIG.aiChat, ...(stored.aiChat ?? {}) },
+    };
   } catch {
     // 数据库尚未初始化时兜底，保证页面可渲染
     return DEFAULT_SITE_CONFIG;

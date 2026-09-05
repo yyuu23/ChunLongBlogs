@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, X, SendHorizonal, Loader2, Square } from "lucide-react";
+import { MessageCircle, X, SendHorizonal, Square } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useChat } from "@/components/chat/useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { PersonaAvatar } from "@/components/chat/PersonaArt";
+import { ChatStatusLine, statusPhaseOf } from "@/components/chat/ChatStatusLine";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -89,30 +90,27 @@ export function ChatWidget() {
                     </span>
                   ) : (
                     <div className="flex min-w-0 max-w-[85%] items-start gap-1.5">
-                      {m.model && <PersonaAvatar provider={m.model.provider} level={m.model.level} size={24} />}
+                      {m.model && (
+                        <PersonaAvatar
+                          provider={m.model.provider}
+                          level={m.model.level}
+                          size={24}
+                          className={m.streaming && !m.content ? "cl-avatar-working" : ""}
+                        />
+                      )}
                       <div className="min-w-0">
-                      {(m.content || m.failed || m.streaming) && (
+                      {!m.content && !m.failed && m.streaming && (
+                        <ChatStatusLine phase={statusPhaseOf(m)} detail={m.toolDetail} compact />
+                      )}
+                      {(m.content || m.failed) && (
                         <div className="w-fit max-w-full rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2 text-xs leading-relaxed dark:bg-white/10">
                           {m.content ? (
                             <ChatMarkdown
                               content={m.streaming ? `${m.content}▍` : m.content}
                               streaming={m.streaming}
                             />
-                          ) : m.querying ? (
-                            <span className="flex items-center gap-1.5 text-muted">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              {m.thinking
-                                ? `🧠 ${t("chat.thinking")}…`
-                                : m.toolLabel
-                                  ? `🔍 ${m.toolLabel}…`
-                                  : t("chat.querying")}
-                            </span>
                           ) : (
-                            <span className="flex items-center gap-1 px-0.5 py-1.5 text-muted">
-                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
-                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
-                            </span>
+                            <span className="text-muted">{t("chat.unknownError")}</span>
                           )}
                         </div>
                       )}

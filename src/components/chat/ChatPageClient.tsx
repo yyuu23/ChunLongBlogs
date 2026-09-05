@@ -10,7 +10,6 @@ import {
   Copy,
   FileText,
   History,
-  Loader2,
   MessageSquareText,
   Pencil,
   Plus,
@@ -27,6 +26,7 @@ import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { ModelPicker, type AiChoicesPublic } from "./ModelPicker";
 import { PersonaAvatar } from "./PersonaArt";
+import { ChatStatusLine, statusPhaseOf } from "./ChatStatusLine";
 import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
 import {
@@ -318,11 +318,15 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   );
 }
 
-/** AI 头像：有模型元信息时用对应拟人头像（随思考档位切悠闲/认真版），否则回退默认机器人标 */
-function MsgAvatar({ model }: { model?: { provider: AiProvider; level: ThinkingLevel } }) {
-  if (model) return <PersonaAvatar provider={model.provider} level={model.level} size={32} />;
+/** AI 头像：有模型元信息时用对应拟人头像（随思考档位切悠闲/认真版），否则回退默认机器人标；
+ *  working 态（等待回复中）附加轻微工作动画 */
+function MsgAvatar({ model, working }: { model?: { provider: AiProvider; level: ThinkingLevel }; working?: boolean }) {
+  const cls = working ? "cl-avatar-working" : "";
+  if (model) return <PersonaAvatar provider={model.provider} level={model.level} size={32} className={cls} />;
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-br-gradient text-white shadow-sm">
+    <span
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-br-gradient text-white shadow-sm ${cls}`}
+    >
       <Bot className="h-4 w-4" />
     </span>
   );
@@ -550,10 +554,13 @@ function MessageRow({
 
   return (
     <div className="flex items-start gap-2.5">
-      <MsgAvatar model={m.model} />
+      <MsgAvatar model={m.model} working={m.streaming && !m.content} />
       <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
-        {/* 流式等待期也只在同一气泡里显示（圆点/工具/思考状态），头像恒只渲染一个 */}
-        {(m.content || m.failed || m.streaming) && (
+        {/* 等待期：独立状态行（思考/搜索/站内阶段 + 耗时），首个正文到达后切换为气泡 */}
+        {!m.content && !m.failed && m.streaming && (
+          <ChatStatusLine phase={statusPhaseOf(m)} detail={m.toolDetail} />
+        )}
+        {(m.content || m.failed) && (
           <div
             className={`w-fit max-w-full rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed ${
               m.failed ? "bg-rose-500/10 text-rose-600 dark:text-rose-300" : "bg-white/50 dark:bg-white/10"
@@ -561,21 +568,8 @@ function MessageRow({
           >
             {m.content ? (
               <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} streaming={m.streaming} />
-            ) : m.querying ? (
-              <span className="flex items-center gap-1.5 py-0.5 text-xs text-muted">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {m.thinking
-                  ? `🧠 ${t("chat.thinking")}…`
-                  : m.toolLabel
-                    ? `🔍 ${m.toolLabel}…`
-                    : t("chat.querying")}
-              </span>
             ) : (
-              <span className="flex items-center gap-1 px-1 py-2 text-muted">
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
-                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
-              </span>
+              <span className="text-xs text-muted">{t("chat.unknownError")}</span>
             )}
           </div>
         )}

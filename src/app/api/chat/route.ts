@@ -466,8 +466,15 @@ export async function POST(request: Request) {
             if (!toolCalls.length || !allowTools) break;
             messages.push({ role: "assistant", content, tool_calls: toolCalls });
             for (const tc of toolCalls) {
-              // 实时告知客户端当前在查什么（等待提示会显示这个标签）
-              send(sse("status", { stage: "tool", label: TOOL_LABELS[tc.function.name] ?? tc.function.name }));
+              // 实时告知客户端当前在查什么（状态行会显示工具类型与搜索关键词）
+              send(
+                sse("status", {
+                  stage: "tool",
+                  label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+                  name: tc.function.name,
+                  detail: toolCallSummary(tc.function.name, tc.function.arguments),
+                }),
+              );
               const result = await executeTool(tc.function.name, tc.function.arguments);
               toolsUsed.push({
                 name: tc.function.name,

@@ -185,7 +185,8 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
                 <Play className="h-3.5 w-3.5" /> {t("music.playAll")}
               </button>
             </div>
-            <ul className="divide-y divide-[var(--glass-border)]">
+            {/* 歌曲多时不无限拉长：约 12 行的可见高度，超出内部滚动（自定义细滚动条走全局样式） */}
+            <ul className="max-h-[45rem] divide-y divide-[var(--glass-border)] overflow-y-auto">
               {active.songs.map((s, i) => {
                 const isCurrent = player?.current?.id === s.id;
                 const faved = isFav(s.id);

@@ -1311,6 +1311,11 @@ html[data-accent="cyan"].dark .md pre code span[data-line] span {
   color: var(--accent-text);
 }
 
+/* /chat 页以对话为主角：收起页脚，纵向空间全部让给消息卡（footer 是 body 直接子元素） */
+body:has(.cl-chat-page) > footer {
+  display: none;
+}
+
 /* ===== AI 聊天气泡内的 Markdown（ChatMarkdown 输出，选择器集中在这里） ===== */
 .chat-md > :first-child {
   margin-top: 0;

@@ -6,7 +6,7 @@ import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chatPolicy";
-import { CHAT_TOOLS, executeTool } from "@/lib/chatTools";
+import { getChatTools, executeTool, TOOL_LABELS, toolCallSummary } from "@/lib/chatTools";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 
@@ -50,6 +50,13 @@ interface RelatedItem {
   date?: string;
 }
 
+/** 工具调用轨迹（tools 事件的负载）：前端"查询了什么"徽章的数据源 */
+interface ToolTrace {
+  name: string;
+  label: string;
+  detail: string;
+}
+
 /** SSE 帧格式：`event: <name>\ndata: <json>\n\n` */
 function sse(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -60,6 +67,29 @@ const TOOL_GUIDE = `[站内数据查询能力
 你可以调用工具实时查询本站数据：list_posts（列文章）、get_post（读某篇文章全文）、list_moments（最近说说）、list_albums（相册列表）、site_stats（站点统计）。
 凡涉及本站文章/说说/相册/统计数字的问题——比如「列出博客的文章」「最近发了什么说说」「相册里有什么」「博客有多少篇文」——都必须先调用工具查询再回答，以查询结果为准，查不到就如实说没有，不要编造。
 文章链接格式 /posts/<slug>，说说在 /moments，相册在 /albums，回答里可以附上这些链接。]`;
+
+/** 富内容卡片协议：AI 用 ```chat-card JSON 输出，前端渲染成站内原生卡片 */
+const RICH_OUTPUT = `[富内容卡片输出
+回答以下场景时，在正文简短引入后，用一个 \`\`\`chat-card 代码块输出结构化卡片（前端会渲染成图形卡片）：
+
+- 推荐/列出文章 → {"type":"posts","items":[{"title","slug","date","category","description","cover","pinned"}]}
+- 最近的说说 → {"type":"moments","items":[{"content","date","mood","location","image"}]}
+- 相册介绍 → {"type":"albums","items":[{"title","description","cover","photoCount","createdAt"}]}
+- 博客规模/数据统计 → {"type":"stats","items":[{"label","value","icon","unit"}]}（icon 用 emoji，如 📝💬📷）
+- 两者对比（球队、方案、技术选型等）→ {"type":"vs","left":{"name","points":["…"]},"right":{"name","points":["…"]},"verdict":"一句话结论"}
+
+规则：
+1. 卡片数据必须来自工具查询结果，禁止编造；不确定的字段直接省略
+2. JSON 必须合法：双引号、无注释、无尾逗号；一个代码块只放一张卡
+3. 卡片前后可以有简短正文，但不要在正文里重复卡片中的完整清单
+4. 普通聊天和小回答继续用普通 Markdown，不要为了卡片而卡片]`;
+
+/** 时效性声明：有没有联网搜索能力，对模型的诚实度要求不同 */
+const timelinessPrompt = process.env.SEARCH_API_KEY
+  ? `[时效性信息
+你可以调用 web_search 工具联网搜索实时信息。凡涉及"这个赛季/最新/今天/新版本"等时效性内容（体育赛事、新闻、版本发布、价格等），先调用 web_search 搜索，再基于搜索结果回答并附来源链接；搜索失败就坦诚说明，再用自己的知识分析（注明可能不是最新）。]`
+  : `[时效性信息
+你没有实时联网能力，知识有截止日期。聊到"这个赛季/最近/最新"这类时效性话题（体育赛事、新闻、新版本、价格等）时，不要因此拒绝或绕开——照常大方地聊、给出你的分析（历史表现、阵容特点、口碑等），只是要坦诚说明你的情报可能不是最新的，不要把过时的信息当成现状来陈述；两队/两物对比时可以用 VS 卡片呈现。]`;
 
 /**
  * 转发上游流式响应：正文 delta 直接透传给客户端；tool_calls 分片按 index
@@ -254,6 +284,8 @@ export async function POST(request: Request) {
     memoryBlock,
     `[以下为本站事实信息，回答站点相关问题时必须以此为准，不知道的就说不知道]\n${facts}`,
     TOOL_GUIDE,
+    timelinessPrompt,
+    RICH_OUTPUT,
     ragBlock.trim(),
   ]
     .filter(Boolean)
@@ -264,11 +296,13 @@ export async function POST(request: Request) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
   // 回复常包含文章清单与代码，1024 太紧
   const maxTokens = 2048;
+  const tools = getChatTools();
 
   try {
     /* ===== 非流式：工具循环（≤ MAX_TOOL_ROUNDS 轮）后一次性 JSON ===== */
     if (!streamMode) {
       const messages: LoopMessage[] = [{ role: "system", content: system }, ...history];
+      const toolsUsed: ToolTrace[] = [];
       let content = "";
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
         const allowTools = round < MAX_TOOL_ROUNDS;
@@ -280,7 +314,7 @@ export async function POST(request: Request) {
             messages,
             max_tokens: maxTokens,
             temperature: 0.7,
-            ...(allowTools ? { tools: CHAT_TOOLS, tool_choice: "auto" } : {}),
+            ...(allowTools && tools.length ? { tools, tool_choice: "auto" } : {}),
           }),
           signal: AbortSignal.timeout(30_000),
         });
@@ -302,6 +336,11 @@ export async function POST(request: Request) {
         if (!toolCalls.length || !allowTools) break;
         messages.push({ role: "assistant", content, tool_calls: toolCalls });
         for (const tc of toolCalls) {
+          toolsUsed.push({
+            name: tc.function.name,
+            label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+            detail: toolCallSummary(tc.function.name, tc.function.arguments),
+          });
           messages.push({
             role: "tool",
             tool_call_id: tc.id,
@@ -321,7 +360,7 @@ export async function POST(request: Request) {
             )
             .join("\n")
         : "";
-      return NextResponse.json({ reply: reply + relatedLinks, related, mood });
+      return NextResponse.json({ reply: reply + relatedLinks, related, tools: toolsUsed, mood });
     }
 
     /* ===== 流式：SSE 转发（related 先行 → delta* → status? → done）。
@@ -348,6 +387,7 @@ export async function POST(request: Request) {
         };
 
         const messages: LoopMessage[] = [{ role: "system", content: system }, ...history];
+        const toolsUsed: ToolTrace[] = [];
         try {
           for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
             const allowTools = round < MAX_TOOL_ROUNDS;
@@ -360,7 +400,7 @@ export async function POST(request: Request) {
                 max_tokens: maxTokens,
                 temperature: 0.7,
                 stream: true,
-                ...(allowTools ? { tools: CHAT_TOOLS, tool_choice: "auto" } : {}),
+                ...(allowTools && tools.length ? { tools, tool_choice: "auto" } : {}),
               }),
               // 流式给更长时间；客户端断开时 request.signal 联动取消上游请求
               signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]),
@@ -372,16 +412,20 @@ export async function POST(request: Request) {
             }
             const { content, toolCalls } = await relayUpstream(res.body, send);
             if (!toolCalls.length || !allowTools) break;
-            // 工具执行期间没有 delta 可发，先告知客户端「在查资料」
-            send(sse("status", { stage: "tools" }));
             messages.push({ role: "assistant", content, tool_calls: toolCalls });
             for (const tc of toolCalls) {
-              messages.push({
-                role: "tool",
-                tool_call_id: tc.id,
-                content: await executeTool(tc.function.name, tc.function.arguments),
+              // 实时告知客户端当前在查什么（等待提示会显示这个标签）
+              send(sse("status", { stage: "tool", label: TOOL_LABELS[tc.function.name] ?? tc.function.name }));
+              const result = await executeTool(tc.function.name, tc.function.arguments);
+              toolsUsed.push({
+                name: tc.function.name,
+                label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+                detail: toolCallSummary(tc.function.name, tc.function.arguments),
               });
+              messages.push({ role: "tool", tool_call_id: tc.id, content: result });
             }
+            // 持久轨迹：徽章数据在正文 delta 之前到达
+            if (toolsUsed.length) send(sse("tools", toolsUsed));
           }
           finish(); // 上游结束但没发 [DONE] 的保险
         } catch (e) {

@@ -198,6 +198,7 @@ export const ko: Dictionary = {
     clearAria: "대화 지우기",
     retry: "다시 시도",
     sources: "참고 출처",
+    toolsUsed: "조회 항목",
     fromPost: "글",
     fromMoment: "머먼트",
     copy: "복사",

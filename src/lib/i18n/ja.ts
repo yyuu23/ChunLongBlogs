@@ -200,6 +200,7 @@ export const ja: Dictionary = {
     clearAria: "会話を削除",
     retry: "再試行",
     sources: "参考ソース",
+    toolsUsed: "調べた内容",
     fromPost: "記事",
     fromMoment: "つぶやき",
     copy: "コピー",

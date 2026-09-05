@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   Check,
+  ChevronDown,
   Copy,
   FileText,
   History,
@@ -14,13 +15,14 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Search,
   SendHorizonal,
   Square,
   Trash2,
   X,
 } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { useChat, type ChatMsg, type RelatedRef } from "./useChat";
+import { useChat, type ChatMsg, type RelatedRef, type ToolTrace } from "./useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import {
@@ -148,23 +150,32 @@ export function ChatPageClient() {
   );
 
   return (
-    <div className="mx-auto flex w-[min(96%,64rem)] gap-4">
-      {/* 桌面侧栏：pt-12 精确跳过工具条高度（h-9 + mb-3 = 48px），
+    <div className="cl-chat-page mx-auto flex w-[min(96%,64rem)] gap-4">
+      {/* 桌面侧栏：pt-14 精确跳过顶栏高度（h-11 + mb-3 = 56px），
           aside 本身不设高 —— 由外层 stretch 拉到主列总高，玻璃卡 flex-1 填满，
           顶部/底部即与聊天卡严格平齐 */}
-      <aside className="hidden w-56 shrink-0 flex-col pt-12 lg:flex">{sidebar}</aside>
+      <aside className="hidden w-56 shrink-0 flex-col pt-14 lg:flex">{sidebar}</aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 工具条（定高 h-9：侧栏的 pt-12 与它精确配对） */}
-        <div className="mb-3 flex h-9 items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* 顶栏 = 页面标题 + 工具条合并（定高 h-11：侧栏的 pt-14 与它精确配对） */}
+        <div className="mb-3 flex h-11 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <button
               onClick={() => setDrawerOpen(true)}
               aria-label={t("chatPage.history")}
-              className="glass-button !rounded-full !p-2 lg:hidden"
+              className="glass-button shrink-0 !rounded-full !p-2 lg:hidden"
             >
               <History className="h-4 w-4" />
             </button>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-br-gradient text-white">
+              <Bot className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate font-serif text-lg leading-tight font-black">
+                {t("chatPage.title")}
+              </h1>
+              <p className="truncate text-[0.6875rem] text-muted">{t("chatPage.subtitle")}</p>
+            </div>
             <AffinityBadge />
           </div>
           <button
@@ -172,7 +183,7 @@ export function ChatPageClient() {
               clear();
               dropFromIndex(activeId); // 回到欢迎态的会话不再挂侧栏
             }}
-            className="glass-button flex items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
+            className="glass-button flex shrink-0 items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
             aria-label={t("chatPage.clearAria")}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -180,8 +191,10 @@ export function ChatPageClient() {
           </button>
         </div>
 
-        {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩 */}
-        <div className="glass-card flex h-[calc(100dvh-21rem)] min-h-[22rem] flex-col overflow-hidden">
+        {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩。
+            页脚已收起（globals.css 的 body:has(.cl-chat-page)）；
+            12rem = 主区上内边距(6.4) + 顶栏含间距(3.5) + 底部 pb-8(2) */}
+        <div className="glass-card flex h-[calc(100dvh-12rem)] min-h-[24rem] flex-col overflow-hidden">
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {messages.map((m) => (
               <MessageRow
@@ -412,6 +425,36 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+/** 工具调用轨迹徽章：一排标签概览，点开显示每一步的工具名与参数摘要 */
+function ToolsBadge({ tools }: { tools: ToolTrace[] }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="glass-card glass-hover flex max-w-full items-center gap-1.5 !rounded-full px-2.5 py-1 text-[0.6875rem] text-muted"
+      >
+        <Search className="h-3 w-3 shrink-0 text-accent" />
+        <span className="truncate">
+          {t("chatPage.toolsUsed")}: {tools.map((x) => x.label).join(" · ")}
+        </span>
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="glass-card mt-1.5 space-y-1 !rounded-xl px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-muted">
+          {tools.map((x, i) => (
+            <p key={i}>
+              <span className="font-sans text-accent">{x.label}</span> — {x.detail}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 单条消息：用户右侧渐变气泡（可编辑重生成）/ AI 左侧带头像气泡 + 来源卡 + 失败重试；两者都可复制 */
 function MessageRow({
   m,
@@ -512,15 +555,18 @@ function MessageRow({
             }`}
           >
             {m.content ? (
-              <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} />
+              <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} streaming={m.streaming} />
             ) : (
               <span className="flex items-center gap-1.5 py-0.5 text-xs text-muted">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                {t("chat.querying")}
+                {m.toolLabel ? `🔍 ${m.toolLabel}…` : t("chat.querying")}
               </span>
             )}
           </div>
         )}
+
+        {/* 工具调用轨迹（可展开看每步查了什么） */}
+        {m.tools && m.tools.length > 0 && !m.streaming && <ToolsBadge tools={m.tools} />}
 
         {/* 参考来源 */}
         {m.related && m.related.length > 0 && !m.streaming && (

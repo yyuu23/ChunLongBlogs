@@ -198,6 +198,7 @@ export const en: Dictionary = {
     clearAria: "Clear conversation",
     retry: "Retry",
     sources: "Sources",
+    toolsUsed: "Queried",
     fromPost: "Post",
     fromMoment: "Moment",
     copy: "Copy",

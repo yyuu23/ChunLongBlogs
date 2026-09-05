@@ -196,6 +196,7 @@ export const zh = {
     clearAria: "清空会话",
     retry: "重试",
     sources: "参考来源",
+    toolsUsed: "查询了",
     fromPost: "文章",
     fromMoment: "说说",
     copy: "复制",

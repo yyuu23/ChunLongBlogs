@@ -16,6 +16,13 @@ export interface RelatedRef {
   date?: string;
 }
 
+/** 工具调用轨迹（与 /api/chat 的 tools 事件同构） */
+export interface ToolTrace {
+  name: string;
+  label: string;
+  detail: string;
+}
+
 export interface ChatMsg {
   /** 消息唯一 id（编辑重生成要按 id 定位截断；旧持久化数据载入时补齐） */
   id: string;
@@ -25,6 +32,10 @@ export interface ChatMsg {
   streaming?: boolean;
   /** 服务端正在调用站内数据工具（status 事件置位，首个 delta 到达后清除） */
   querying?: boolean;
+  /** querying 期间当前工具的标签（如「查询文章列表」），供等待提示展示 */
+  toolLabel?: string;
+  /** 本条回答用到的工具轨迹（AI 消息，随会话持久化） */
+  tools?: ToolTrace[];
   /** 参考来源（AI 消息） */
   related?: RelatedRef[];
   /** 失败（显示重试） */
@@ -43,6 +54,7 @@ interface SsePayload {
   text?: string;
   message?: string;
   stage?: string;
+  label?: string;
 }
 
 /**
@@ -77,6 +89,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             role: m.role,
             content: m.content,
             related: m.related,
+            tools: m.tools,
           }));
         }
       }
@@ -93,7 +106,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         const clean = messages
           .filter((m) => !m.failed && !m.streaming)
           .slice(-MAX_PERSIST)
-          .map((m) => ({ id: m.id, role: m.role, content: m.content, related: m.related }));
+          .map((m) => ({ id: m.id, role: m.role, content: m.content, related: m.related, tools: m.tools }));
         if (clean.length <= 1) {
           localStorage.removeItem(persistKey);
           return;
@@ -197,14 +210,17 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             }
             if (event === "related") {
               patchLast({ related: Array.isArray(payload) ? (payload as unknown as RelatedRef[]) : [] });
-            } else if (event === "status" && payload.stage === "tools") {
+            } else if (event === "status" && (payload.stage === "tools" || payload.stage === "tool")) {
+              // 工具执行中：显示带标签的等待提示（如「查询文章列表…」）
               querying = true;
-              patchLast({ querying: true });
+              patchLast({ querying: true, toolLabel: payload.label });
+            } else if (event === "tools") {
+              patchLast({ tools: Array.isArray(payload) ? (payload as unknown as ToolTrace[]) : [] });
             } else if (event === "delta" && typeof payload.text === "string") {
               gotAny = true;
               if (querying) {
                 querying = false;
-                patchLast({ querying: false });
+                patchLast({ querying: false, toolLabel: undefined });
               }
               const safe = moodFilter.feed(payload.text);
               replyText += safe;
@@ -214,15 +230,24 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                 content: `${t("chat.errorPrefix")}${payload.message ?? t("chat.unknownError")}`,
                 streaming: false,
                 querying: false,
+                toolLabel: undefined,
                 failed: !gotAny,
               });
             } else if (event === "done") {
               setMessages((ms) =>
                 ms.map((m, i) => {
                   if (i !== ms.length - 1) return m;
-                  if (m.content) return { ...m, streaming: false, querying: false };
+                  if (m.content)
+                    return { ...m, streaming: false, querying: false, toolLabel: undefined };
                   // done 但一个字都没收到
-                  return { ...m, content: t("chat.unknownError"), streaming: false, querying: false, failed: true };
+                  return {
+                    ...m,
+                    content: t("chat.unknownError"),
+                    streaming: false,
+                    querying: false,
+                    toolLabel: undefined,
+                    failed: true,
+                  };
                 }),
               );
             }

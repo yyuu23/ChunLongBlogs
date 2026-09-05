@@ -188,6 +188,8 @@ export const ko: Dictionary = {
     play: "재생",
     pause: "일시정지",
     closePlayer: "플레이어 닫기",
+    collapsePlayer: "플레이어 접기",
+    expandPlayer: "플레이어 펼치기",
     playMode: "재생 모드",
     modeSequential: "순차 재생",
     modeRepeatOne: "한 곡 반복",

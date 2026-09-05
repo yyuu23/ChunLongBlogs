@@ -187,6 +187,8 @@ export const zh = {
     play: "播放",
     pause: "暂停",
     closePlayer: "关闭播放器",
+    collapsePlayer: "收起播放器",
+    expandPlayer: "展开播放器",
     playMode: "播放模式",
     modeSequential: "顺序播放",
     modeRepeatOne: "单曲循环",

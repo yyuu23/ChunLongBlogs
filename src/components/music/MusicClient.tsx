@@ -292,14 +292,14 @@ function LyricsPanel() {
       <p className="font-serif text-xl font-bold">{player.current.title}</p>
       <p className="mt-0.5 text-sm text-muted">{player.current.artist}</p>
       {lines.length > 0 ? (
-        <div ref={boxRef} className="relative mt-4 flex max-h-60 flex-col gap-0.5 overflow-y-auto pr-1">
+        <div ref={boxRef} className="relative mt-4 flex max-h-60 flex-col gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
           {lines.map((line, i) => (
             <button
               key={`${line.time}-${i}`}
               ref={i === active ? activeRef : undefined}
               onClick={() => player.seek(line.time)}
               title={t("music.progressBar")}
-              className={`rounded-lg px-2 py-1 text-left text-sm transition-all duration-300 ${
+              className={`rounded-lg px-2 py-1 text-left text-sm transition-all duration-300 [overflow-wrap:anywhere] ${
                 i === active
                   ? "scale-[1.02] font-semibold text-accent"
                   : "text-muted opacity-55 hover:opacity-100"

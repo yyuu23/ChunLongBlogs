@@ -214,16 +214,6 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
                 }}
               />
             ))}
-            {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
-              <div className="flex items-start gap-2.5">
-                <MsgAvatar model={messages.at(-1)?.model} />
-                <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3.5 py-3 dark:bg-white/10">
-                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
-                  <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
-                </span>
-              </div>
-            )}
 
             {/* 空会话：快捷问题（大版） */}
             {onlyWelcome && suggestions.length > 0 && (
@@ -562,8 +552,8 @@ function MessageRow({
     <div className="flex items-start gap-2.5">
       <MsgAvatar model={m.model} />
       <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
-        {/* 无内容的流式等待期不渲染空气泡，交给下方的等待动画/查询提示 */}
-        {(m.content || m.failed || (m.streaming && m.querying)) && (
+        {/* 流式等待期也只在同一气泡里显示（圆点/工具/思考状态），头像恒只渲染一个 */}
+        {(m.content || m.failed || m.streaming) && (
           <div
             className={`w-fit max-w-full rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed ${
               m.failed ? "bg-rose-500/10 text-rose-600 dark:text-rose-300" : "bg-white/50 dark:bg-white/10"
@@ -571,7 +561,7 @@ function MessageRow({
           >
             {m.content ? (
               <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} streaming={m.streaming} />
-            ) : (
+            ) : m.querying ? (
               <span className="flex items-center gap-1.5 py-0.5 text-xs text-muted">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {m.thinking
@@ -579,6 +569,12 @@ function MessageRow({
                   : m.toolLabel
                     ? `🔍 ${m.toolLabel}…`
                     : t("chat.querying")}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-1 py-2 text-muted">
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
+                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
               </span>
             )}
           </div>

@@ -1721,3 +1721,12 @@ html.splash-seen .splash-overlay {
     rgb(255 255 255 / 0.18) 100%
   );
 }
+
+/* ===== 悬浮聊天面板展开时：看板娘淡出让位（面板驻底加高后避免玻璃后虚影） ===== */
+[data-cl-mascot] {
+  transition: opacity 0.25s ease;
+}
+body:has(.cl-chat-panel-open) [data-cl-mascot] {
+  opacity: 0;
+  pointer-events: none;
+}

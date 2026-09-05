@@ -15,10 +15,9 @@ import { PersonaAvatar } from "@/components/chat/PersonaArt";
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
  * 接口走 /api/chat（服务端代理，Key 不暴露给浏览器），流式打字机输出。
  *
- * 坐标说明（桌面 md+）：看板娘画布高 340px、其气泡最坏顶到 ~384px，
- * 按钮放 392px（24.5rem）避让；面板底边 432px（27rem）与按钮顶 434px 咬合。
- * max-h 再扣 5rem 给固定顶栏（约 72px）——矮视口下面板顶部钳在 85px，不再压导航。
- * 移动端（<768px）无看板娘，维持贴底原位。
+ * 布局：按钮常驻左下（避让看板娘与其气泡）；面板展开后改为「驻底」——
+ * bottom-3 落到视口底部、高 min(38rem, dvh-7.5rem)（顶部恒让开导航栏），
+ * 打开期间覆盖按钮（用面板顶栏的 ✕ 关闭），看板娘经 CSS 淡出避免玻璃后虚影。
  */
 export function ChatWidget() {
   const t = useT();
@@ -69,11 +68,7 @@ export function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className={`glass-card fixed left-3 z-40 flex h-[30rem] w-[min(20rem,86vw)] max-h-[calc(100dvh-26.5rem)] flex-col overflow-hidden ${
-              mascotOff
-                ? "bottom-[21.5rem]"
-                : "bottom-[21.5rem] md:bottom-[27rem] md:max-h-[calc(100dvh-32rem)]"
-            }`}
+            className="glass-card cl-chat-panel-open fixed bottom-3 left-3 z-40 flex h-[min(38rem,calc(100dvh-7.5rem))] w-[min(20rem,86vw)] flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
               <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
@@ -96,14 +91,14 @@ export function ChatWidget() {
                     <div className="flex min-w-0 max-w-[85%] items-start gap-1.5">
                       {m.model && <PersonaAvatar provider={m.model.provider} level={m.model.level} size={24} />}
                       <div className="min-w-0">
-                      {(m.content || m.failed || (m.streaming && m.querying)) && (
+                      {(m.content || m.failed || m.streaming) && (
                         <div className="w-fit max-w-full rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2 text-xs leading-relaxed dark:bg-white/10">
                           {m.content ? (
                             <ChatMarkdown
                               content={m.streaming ? `${m.content}▍` : m.content}
                               streaming={m.streaming}
                             />
-                          ) : (
+                          ) : m.querying ? (
                             <span className="flex items-center gap-1.5 text-muted">
                               <Loader2 className="h-3 w-3 animate-spin" />
                               {m.thinking
@@ -111,6 +106,12 @@ export function ChatWidget() {
                                 : m.toolLabel
                                   ? `🔍 ${m.toolLabel}…`
                                   : t("chat.querying")}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 px-0.5 py-1.5 text-muted">
+                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
+                              <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
                             </span>
                           )}
                         </div>
@@ -125,22 +126,6 @@ export function ChatWidget() {
                   )}
                 </div>
               ))}
-              {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
-                <div className="flex items-start justify-start gap-1.5">
-                  {messages.at(-1)?.model && (
-                    <PersonaAvatar
-                      provider={messages.at(-1)!.model!.provider}
-                      level={messages.at(-1)!.model!.level}
-                      size={24}
-                    />
-                  )}
-                  <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2.5 dark:bg-white/10">
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
-                    <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
-                  </span>
-                </div>
-              )}
             </div>
 
             <div className="flex items-center gap-2 border-t border-[var(--glass-border)] p-2.5">

@@ -1,6 +1,6 @@
 import { asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { albums, moments, photos } from "@/lib/db/schema";
+import { albums, moments, photos, playlists, songs } from "@/lib/db/schema";
 import {
   getCategoriesWithCount,
   getPostBySlug,
@@ -79,6 +79,21 @@ export const CHAT_TOOLS = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_music",
+      description:
+        "查询音乐馆的歌单与歌曲：歌单标题/简介/封面/歌曲数，以及每首歌的歌名/歌手/时长。适合「音乐馆有什么歌/有哪些歌单/某歌单里有谁唱的什么」类问题。",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "只看某个歌单（按标题模糊匹配），可选；不传返回全部歌单" },
+          songsPerList: { type: "number", description: "每个歌单返回的歌曲样本数，默认 8，最大 20" },
+        },
+      },
+    },
+  },
 ] as const;
 
 /** 联网搜索（Tavily 兼容协议）：仅在 .env 配了 SEARCH_API_KEY 时提供给模型 */
@@ -115,6 +130,7 @@ export const TOOL_LABELS: Record<string, string> = {
   list_moments: "查询最近说说",
   list_albums: "查询相册",
   site_stats: "查询站点统计",
+  list_music: "查询音乐馆",
   web_search: "联网搜索",
 };
 
@@ -132,8 +148,8 @@ export function toolCallSummary(name: string, argsJson: string): string {
   }
 }
 
-/** 模型侧看到的工具名集合（执行前校验用） */
-const TOOL_NAMES = new Set<string>(CHAT_TOOLS.map((t) => t.function.name));
+/** 模型侧看到的工具名集合（执行前校验用；含条件启用的 web_search） */
+const TOOL_NAMES = new Set<string>([...CHAT_TOOLS, WEB_SEARCH_TOOL].map((t) => t.function.name));
 
 /* ---------- 参数清洗：模型的输出不可信，一律钳制 ---------- */
 
@@ -277,6 +293,42 @@ async function webSearch(args: Record<string, unknown>) {
   };
 }
 
+/** 音乐馆：歌单 + 每单歌曲样本（时长秒转 m:ss） */
+async function listMusic(args: Record<string, unknown>) {
+  const perList = cleanLimit(args.songsPerList, 8, 20);
+  const title = cleanStr(args.title, 64);
+  const [lists, songRows] = await Promise.all([
+    db.select().from(playlists).orderBy(asc(playlists.createdAt)),
+    db
+      .select({
+        playlistId: songs.playlistId,
+        title: songs.title,
+        artist: songs.artist,
+        duration: songs.duration,
+      })
+      .from(songs)
+      .orderBy(asc(songs.sort), asc(songs.id)),
+  ]);
+  const fmt = (s: number) => (s > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : null);
+  const hitLists = title ? lists.filter((l) => l.title.includes(title)) : lists;
+  return {
+    totalPlaylists: lists.length,
+    playlists: hitLists.map((l) => {
+      const mine = songRows.filter((s) => s.playlistId === l.id);
+      return {
+        title: l.title,
+        description: l.description || null,
+        songCount: mine.length,
+        songs: mine.slice(0, perList).map((s) => ({
+          title: s.title,
+          artist: s.artist || null,
+          duration: fmt(s.duration),
+        })),
+      };
+    }),
+  };
+}
+
 async function siteStats() {
   const [stats, cats, tags, momentCount, albumCount, photoCount] = await Promise.all([
     getSiteStats(),
@@ -322,9 +374,11 @@ export async function executeTool(name: string, argsJson: string): Promise<strin
             ? await listMoments(args)
             : name === "list_albums"
               ? await listAlbums()
-              : name === "web_search"
-                ? await webSearch(args)
-                : await siteStats();
+              : name === "list_music"
+                ? await listMusic(args)
+                : name === "web_search"
+                  ? await webSearch(args)
+                  : await siteStats();
     return JSON.stringify(result);
   } catch (e) {
     return JSON.stringify({ error: e instanceof Error ? `查询失败：${e.message}` : "查询失败" });

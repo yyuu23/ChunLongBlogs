@@ -41,6 +41,17 @@ interface StatCardItem {
   unit?: string;
   icon?: string;
 }
+interface MusicSongItem {
+  title: string;
+  artist?: string;
+  duration?: string;
+}
+interface MusicCardItem {
+  title: string;
+  description?: string;
+  songCount?: number;
+  songs?: MusicSongItem[];
+}
 interface VsSide {
   name: string;
   points?: string[];
@@ -172,6 +183,41 @@ function AlbumsCard({ items }: { items: AlbumCardItem[] }) {
             </p>
           </div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+function MusicCard({ items }: { items: MusicCardItem[] }) {
+  return (
+    <div className="my-2 space-y-2">
+      {items.map((m, i) => (
+        <Link
+          key={i}
+          href="/music"
+          className="glass-card glass-hover block overflow-hidden !rounded-xl"
+        >
+          <div className="flex items-center gap-2 border-b border-[var(--glass-border)] bg-accent/8 px-3 py-2">
+            <span className="text-sm">🎵</span>
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold group-hover:text-accent">{m.title}</p>
+            <span className="shrink-0 text-[0.6875rem] text-muted">{m.songCount ?? m.songs?.length ?? 0} 首</span>
+          </div>
+          {m.description && <p className="px-3 pt-2 text-xs text-muted">{m.description}</p>}
+          {m.songs?.length ? (
+            <ul className="px-3 py-2">
+              {m.songs.map((s, j) => (
+                <li key={j} className="flex items-baseline gap-2 py-1 text-xs">
+                  <span className="w-4 shrink-0 text-right font-mono text-[0.625rem] text-muted">{j + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                  {s.artist && <span className="shrink-0 text-[0.6875rem] text-muted">{s.artist}</span>}
+                  {s.duration && (
+                    <span className="shrink-0 font-mono text-[0.625rem] text-muted">{s.duration}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Link>
       ))}
     </div>
   );
@@ -312,6 +358,29 @@ export function ChatCardBlock({ code, streaming }: { code: string; streaming?: b
           createdAt: str(it.createdAt, 20),
         }));
       return items.length ? <AlbumsCard items={items} /> : <FallbackCode code={code} />;
+    }
+    case "music": {
+      const items = rawItems
+        .map((it) => it as Record<string, unknown>)
+        .filter((it) => str(it.title))
+        .slice(0, 6)
+        .map<MusicCardItem>((it) => ({
+          title: str(it.title, 80)!,
+          description: str(it.description, 120),
+          songCount: num(it.songCount),
+          songs: Array.isArray(it.songs)
+            ? (it.songs as unknown[])
+                .map((s) => s as Record<string, unknown>)
+                .filter((s) => str(s.title))
+                .slice(0, 20)
+                .map<MusicSongItem>((s) => ({
+                  title: str(s.title, 100)!,
+                  artist: str(s.artist, 40),
+                  duration: str(s.duration, 10),
+                }))
+            : undefined,
+        }));
+      return items.length ? <MusicCard items={items} /> : <FallbackCode code={code} />;
     }
     case "stats": {
       const items = rawItems

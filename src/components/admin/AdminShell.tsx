@@ -11,6 +11,7 @@ import {
   Users,
   Images,
   Music2,
+  Bot,
   Settings,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/admin/friends", label: "友链管理", icon: Users },
   { href: "/admin/albums", label: "相册管理", icon: Images },
   { href: "/admin/music", label: "音乐馆", icon: Music2 },
+  { href: "/admin/ai-chat", label: "AI 对话", icon: Bot },
   { href: "/admin/settings", label: "站点设置", icon: Settings },
 ];
 

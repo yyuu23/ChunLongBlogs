@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chatPolicy";
 import { getChatTools, executeTool, TOOL_LABELS, toolCallSummary } from "@/lib/chatTools";
+import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/llm";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 
@@ -36,6 +37,13 @@ interface ToolCallDelta {
   index?: number;
   id?: string;
   function?: { name?: string; arguments?: string };
+}
+
+/** 上游流式增量：思考模式下正文前会先流出推理内容（DeepSeek/GLM 均为 reasoning_content） */
+interface StreamDelta {
+  content?: string | null;
+  reasoning_content?: string | null;
+  tool_calls?: ToolCallDelta[];
 }
 
 /** 最多几轮「模型要工具 → 执行 → 再问」；最后一轮不再提供工具，逼出正文回答 */
@@ -103,6 +111,7 @@ async function relayUpstream(
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
+  let announcedThinking = false;
   const toolCalls: ToolCall[] = [];
   try {
     for (;;) {
@@ -120,10 +129,15 @@ async function relayUpstream(
         if (data === "[DONE]") continue;
         try {
           const parsed = JSON.parse(data) as {
-            choices?: Array<{ delta?: { content?: string | null; tool_calls?: ToolCallDelta[] } }>;
+            choices?: Array<{ delta?: StreamDelta }>;
           };
           const delta = parsed.choices?.[0]?.delta;
           if (!delta) continue;
+          // 思考模式：正文之前会先流出推理内容——告知客户端显示「思考中」
+          if (!announcedThinking && typeof delta.reasoning_content === "string" && delta.reasoning_content) {
+            announcedThinking = true;
+            send(sse("status", { stage: "thinking" }));
+          }
           if (typeof delta.content === "string" && delta.content) {
             content += delta.content;
             send(sse("delta", { text: delta.content }));
@@ -171,20 +185,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const base =
-    process.env.LLM_BASE_URL ??
-    process.env.DEEPSEEK_API_BASE ??
-    "https://api.deepseek.com/v1";
-  const key = process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY;
-  const model = process.env.LLM_MODEL ?? "deepseek-chat";
-
-  if (!base || !key) {
-    return NextResponse.json(
-      { error: "站长还没有配置 AI（LLM_API_KEY / DEEPSEEK_API_KEY），请在 .env 中设置后重启服务" },
-      { status: 503 },
-    );
-  }
-
   const body = (await request.json().catch(() => null)) as {
     messages?: ChatMessage[];
     stream?: boolean;
@@ -193,13 +193,43 @@ export async function POST(request: Request) {
     page?: unknown;
     pageTitle?: unknown;
     memory?: unknown;
+    /** 访客选的模型预设 id（/chat 页选择器，需后台开启且预设可用才生效） */
+    model?: unknown;
   } | null;
+
   const history = (body?.messages ?? [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-16);
 
   if (!history.length) {
     return NextResponse.json({ error: "消息为空" }, { status: 400 });
+  }
+
+  const config = await getSiteConfig();
+  const vid = typeof body?.visitorId === "string" ? body.visitorId.trim() : "";
+
+  // 每访客限额（后台 aiChat 配置；visitorId 是客户端生成的，属"礼貌层"，
+  // IP 分钟限流与下方全站日额度才是硬护栏）。放在全站计数前——被拒不烧全站额度
+  if (vid && vid.length <= 64) {
+    const { perVisitorHourly, perVisitorDaily } = config.aiChat;
+    if (perVisitorHourly > 0) {
+      const uh = rateLimit(`chat:u:${vid}:h`, perVisitorHourly, 3_600_000);
+      if (!uh.ok) {
+        return NextResponse.json(
+          { error: "user limit", code: "chat_user_limit" },
+          { status: 429, headers: { "Retry-After": String(uh.retryAfter) } },
+        );
+      }
+    }
+    if (perVisitorDaily > 0) {
+      const ud = dailyCount(`chat:u:${vid}:d`, perVisitorDaily);
+      if (!ud.ok) {
+        return NextResponse.json(
+          { error: "user limit", code: "chat_user_limit" },
+          { status: 429, headers: { "Retry-After": String(ud.resetIn) } },
+        );
+      }
+    }
   }
 
   // 每日总额度熔断:防脚本低频长跑刷爆 API 账单(限流挡"快",这里挡"久");
@@ -213,7 +243,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const config = await getSiteConfig();
+  // 模型预设解析（/admin/ai-chat 管理）：访客选择 → 后台默认 → env 匹配 → 第一个可用
+  const choice = resolveAiChatChoice(config.aiChat, body?.model);
+  const llm = choice
+    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: choice.thinking })
+    : null;
+  if (!choice || !llm) {
+    return NextResponse.json({ error: LLM_NOT_CONFIGURED_MSG }, { status: 503 });
+  }
+
   const persona = config.aiPersona || "你是 ChunLong Blog 的看板娘助手，回答简洁友好，偶尔用一点颜文字。";
   // 注入站点事实，避免模型在"本站"相关问题上幻觉
   const facts = [
@@ -228,7 +266,6 @@ export async function POST(request: Request) {
 
   // 好感度语气：主键单行读，与 RAG 检索并行互相隐藏延迟；失败 fail-open 不注入
   const affinityPromise = (async () => {
-    const vid = typeof body?.visitorId === "string" ? body.visitorId.trim() : "";
     if (!vid || vid.length > 64) return "";
     try {
       const rows = await db
@@ -292,10 +329,12 @@ export async function POST(request: Request) {
     .join("\n\n");
 
   const streamMode = body?.stream === true;
-  const chatUrl = `${base.replace(/\/$/, "")}/chat/completions`;
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
+  const chatUrl = `${llm.base.replace(/\/$/, "")}/chat/completions`;
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${llm.key}` };
   // 回复常包含文章清单与代码，1024 太紧
   const maxTokens = 2048;
+  // 思考模式推理阶段耗时明显，流式超时放宽
+  const streamTimeout = llm.thinking ? 120_000 : 60_000;
   const tools = getChatTools();
 
   try {
@@ -310,13 +349,14 @@ export async function POST(request: Request) {
           method: "POST",
           headers,
           body: JSON.stringify({
-            model,
+            model: llm.model,
             messages,
             max_tokens: maxTokens,
             temperature: 0.7,
             ...(allowTools && tools.length ? { tools, tool_choice: "auto" } : {}),
+            ...llm.extraBody,
           }),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(llm.thinking ? 90_000 : 30_000),
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -395,15 +435,16 @@ export async function POST(request: Request) {
               method: "POST",
               headers,
               body: JSON.stringify({
-                model,
+                model: llm.model,
                 messages,
                 max_tokens: maxTokens,
                 temperature: 0.7,
                 stream: true,
                 ...(allowTools && tools.length ? { tools, tool_choice: "auto" } : {}),
+                ...llm.extraBody,
               }),
               // 流式给更长时间；客户端断开时 request.signal 联动取消上游请求
-              signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]),
+              signal: AbortSignal.any([request.signal, AbortSignal.timeout(streamTimeout)]),
             });
             if (!res.ok || !res.body) {
               const text = res.body ? await res.text().catch(() => "") : "";

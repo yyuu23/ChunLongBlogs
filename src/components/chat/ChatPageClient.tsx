@@ -8,7 +8,6 @@ import {
   Check,
   ChevronDown,
   Copy,
-  Cpu,
   FileText,
   History,
   Loader2,
@@ -26,6 +25,10 @@ import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useChat, type ChatMsg, type RelatedRef, type ToolTrace } from "./useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
+import { ModelPicker, type AiChoicesPublic } from "./ModelPicker";
+import { PersonaAvatar } from "./PersonaArt";
+import type { AiProvider } from "@/lib/site";
+import type { ThinkingLevel } from "@/lib/llm-thinking";
 import {
   groupSessions,
   lastActiveId,
@@ -39,13 +42,6 @@ import {
   type ChatSessionMeta,
 } from "@/lib/chatSessions";
 import { copyText } from "@/lib/clipboard";
-
-/** 服务端下发的模型预设公开形态（只含 id/label，不泄露供应商与模型名） */
-export interface AiChoicesPublic {
-  allow: boolean;
-  defaultChoice: string;
-  choices: { id: string; label: string }[];
-}
 
 export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const t = useT();
@@ -61,19 +57,8 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  // 模型选择（与悬浮窗共用 cl-chat-model 存储；后台关闭或预设 ≤1 时隐藏选择器）
+  // 模型/思考强度选择器（ModelPicker 内部管理 localStorage，悬浮窗共用同一存储）
   const showModelSelector = !!aiChoices?.allow && (aiChoices?.choices.length ?? 0) > 1;
-  const [modelId, setModelId] = useState("");
-
-  useEffect(() => {
-    if (!aiChoices?.choices.length) return;
-    const stored = localStorage.getItem("cl-chat-model");
-    const id = stored && aiChoices.choices.some((c) => c.id === stored)
-      ? stored
-      : aiChoices.defaultChoice || aiChoices.choices[0]!.id;
-    setModelId(id);
-    localStorage.setItem("cl-chat-model", id);
-  }, [aiChoices]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -231,7 +216,7 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
             ))}
             {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
               <div className="flex items-start gap-2.5">
-                <Avatar />
+                <MsgAvatar model={messages.at(-1)?.model} />
                 <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3.5 py-3 dark:bg-white/10">
                   <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
                   <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
@@ -275,23 +260,8 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
           {/* 输入区 */}
           <div className="border-t border-[var(--glass-border)] p-3">
             {showModelSelector && (
-              <div className="mb-2 flex items-center gap-1.5 text-[0.6875rem] text-muted">
-                <Cpu className="h-3 w-3" />
-                {t("chat.modelLabel")}
-                <select
-                  value={modelId}
-                  onChange={(e) => {
-                    setModelId(e.target.value);
-                    localStorage.setItem("cl-chat-model", e.target.value);
-                  }}
-                  className="max-w-44 truncate rounded-full border border-[var(--glass-border)] bg-white/60 px-2.5 py-1 text-xs outline-none dark:bg-white/10"
-                >
-                  {aiChoices!.choices.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="mb-2">
+                <ModelPicker aiChoices={aiChoices!} />
               </div>
             )}
             <div className="flex items-end gap-2">
@@ -358,7 +328,9 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   );
 }
 
-function Avatar() {
+/** AI 头像：有模型元信息时用对应拟人头像（随思考档位切悠闲/认真版），否则回退默认机器人标 */
+function MsgAvatar({ model }: { model?: { provider: AiProvider; level: ThinkingLevel } }) {
+  if (model) return <PersonaAvatar provider={model.provider} level={model.level} size={32} />;
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-br-gradient text-white shadow-sm">
       <Bot className="h-4 w-4" />
@@ -588,7 +560,7 @@ function MessageRow({
 
   return (
     <div className="flex items-start gap-2.5">
-      <Avatar />
+      <MsgAvatar model={m.model} />
       <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
         {/* 无内容的流式等待期不渲染空气泡，交给下方的等待动画/查询提示 */}
         {(m.content || m.failed || (m.streaming && m.querying)) && (

@@ -6,8 +6,9 @@ import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chatPolicy";
-import { getChatTools, executeTool, TOOL_LABELS, toolCallSummary } from "@/lib/chatTools";
+import { getChatTools, executeTool, TOOL_LABELS, toolCallSummary, searchApiKey } from "@/lib/chatTools";
 import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/llm";
+import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 
@@ -92,11 +93,12 @@ const RICH_OUTPUT = `[富内容卡片输出
 3. 卡片前后可以有简短正文，但不要在正文里重复卡片中的完整清单
 4. 普通聊天和小回答继续用普通 Markdown，不要为了卡片而卡片]`;
 
-/** 时效性声明：有没有联网搜索能力，对模型的诚实度要求不同 */
-const timelinessPrompt = process.env.SEARCH_API_KEY
-  ? `[时效性信息
+/** 时效性声明：有没有联网搜索能力，对模型的诚实度要求不同（按请求时 key 状态动态判断） */
+const timelinessSection = () =>
+  searchApiKey()
+    ? `[时效性信息
 你可以调用 web_search 工具联网搜索实时信息。凡涉及"这个赛季/最新/今天/新版本"等时效性内容（体育赛事、新闻、版本发布、价格等），先调用 web_search 搜索，再基于搜索结果回答并附来源链接；搜索失败就坦诚说明，再用自己的知识分析（注明可能不是最新）。]`
-  : `[时效性信息
+    : `[时效性信息
 你没有实时联网能力，知识有截止日期。聊到"这个赛季/最近/最新"这类时效性话题（体育赛事、新闻、新版本、价格等）时，不要因此拒绝或绕开——照常大方地聊、给出你的分析（历史表现、阵容特点、口碑等），只是要坦诚说明你的情报可能不是最新的，不要把过时的信息当成现状来陈述；两队/两物对比时可以用 VS 卡片呈现。]`;
 
 /**
@@ -195,6 +197,8 @@ export async function POST(request: Request) {
     memory?: unknown;
     /** 访客选的模型预设 id（/chat 页选择器，需后台开启且预设可用才生效） */
     model?: unknown;
+    /** 访客选的思考强度档位（off/low/mid/high/max/on，非法值静默回退默认档） */
+    effort?: unknown;
   } | null;
 
   const history = (body?.messages ?? [])
@@ -243,11 +247,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // 模型预设解析（/admin/ai-chat 管理）：访客选择 → 后台默认 → env 匹配 → 第一个可用
+  // 模型预设解析（/admin/ai-chat 管理）：访客选择 → 后台默认 → env 匹配 → 第一个可用；
+  // 思考强度：访客档位 → 后台默认档 → 该模型第一个可用档（getLlmRequest 内部规格钳制）
   const choice = resolveAiChatChoice(config.aiChat, body?.model);
-  const llm = choice
-    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: choice.thinking })
-    : null;
+  const effortRaw = typeof body?.effort === "string" ? body.effort.trim().slice(0, 8) : "";
+  const effortStr = effortRaw || config.aiChat.defaultEffort || "";
+  const effort = (effortStr || undefined) as ThinkingLevel | undefined;
+  const llm = choice ? getLlmRequest({ provider: choice.provider, model: choice.model, level: effort }) : null;
   if (!choice || !llm) {
     return NextResponse.json({ error: LLM_NOT_CONFIGURED_MSG }, { status: 503 });
   }
@@ -321,7 +327,7 @@ export async function POST(request: Request) {
     memoryBlock,
     `[以下为本站事实信息，回答站点相关问题时必须以此为准，不知道的就说不知道]\n${facts}`,
     TOOL_GUIDE,
-    timelinessPrompt,
+    timelinessSection(),
     RICH_OUTPUT,
     ragBlock.trim(),
   ]
@@ -333,8 +339,10 @@ export async function POST(request: Request) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${llm.key}` };
   // 回复常包含文章清单与代码，1024 太紧
   const maxTokens = 2048;
-  // 思考模式推理阶段耗时明显，流式超时放宽
-  const streamTimeout = llm.thinking ? 120_000 : 60_000;
+  // 档位越高推理越久，超时分级放宽（off/low 快答，mid 适中，high/max/on 深度推理）
+  const thinks = levelThinks(llm.level);
+  const streamTimeout = !thinks ? 60_000 : llm.level === "mid" ? 90_000 : 120_000;
+  const fetchTimeout = !thinks ? 30_000 : llm.level === "mid" ? 60_000 : 90_000;
   const tools = getChatTools();
 
   try {
@@ -356,7 +364,7 @@ export async function POST(request: Request) {
             ...(allowTools && tools.length ? { tools, tool_choice: "auto" } : {}),
             ...llm.extraBody,
           }),
-          signal: AbortSignal.timeout(llm.thinking ? 90_000 : 30_000),
+          signal: AbortSignal.timeout(fetchTimeout),
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");

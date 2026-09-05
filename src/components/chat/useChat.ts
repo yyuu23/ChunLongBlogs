@@ -6,6 +6,8 @@ import { trackEvent, getVisitorId } from "@/lib/track";
 import { useT } from "@/components/providers/LocaleProvider";
 import { createMoodFilter } from "@/lib/moodStream";
 import { readDigest, noteTurn } from "@/lib/chatMemory";
+import type { AiProvider } from "@/lib/site";
+import type { ThinkingLevel } from "@/lib/llm-thinking";
 
 /** 参考来源（与 /api/chat 的 related 同构） */
 export interface RelatedRef {
@@ -40,6 +42,8 @@ export interface ChatMsg {
   tools?: ToolTrace[];
   /** 参考来源（AI 消息） */
   related?: RelatedRef[];
+  /** 本条回答用的模型元信息（AI 消息；头像随模型与思考档位切换，随会话持久化） */
+  model?: { provider: AiProvider; level: ThinkingLevel };
   /** 失败（显示重试） */
   failed?: boolean;
 }
@@ -92,6 +96,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             content: m.content,
             related: m.related,
             tools: m.tools,
+            model: m.model,
           }));
         }
       }
@@ -108,7 +113,14 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         const clean = messages
           .filter((m) => !m.failed && !m.streaming)
           .slice(-MAX_PERSIST)
-          .map((m) => ({ id: m.id, role: m.role, content: m.content, related: m.related, tools: m.tools }));
+          .map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            related: m.related,
+            tools: m.tools,
+            model: m.model,
+          }));
         if (clean.length <= 1) {
           localStorage.removeItem(persistKey);
           return;
@@ -135,7 +147,22 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
   /** 跑一轮对话：history 已含最新 user 消息，尾部追加流式 assistant */
   const runTurn = useCallback(
     async (history: ChatMsg[]) => {
-      setMessages([...history, { id: uid(), role: "assistant", content: "", streaming: true }]);
+      // 当前模型选择（ModelPicker 写入；悬浮窗与页面共用）——档位随模型存，头像元信息随消息走
+      const chatModel = localStorage.getItem("cl-chat-model");
+      const chatEffort =
+        (chatModel && localStorage.getItem(`cl-chat-effort:${chatModel}`)) || undefined;
+      const chatProviderRaw = localStorage.getItem("cl-chat-provider");
+      const chatProvider: AiProvider | undefined =
+        chatProviderRaw === "glm" || chatProviderRaw === "deepseek" || chatProviderRaw === "qwen"
+          ? chatProviderRaw
+          : undefined;
+      const meta = chatProvider
+        ? { provider: chatProvider, level: (chatEffort as ThinkingLevel) ?? "off" }
+        : undefined;
+      setMessages([
+        ...history,
+        { id: uid(), role: "assistant", content: "", streaming: true, model: meta },
+      ]);
       setBusy(true);
       const ac = new AbortController();
       acRef.current = ac;
@@ -151,8 +178,9 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             stream: true,
             localHour: new Date().getHours(),
             visitorId: getVisitorId(),
-            // 访客选的模型预设 id（/chat 页选择器写入；悬浮窗与页面共用同一存储）
-            model: localStorage.getItem("cl-chat-model") ?? undefined,
+            // 访客选的模型预设 id + 思考档位（/chat 页选择器写入；悬浮窗共用同一存储）
+            model: chatModel ?? undefined,
+            effort: chatEffort,
             // 页面感知：/chat 页跳过（该页注入无意义）；文章详情页带标题让 AI 知道访客在读什么
             page: pathname === "/chat" ? undefined : pathname,
             pageTitle:

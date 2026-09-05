@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const config = await getSiteConfig();
   const choice = resolveAiChatChoice(config.aiChat);
   const llm = choice
-    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: false })
+    ? getLlmRequest({ provider: choice.provider, model: choice.model, level: "off" })
     : null;
   if (!llm) {
     return NextResponse.json({ error: "no key" }, { status: 503 });

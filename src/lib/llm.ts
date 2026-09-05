@@ -1,24 +1,23 @@
 import type { AiChatConfig, AiChatChoice, AiProvider } from "@/lib/site";
+import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 
 /**
  * 全站 LLM 供应商统一解析（/api/chat、/api/chat/memory、后台 AI 编辑共用）。
  * 供应商 key 全部放 .env（DEEPSEEK_API_KEY / GLM_API_KEY / QWEN_API_KEY），
- * 哪家暴露给访客、默认用哪家、思考开关由 /admin/ai-chat 的预设（siteConfigs.aiChat）决定。
+ * 哪家暴露给访客、默认用哪家由 /admin/ai-chat 的预设（siteConfigs.aiChat）决定。
  *
- * 思考模式按供应商自动适配生效方式：
- * - glm：请求参数 thinking: {type: "enabled"|"disabled"}
- * - qwen：请求参数 enable_thinking: boolean（阿里云 MaaS OpenAI 兼容协议）
- * - deepseek：切换到 reasoner 模型（DEEPSEEK_REASONER_MODEL，默认 deepseek-reasoner）
+ * 思考强度档位（off/low/mid/high/max/on）由 llm-thinking.ts 按供应商与模型代际
+ * 自动适配生效方式（reasoning_effort / thinking 对象 / enable_thinking / 旧版模型切换）。
  */
 
 export interface LlmRequest {
   base: string;
   key: string;
   model: string;
-  /** 追加到请求体的供应商特有参数（思考开关等） */
+  /** 追加到请求体的供应商特有参数（思考档位参数等） */
   extraBody?: Record<string, unknown>;
-  /** 是否处于思考模式（调用方可据此放宽超时） */
-  thinking: boolean;
+  /** 生效的思考档位（调用方可据此调整超时与前端展示） */
+  level: ThinkingLevel;
 }
 
 /** 供应商别名归一（env 与预设里都可能出现写法差异） */
@@ -36,7 +35,8 @@ const PROVIDER_ALIASES: Record<string, AiProvider> = {
 const PROVIDER_DEFAULTS: Record<AiProvider, { base: string; model: string; thinkingModel?: string }> = {
   deepseek: {
     base: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
+    // V4 起统一为单模型 + 请求级 thinking 开关（chat/reasoner 双模型制已下线）
+    model: "deepseek-v4-flash",
     thinkingModel: "deepseek-reasoner",
   },
   glm: { base: "https://open.bigmodel.cn/api/paas/v4", model: "glm-5.3-flash" },
@@ -62,19 +62,26 @@ export function providerAvailable(p: AiProvider): boolean {
   return !!key?.trim();
 }
 
+/** 解析某预设/供应商最终生效的模型名（优先级与 getLlmRequest 一致，供前台展示真实模型名） */
+export function resolveProviderModel(provider: AiProvider, override?: string): string {
+  const def = PROVIDER_DEFAULTS[provider];
+  const providerModelEnv =
+    provider === "glm" ? process.env.GLM_MODEL : provider === "qwen" ? process.env.QWEN_MODEL : process.env.DEEPSEEK_MODEL;
+  return process.env.LLM_MODEL ?? override?.trim() ?? providerModelEnv ?? def.model;
+}
+
 /**
  * 解析当前生效的 LLM 配置；未配置任何 key 时返回 null（调用方返回 503）。
  * - provider：预设指定的供应商（默认 env LLM_PROVIDER）
  * - model：预设的模型覆盖（LLM_MODEL env 全局覆盖仍最高优先）
- * - thinking：思考开关（显式入参 > 预设/环境默认）
+ * - level：思考强度档位（非法/不支持时回退该模型第一个可用档）
  */
 export function getLlmRequest(opts?: {
   provider?: AiProvider;
   model?: string;
-  thinking?: boolean;
+  level?: ThinkingLevel;
 }): LlmRequest | null {
   const provider = opts?.provider ?? envProvider();
-  const thinkEnabled = opts?.thinking ?? process.env.LLM_THINKING === "on";
   const def = PROVIDER_DEFAULTS[provider];
 
   const base =
@@ -91,31 +98,18 @@ export function getLlmRequest(opts?: {
       : provider === "qwen"
         ? process.env.QWEN_API_KEY
         : process.env.DEEPSEEK_API_KEY);
-  const providerModelEnv =
-    provider === "glm"
-      ? process.env.GLM_MODEL
-      : provider === "qwen"
-        ? process.env.QWEN_MODEL
-        : process.env.DEEPSEEK_MODEL;
 
-  let model: string;
-  let extraBody: Record<string, unknown> | undefined;
-  if (provider === "glm") {
-    model = process.env.LLM_MODEL ?? opts?.model ?? providerModelEnv ?? def.model;
-    extraBody = { thinking: { type: thinkEnabled ? "enabled" : "disabled" } };
-  } else if (provider === "qwen") {
-    model = process.env.LLM_MODEL ?? opts?.model ?? providerModelEnv ?? def.model;
-    extraBody = { enable_thinking: thinkEnabled };
-  } else {
-    model =
-      process.env.LLM_MODEL ??
-      opts?.model ??
-      providerModelEnv ??
-      (thinkEnabled ? (process.env.DEEPSEEK_REASONER_MODEL ?? def.thinkingModel ?? "deepseek-reasoner") : def.model);
-  }
+  const chosen = resolveProviderModel(provider, opts?.model);
+  const spec = thinkingSpec(provider, chosen);
+  const level = spec.resolve(opts?.level);
+  const { extraBody, legacyReasoner } = spec.apply(level);
+  // 旧版 deepseek 双模型制：思考档 = 切 reasoner 模型
+  const model = legacyReasoner
+    ? (process.env.DEEPSEEK_REASONER_MODEL ?? def.thinkingModel ?? "deepseek-reasoner")
+    : chosen;
 
   if (!base || !key) return null;
-  return { base, key, model, extraBody, thinking: thinkEnabled };
+  return { base, key, model, extraBody, level };
 }
 
 /**

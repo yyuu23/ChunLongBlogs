@@ -98,9 +98,14 @@ const WEB_SEARCH_TOOL = {
   },
 } as const;
 
+/** 联网搜索 key（Tavily 兼容）：SEARCH_API_KEY 或 TAVILY_API_KEY 任一即可 */
+export function searchApiKey(): string | undefined {
+  return process.env.SEARCH_API_KEY?.trim() || process.env.TAVILY_API_KEY?.trim() || undefined;
+}
+
 /** 当前可用的工具集：没配搜索 key 时 web_search 对模型不可见 */
 export function getChatTools() {
-  return process.env.SEARCH_API_KEY ? [...CHAT_TOOLS, WEB_SEARCH_TOOL] : [...CHAT_TOOLS];
+  return searchApiKey() ? [...CHAT_TOOLS, WEB_SEARCH_TOOL] : [...CHAT_TOOLS];
 }
 
 /** 工具的人类可读标签（前端「查询了什么」徽章用） */
@@ -245,8 +250,8 @@ async function listAlbums() {
 
 /** 联网搜索（Tavily 兼容 /search 协议）；失败收敛成 {error} 不炸对话 */
 async function webSearch(args: Record<string, unknown>) {
-  const key = process.env.SEARCH_API_KEY;
-  if (!key) return { error: "站长没有配置搜索服务（SEARCH_API_KEY）" };
+  const key = searchApiKey();
+  if (!key) return { error: "站长没有配置搜索服务（SEARCH_API_KEY / TAVILY_API_KEY）" };
   const query = cleanStr(args.query, 200);
   if (!query) return { error: "缺少搜索关键词" };
   const res = await fetch(process.env.SEARCH_API_URL ?? "https://api.tavily.com/search", {

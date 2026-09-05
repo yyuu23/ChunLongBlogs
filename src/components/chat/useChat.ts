@@ -23,6 +23,8 @@ export interface ChatMsg {
   content: string;
   /** 流式生成中 */
   streaming?: boolean;
+  /** 服务端正在调用站内数据工具（status 事件置位，首个 delta 到达后清除） */
+  querying?: boolean;
   /** 参考来源（AI 消息） */
   related?: RelatedRef[];
   /** 失败（显示重试） */
@@ -40,6 +42,7 @@ const uid = () =>
 interface SsePayload {
   text?: string;
   message?: string;
+  stage?: string;
 }
 
 /**
@@ -171,6 +174,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let querying = false; // status 事件置位：UI 显示「正在翻站内资料…」，首个 delta 清除
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -193,8 +197,15 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             }
             if (event === "related") {
               patchLast({ related: Array.isArray(payload) ? (payload as unknown as RelatedRef[]) : [] });
+            } else if (event === "status" && payload.stage === "tools") {
+              querying = true;
+              patchLast({ querying: true });
             } else if (event === "delta" && typeof payload.text === "string") {
               gotAny = true;
+              if (querying) {
+                querying = false;
+                patchLast({ querying: false });
+              }
               const safe = moodFilter.feed(payload.text);
               replyText += safe;
               if (safe) appendDelta(safe);
@@ -202,15 +213,16 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
               patchLast({
                 content: `${t("chat.errorPrefix")}${payload.message ?? t("chat.unknownError")}`,
                 streaming: false,
+                querying: false,
                 failed: !gotAny,
               });
             } else if (event === "done") {
               setMessages((ms) =>
                 ms.map((m, i) => {
                   if (i !== ms.length - 1) return m;
-                  if (m.content) return { ...m, streaming: false };
+                  if (m.content) return { ...m, streaming: false, querying: false };
                   // done 但一个字都没收到
-                  return { ...m, content: t("chat.unknownError"), streaming: false, failed: true };
+                  return { ...m, content: t("chat.unknownError"), streaming: false, querying: false, failed: true };
                 }),
               );
             }

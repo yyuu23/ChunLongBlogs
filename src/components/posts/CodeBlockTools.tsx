@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { useT } from "@/components/providers/LocaleProvider";
+import { copyText } from "@/lib/clipboard";
 
-/* lucide 的 Copy / Check 图标（正文是注入的 HTML 字符串，这里只能用内联 SVG） */
+/* lucide 的 Copy / Check / X 图标（正文是注入的 HTML 字符串，这里只能用内联 SVG） */
 const SVG_ATTRS =
   'xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const ICON_COPY = `<svg ${SVG_ATTRS}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 const ICON_CHECK = `<svg ${SVG_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`;
+const ICON_FAIL = `<svg ${SVG_ATTRS}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
 /**
  * 给正文代码块加「语言标签 + 复制按钮」。
@@ -19,6 +21,7 @@ export function CodeBlockTools({ slug }: { slug: string }) {
   const t = useT();
   const copyLabel = t("posts.copyCode");
   const copiedLabel = t("posts.copied");
+  const failedLabel = t("posts.copyFailed");
 
   useEffect(() => {
     const figures = document.querySelectorAll<HTMLElement>(
@@ -62,21 +65,19 @@ export function CodeBlockTools({ slug }: { slug: string }) {
               .join("\n")
           : (pre.textContent ?? "");
 
-        void navigator.clipboard.writeText(text).then(
-          () => {
-            btn.innerHTML = ICON_CHECK;
-            btn.classList.add("is-copied");
-            btn.setAttribute("aria-label", copiedLabel);
-            timers.push(
-              window.setTimeout(() => {
-                btn.innerHTML = ICON_COPY;
-                btn.classList.remove("is-copied");
-                btn.setAttribute("aria-label", copyLabel);
-              }, 2000),
-            );
-          },
-          () => {}, // 非 https / 无权限时静默失败，不打断阅读
-        );
+        void copyText(text).then((ok) => {
+          btn.innerHTML = ok ? ICON_CHECK : ICON_FAIL;
+          btn.classList.toggle("is-copied", ok);
+          btn.classList.toggle("is-copy-failed", !ok);
+          btn.setAttribute("aria-label", ok ? copiedLabel : failedLabel);
+          timers.push(
+            window.setTimeout(() => {
+              btn.innerHTML = ICON_COPY;
+              btn.classList.remove("is-copied", "is-copy-failed");
+              btn.setAttribute("aria-label", copyLabel);
+            }, 2000),
+          );
+        });
       });
 
       bar.appendChild(btn);
@@ -92,7 +93,7 @@ export function CodeBlockTools({ slug }: { slug: string }) {
         if (fig) delete fig.dataset.clTools; // 清标记，切换文章后可重新注入
       });
     };
-  }, [slug, copyLabel, copiedLabel]);
+  }, [slug, copyLabel, copiedLabel, failedLabel]);
 
   return null;
 }

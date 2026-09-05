@@ -190,6 +190,8 @@ export const ja: Dictionary = {
     play: "再生",
     pause: "一時停止",
     closePlayer: "プレイヤーを閉じる",
+    collapsePlayer: "プレイヤーを収納",
+    expandPlayer: "プレイヤーを開く",
     playMode: "再生モード",
     modeSequential: "順次再生",
     modeRepeatOne: "1曲リピート",

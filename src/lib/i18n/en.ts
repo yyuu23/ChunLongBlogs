@@ -188,6 +188,8 @@ export const en: Dictionary = {
     play: "Play",
     pause: "Pause",
     closePlayer: "Close player",
+    collapsePlayer: "Collapse player",
+    expandPlayer: "Expand player",
     playMode: "Play mode",
     modeSequential: "Sequential",
     modeRepeatOne: "Repeat one",

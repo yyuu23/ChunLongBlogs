@@ -12,7 +12,7 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { trackEvent } from "@/lib/track";
-import { Heart, Play, Pause, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
+import { Heart, Play, Pause, ChevronDown, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
 
@@ -294,10 +294,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** 底部迷你播放条：封面旋转 + 进度 + 控制按钮（与页面路由无关，音乐不断） */
+/** 底部迷你播放条：封面旋转 + 进度 + 控制按钮（与页面路由无关，音乐不断）。
+ *  可收起为右下角圆形封面气泡：音乐继续播，封面播放时旋转、暂停时停住，
+ *  点气泡展开回播放条，气泡角标 ✕ 才是真正的关闭。 */
 function MiniPlayer({ failed }: { failed: boolean }) {
   const p = usePlayer();
   const t = useT();
+  const [collapsed, setCollapsed] = useState(false);
 
   // 收藏红心状态：随当前曲变化 + 订阅其它入口（音乐馆列表）的切换
   const currentSong = p?.current ?? null;
@@ -331,6 +334,11 @@ function MiniPlayer({ failed }: { failed: boolean }) {
     document.documentElement.classList.toggle("cl-player-on", hasSong);
   }, [hasSong]);
 
+  // 关闭后重置收起态：下一首歌从展开的播放条开始
+  useEffect(() => {
+    if (!hasSong) setCollapsed(false);
+  }, [hasSong]);
+
   // 音量滑杆显隐：hover 容器即开、移开 350ms 后收。
   // 用 JS 状态而非 group-hover + delay（Tailwind 变体在 dev 下表现不稳定，
   // 且 JS 版对"拖动中不许收起"这类细节控制更直接）
@@ -348,9 +356,60 @@ function MiniPlayer({ failed }: { failed: boolean }) {
 
   if (!p?.current) return null;
 
+  /* 两态共用一个 AnimatePresence（mode="wait"）：收起 ⇄ 展开都有缩放过渡 */
   return (
-    <AnimatePresence>
-      <motion.div
+    <AnimatePresence mode="wait">
+      {collapsed ? (
+        /* ===== 收起态：圆形封面气泡（音乐继续播） ===== */
+        <motion.div
+          key="bubble"
+          role="button"
+          tabIndex={0}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 22 }}
+          onClick={() => setCollapsed(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setCollapsed(false);
+            }
+          }}
+          aria-label={t("music.expandPlayer")}
+          title={t("music.expandPlayer")}
+          className="glass-card fixed bottom-20 right-4 z-40 flex h-14 w-14 cursor-pointer items-center justify-center !rounded-full md:bottom-6 md:right-6"
+        >
+          {p.current.cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={p.current.cover}
+              alt={p.current.title}
+              className={`h-11 w-11 rounded-full object-cover ring-2 ring-white/40 dark:ring-white/10 ${
+                p.playing ? "animate-[spin_8s_linear_infinite]" : ""
+              }`}
+            />
+          ) : (
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-gradient text-lg">
+              🎵
+            </span>
+          )}
+          {/* 角标 ✕：真正关闭（音乐停止）。stopPropagation 防止触发展开 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              p.close();
+            }}
+            aria-label={t("music.closePlayer")}
+            title={t("music.closePlayer")}
+            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-600/90 text-white shadow-md transition-colors hover:bg-rose-500"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </motion.div>
+      ) : (
+        /* ===== 展开态：完整播放条 ===== */
+        <motion.div
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
@@ -473,11 +532,18 @@ function MiniPlayer({ failed }: { failed: boolean }) {
               </div>
             </div>
           </div>
-          <button onClick={p.close} aria-label={t("music.closePlayer")} className="rounded-full p-2 text-muted hover:text-rose-400">
-            <X className="h-4 w-4" />
+          {/* 收起：音乐继续播，播放条收成右下角封面气泡；真正的关闭移到气泡角标 */}
+          <button
+            onClick={() => setCollapsed(true)}
+            aria-label={t("music.collapsePlayer")}
+            title={t("music.collapsePlayer")}
+            className="rounded-full p-2 text-muted transition-colors hover:text-[var(--accent-text)]"
+          >
+            <ChevronDown className="h-4 w-4" />
           </button>
         </div>
-      </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

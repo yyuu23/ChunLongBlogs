@@ -37,6 +37,7 @@ const EFFECT_TOGGLES = [
   ["clickBurst", "tools.clickBurst"],
   ["selectionSparkle", "tools.selectionSparkle"],
   ["splash", "tools.splashScreen"],
+  ["heroTypewriter", "tools.heroTypewriter"],
   ["mascot", "tools.mascotToggle"],
 ] as const;
 

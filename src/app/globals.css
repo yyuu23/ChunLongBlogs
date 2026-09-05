@@ -944,6 +944,21 @@ body {
   }
 }
 
+/* ===== Hero 打字机（HeroRotator）:逐字微淡入 ===== */
+.cl-char-in {
+  animation: char-in 0.18s ease-out both;
+}
+@keyframes char-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: -400px 0;

@@ -27,15 +27,15 @@ export type AiProvider = "deepseek" | "glm" | "qwen";
 
 /** 一个暴露给访客的模型预设（/admin/ai-chat 管理） */
 export interface AiChatChoice {
-  /** 稳定 id（如 "glm-thinking"），访客选择时回传 */
+  /** 稳定 id（如 "glm"），访客选择时回传 */
   id: string;
   /** 访客可见名称 */
   label: string;
   provider: AiProvider;
   /** 覆盖该供应商默认模型名（不填用 env/内置默认） */
   model?: string;
-  /** 深度思考（按供应商自动适配开关方式） */
-  thinking: boolean;
+  /** @deprecated 已由访客侧思考强度滑条取代，仅为兼容旧配置保留、逻辑忽略 */
+  thinking?: boolean;
 }
 
 export interface AiChatConfig {
@@ -43,6 +43,8 @@ export interface AiChatConfig {
   choices: AiChatChoice[];
   /** 默认预设 id */
   defaultChoice: string;
+  /** 默认思考强度档位（不在默认模型档位内时自动回退首档） */
+  defaultEffort: string;
   /** false = 访客无选择器，固定用默认预设 */
   allowVisitorChoice: boolean;
   /** 每访客每小时消息数（滑动窗口，0 = 不限） */
@@ -137,14 +139,12 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
   aiChat: {
     choices: [
-      { id: "glm-standard", label: "GLM · 标准回复", provider: "glm", thinking: false },
-      { id: "glm-thinking", label: "GLM · 深度思考", provider: "glm", thinking: true },
-      { id: "deepseek-standard", label: "DeepSeek · 标准回复", provider: "deepseek", thinking: false },
-      { id: "deepseek-thinking", label: "DeepSeek · 深度思考", provider: "deepseek", thinking: true },
-      { id: "qwen-standard", label: "Qwen · 标准回复", provider: "qwen", thinking: false },
-      { id: "qwen-thinking", label: "Qwen · 深度思考", provider: "qwen", thinking: true },
+      { id: "glm", label: "GLM 5.3 Flash", provider: "glm" },
+      { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek" },
+      { id: "qwen", label: "Qwen 3.8 Flash", provider: "qwen" },
     ],
-    defaultChoice: "glm-standard",
+    defaultChoice: "glm",
+    defaultEffort: "low",
     allowVisitorChoice: true,
     perVisitorHourly: 15,
     perVisitorDaily: 60,

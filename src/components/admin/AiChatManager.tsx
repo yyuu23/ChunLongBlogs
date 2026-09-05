@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, Loader2, Plus, Sparkles, Trash2, Zap } from "lucide-react";
+import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { saveAiChat } from "@/app/admin/actions";
-import type { AiChatConfig, AiChatChoice, AiProvider } from "@/lib/site";
+import type { AiChatChoice, AiChatConfig, AiProvider } from "@/lib/site";
+import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 
 const input =
   "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400";
@@ -15,24 +16,41 @@ const PROVIDER_LABELS: Record<AiProvider, string> = {
   qwen: "Qwen（阿里云）",
 };
 
+/** 档位的中文短标（admin 为中文后台，不走 i18n） */
+const LEVEL_LABELS: Record<ThinkingLevel, string> = {
+  off: "无",
+  low: "低",
+  mid: "中",
+  high: "高",
+  max: "最高",
+  on: "开",
+};
+
 /**
- * AI 对话管理表单：模型预设 / 默认模型 / 访客选择开关 / 每访客限额。
+ * AI 对话管理表单：模型预设 / 默认模型与思考强度 / 访客选择开关 / 每访客限额。
  * 供应商 Key 只认 .env——这里未配 key 的供应商，其预设对访客自动隐藏（仅作保留）。
+ * 思考档位由供应商与模型代际自动推断（llm-thinking.ts），与前台滑条一致。
  */
 export function AiChatManager({
   initial,
   providers,
   envDefault,
+  resolvedModels,
+  defaults,
 }: {
   initial: AiChatConfig;
   providers: Record<AiProvider, boolean>;
   envDefault: AiProvider;
+  /** 各供应商解析后的真实默认模型（预设未填覆盖时，档位按它计算） */
+  resolvedModels: Record<AiProvider, string>;
+  /** 内置默认预设（「恢复默认」用，服务端从 DEFAULT_SITE_CONFIG 传入避免客户端引 db 模块） */
+  defaults: { choices: AiChatChoice[]; defaultChoice: string; defaultEffort: string };
 }) {
   const [pending, startTransition] = useTransition();
-  const [cfg, setCfg] = useState<AiChatConfig>(initial);
+  const [cfg, setCfg] = useState(initial);
   const [message, setMessage] = useState("");
 
-  const set = <K extends keyof AiChatConfig>(key: K, value: AiChatConfig[K]) =>
+  const set = <K extends keyof typeof cfg>(key: K, value: (typeof cfg)[K]) =>
     setCfg((c) => ({ ...c, [key]: value }));
 
   const updateChoice = (i: number, patch: Partial<AiChatChoice>) =>
@@ -48,9 +66,8 @@ export function AiChatManager({
         ...c.choices,
         {
           id: `custom-${Date.now().toString(36)}`,
-          label: "新预设",
+          label: "新模型",
           provider: envDefault,
-          thinking: false,
         },
       ],
     }));
@@ -64,6 +81,20 @@ export function AiChatManager({
       defaultChoice: removed?.id === c.defaultChoice ? (c.choices.filter((_, j) => j !== i)[0]?.id ?? "") : c.defaultChoice,
     }));
   };
+
+  const resetDefaults = () =>
+    setCfg((c) => ({
+      ...c,
+      choices: defaults.choices.map((ch) => ({ ...ch })),
+      defaultChoice: defaults.defaultChoice,
+      defaultEffort: defaults.defaultEffort,
+    }));
+
+  // 默认模型的档位（默认强度下拉选项随它联动；不在档位内时保存会被服务端钳到首档）
+  const defaultChoiceObj = cfg.choices.find((c) => c.id === cfg.defaultChoice);
+  const defaultLevels = defaultChoiceObj
+    ? thinkingSpec(defaultChoiceObj.provider, defaultChoiceObj.model || resolvedModels[defaultChoiceObj.provider]).levels
+    : [];
 
   const save = () => {
     if (!cfg.choices.length) return setMessage("❌ 至少保留一个模型预设");
@@ -136,7 +167,21 @@ export function AiChatManager({
               ))}
             </select>
           </div>
-          <div className="flex items-end pb-1">
+          <div>
+            <p className={label}>默认思考强度（不在该模型档位内会自动回退首档）</p>
+            <select
+              className={`${input} mt-1`}
+              value={defaultLevels.includes(cfg.defaultEffort as ThinkingLevel) ? cfg.defaultEffort : (defaultLevels[0] ?? "off")}
+              onChange={(e) => set("defaultEffort", e.target.value)}
+            >
+              {defaultLevels.map((lv) => (
+                <option key={lv} value={lv}>
+                  {LEVEL_LABELS[lv]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end pb-1 sm:col-span-2">
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -144,7 +189,7 @@ export function AiChatManager({
                 onChange={(e) => set("allowVisitorChoice", e.target.checked)}
                 className="h-4 w-4 accent-indigo-500"
               />
-              允许访客在聊天页选择模型
+              允许访客在聊天页选择模型与思考强度
             </label>
           </div>
         </div>
@@ -154,91 +199,100 @@ export function AiChatManager({
       <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">模型预设（最多 6 个）</h2>
-          <button
-            onClick={addChoice}
-            disabled={cfg.choices.length >= 6}
-            className="flex items-center gap-1 rounded-xl border border-indigo-200 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            添加预设
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetDefaults}
+              className="flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50"
+              title="重置为内置的三家默认预设"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              恢复默认预设
+            </button>
+            <button
+              onClick={addChoice}
+              disabled={cfg.choices.length >= 6}
+              className="flex items-center gap-1 rounded-xl border border-indigo-200 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              添加预设
+            </button>
+          </div>
         </div>
         <div className="space-y-3">
-          {cfg.choices.map((c, i) => (
-            <div
-              key={c.id}
-              className={`rounded-2xl border p-4 ${
-                c.id === cfg.defaultChoice ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200 bg-slate-50/40"
-              }`}
-            >
-              <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1.2fr_auto]">
-                <div>
-                  <p className={label}>名称（访客可见）</p>
-                  <input
-                    className={`${input} mt-1`}
-                    value={c.label}
-                    maxLength={24}
-                    onChange={(e) => updateChoice(i, { label: e.target.value })}
-                    placeholder="如：Qwen · 深度思考"
-                  />
-                </div>
-                <div>
-                  <p className={label}>供应商</p>
-                  <select
-                    className={`${input} mt-1`}
-                    value={c.provider}
-                    onChange={(e) => updateChoice(i, { provider: e.target.value as AiProvider })}
-                  >
-                    {(Object.keys(PROVIDER_LABELS) as AiProvider[]).map((p) => (
-                      <option key={p} value={p}>
-                        {PROVIDER_LABELS[p]}
-                        {providers[p] ? "" : "（未配 Key）"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <p className={label}>模型名（选填，覆盖默认）</p>
-                  <input
-                    className={`${input} mt-1`}
-                    value={c.model ?? ""}
-                    maxLength={64}
-                    onChange={(e) => updateChoice(i, { model: e.target.value.trim() || undefined })}
-                    placeholder="留空用供应商默认"
-                  />
-                </div>
-                <div className="flex items-end justify-between gap-2 pb-1">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
+          {cfg.choices.map((c, i) => {
+            const levels = thinkingSpec(c.provider, c.model || resolvedModels[c.provider]).levels;
+            return (
+              <div
+                key={c.id}
+                className={`rounded-2xl border p-4 ${
+                  c.id === cfg.defaultChoice ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200 bg-slate-50/40"
+                }`}
+              >
+                <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1.2fr_auto]">
+                  <div>
+                    <p className={label}>名称（访客可见）</p>
                     <input
-                      type="checkbox"
-                      checked={c.thinking}
-                      onChange={(e) => updateChoice(i, { thinking: e.target.checked })}
-                      className="h-4 w-4 accent-indigo-500"
+                      className={`${input} mt-1`}
+                      value={c.label}
+                      maxLength={24}
+                      onChange={(e) => updateChoice(i, { label: e.target.value })}
+                      placeholder="如：DeepSeek V4 Flash"
                     />
-                    <Zap className="h-3.5 w-3.5 text-amber-500" />
-                    深度思考
-                  </label>
-                  <button
-                    onClick={() => removeChoice(i)}
-                    disabled={cfg.choices.length <= 1}
-                    title="删除该预设"
-                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 disabled:opacity-30"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  </div>
+                  <div>
+                    <p className={label}>供应商</p>
+                    <select
+                      className={`${input} mt-1`}
+                      value={c.provider}
+                      onChange={(e) => updateChoice(i, { provider: e.target.value as AiProvider })}
+                    >
+                      {(Object.keys(PROVIDER_LABELS) as AiProvider[]).map((p) => (
+                        <option key={p} value={p}>
+                          {PROVIDER_LABELS[p]}
+                          {providers[p] ? "" : "（未配 Key）"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className={label}>模型名（选填，覆盖默认）</p>
+                    <input
+                      className={`${input} mt-1`}
+                      value={c.model ?? ""}
+                      maxLength={64}
+                      onChange={(e) => updateChoice(i, { model: e.target.value.trim() || undefined })}
+                      placeholder="留空用供应商默认（如 glm-5.3-flash）"
+                    />
+                  </div>
+                  <div className="flex items-end justify-end pb-1">
+                    <button
+                      onClick={() => removeChoice(i)}
+                      disabled={cfg.choices.length <= 1}
+                      title="删除该预设"
+                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 disabled:opacity-30"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem]">
+                  {c.id === cfg.defaultChoice && <span className="text-indigo-500">⭐ 当前默认</span>}
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <BrainCog className="h-3 w-3" />
+                    思考档位：{levels.map((lv) => LEVEL_LABELS[lv]).join(" / ")}
+                  </span>
+                  {!providers[c.provider] && (
+                    <span className="text-amber-600">该供应商未配置 Key：预设保留但对访客自动隐藏</span>
+                  )}
                 </div>
               </div>
-              {c.id === cfg.defaultChoice && (
-                <p className="mt-2 text-[0.6875rem] text-indigo-500">⭐ 当前默认</p>
-              )}
-              {!providers[c.provider] && (
-                <p className="mt-1 text-[0.6875rem] text-amber-600">
-                  该供应商未配置 Key：预设保留但对访客自动隐藏，配置 .env 后即生效
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">
+          档位由供应商与模型名自动推断（与前台滑条一致）：qwen3.8* = 无/低/中/最高 · deepseek-v4* = 无/低/高/最高 ·
+          glm-5.3* = 低/高/最高（该系列强制思考，无法关闭）。
+        </p>
       </section>
 
       {/* 每访客限额 */}

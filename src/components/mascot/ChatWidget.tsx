@@ -9,6 +9,7 @@ import { useEffects } from "@/components/providers/EffectProvider";
 import { useChat } from "@/components/chat/useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
+import { PersonaAvatar } from "@/components/chat/PersonaArt";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -16,6 +17,7 @@ import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
  *
  * 坐标说明（桌面 md+）：看板娘画布高 340px、其气泡最坏顶到 ~384px，
  * 按钮放 392px（24.5rem）避让；面板底边 432px（27rem）与按钮顶 434px 咬合。
+ * max-h 再扣 5rem 给固定顶栏（约 72px）——矮视口下面板顶部钳在 85px，不再压导航。
  * 移动端（<768px）无看板娘，维持贴底原位。
  */
 export function ChatWidget() {
@@ -67,10 +69,10 @@ export function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className={`glass-card fixed left-3 z-40 flex h-[30rem] w-[min(20rem,86vw)] max-h-[calc(100dvh-23rem)] flex-col overflow-hidden ${
+            className={`glass-card fixed left-3 z-40 flex h-[30rem] w-[min(20rem,86vw)] max-h-[calc(100dvh-26.5rem)] flex-col overflow-hidden ${
               mascotOff
                 ? "bottom-[21.5rem]"
-                : "bottom-[21.5rem] md:bottom-[27rem] md:max-h-[calc(100dvh-29rem)]"
+                : "bottom-[21.5rem] md:bottom-[27rem] md:max-h-[calc(100dvh-32rem)]"
             }`}
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
@@ -91,7 +93,9 @@ export function ChatWidget() {
                       {m.content}
                     </span>
                   ) : (
-                    <div className="min-w-0 max-w-[85%]">
+                    <div className="flex min-w-0 max-w-[85%] items-start gap-1.5">
+                      {m.model && <PersonaAvatar provider={m.model.provider} level={m.model.level} size={24} />}
+                      <div className="min-w-0">
                       {(m.content || m.failed || (m.streaming && m.querying)) && (
                         <div className="w-fit max-w-full rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2 text-xs leading-relaxed dark:bg-white/10">
                           {m.content ? (
@@ -116,12 +120,20 @@ export function ChatWidget() {
                           🔍 {m.tools.map((x) => x.label).join(" · ")}
                         </p>
                       )}
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
               {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
-                <div className="flex justify-start">
+                <div className="flex items-start justify-start gap-1.5">
+                  {messages.at(-1)?.model && (
+                    <PersonaAvatar
+                      provider={messages.at(-1)!.model!.provider}
+                      level={messages.at(-1)!.model!.level}
+                      size={24}
+                    />
+                  )}
                   <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2.5 dark:bg-white/10">
                     <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
                     <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:150ms]" />

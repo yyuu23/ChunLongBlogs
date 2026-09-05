@@ -21,6 +21,8 @@ import {
 import { createSession, destroySession, getSession } from "@/lib/auth";
 import { llmConfigured, summarizeContent, suggestTags } from "@/lib/ai";
 import { saveSiteConfig, getSiteConfig, type SiteConfig, type AiChatConfig } from "@/lib/site";
+import { resolveProviderModel } from "@/lib/llm";
+import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
 
 async function guard() {
@@ -720,7 +722,6 @@ export async function saveAiChat(input: AiChatConfig) {
       label: String(c.label ?? "").trim().slice(0, 24),
       provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
       model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
-      thinking: c.thinking === true,
     }))
     .filter((c) => c.id && c.label);
   // id 去重（重复的丢弃）
@@ -730,6 +731,12 @@ export async function saveAiChat(input: AiChatConfig) {
   const defaultChoice = unique.some((c) => c.id === input.defaultChoice)
     ? input.defaultChoice
     : unique[0]!.id;
+  // 默认思考强度：非法值或不在默认模型档位内 → 首档（与前台滑条同一钳制规则）
+  const defChoice = unique.find((c) => c.id === defaultChoice)!;
+  const defLevels = thinkingSpec(defChoice.provider, resolveProviderModel(defChoice.provider, defChoice.model)).levels;
+  const defaultEffort = defLevels.includes(input.defaultEffort as ThinkingLevel)
+    ? input.defaultEffort
+    : defLevels[0]!;
   const clamp = (n: unknown) => {
     const v = Number(n);
     return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 999) : 0;
@@ -740,6 +747,7 @@ export async function saveAiChat(input: AiChatConfig) {
     aiChat: {
       choices: unique,
       defaultChoice,
+      defaultEffort,
       allowVisitorChoice: input.allowVisitorChoice === true,
       perVisitorHourly: clamp(input.perVisitorHourly),
       perVisitorDaily: clamp(input.perVisitorDaily),

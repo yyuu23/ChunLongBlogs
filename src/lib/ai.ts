@@ -57,7 +57,7 @@ async function llmConfig(): Promise<LlmRequest | null> {
   const config = await getSiteConfig();
   const choice = resolveAiChatChoice(config.aiChat);
   return choice
-    ? getLlmRequest({ provider: choice.provider, model: choice.model, thinking: false })
+    ? getLlmRequest({ provider: choice.provider, model: choice.model, level: "off" })
     : null;
 }
 

@@ -1659,3 +1659,65 @@ html.splash-seen .splash-overlay {
     bottom: 7rem;
   }
 }
+
+/* ===== 模型选择器：思考强度滑条（离散档位） ===== */
+.cl-effort-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.25rem;
+  background: transparent;
+  cursor: pointer;
+}
+.cl-effort-range::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent-solid, #6366f1) 0%,
+    var(--accent-solid, #6366f1) var(--fill, 0%),
+    rgb(0 0 0 / 0.12) var(--fill, 0%),
+    rgb(0 0 0 / 0.12) 100%
+  );
+}
+.cl-effort-range::-moz-range-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.12);
+}
+.cl-effort-range::-moz-range-progress {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: var(--accent-solid, #6366f1);
+}
+.cl-effort-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -0.3125rem;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid var(--accent-solid, #6366f1);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+  transition: transform 0.15s ease;
+}
+.cl-effort-range::-moz-range-thumb {
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid var(--accent-solid, #6366f1);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+}
+.cl-effort-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.dark .cl-effort-range::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--accent-solid, #6366f1) 0%,
+    var(--accent-solid, #6366f1) var(--fill, 0%),
+    rgb(255 255 255 / 0.18) var(--fill, 0%),
+    rgb(255 255 255 / 0.18) 100%
+  );
+}

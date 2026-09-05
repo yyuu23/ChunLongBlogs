@@ -73,9 +73,9 @@ function sse(event: string, data: unknown) {
 
 /** 工具使用指引：让模型知道站内数据要查再说，而不是拒绝或编造 */
 const TOOL_GUIDE = `[站内数据查询能力
-你可以调用工具实时查询本站数据：list_posts（列文章）、get_post（读某篇文章全文）、list_moments（最近说说）、list_albums（相册列表）、site_stats（站点统计）。
-凡涉及本站文章/说说/相册/统计数字的问题——比如「列出博客的文章」「最近发了什么说说」「相册里有什么」「博客有多少篇文」——都必须先调用工具查询再回答，以查询结果为准，查不到就如实说没有，不要编造。
-文章链接格式 /posts/<slug>，说说在 /moments，相册在 /albums，回答里可以附上这些链接。]`;
+你可以调用工具实时查询本站数据：list_posts（列文章）、get_post（读某篇文章全文）、list_moments（最近说说）、list_albums（相册列表）、site_stats（站点统计）、list_music（音乐馆歌单与歌曲）。
+凡涉及本站文章/说说/相册/统计数字/音乐的问题——比如「列出博客的文章」「最近发了什么说说」「相册里有什么」「博客有多少篇文」「音乐馆有什么歌」——都必须先调用工具查询再回答，以查询结果为准，查不到就如实说没有，不要编造。
+文章链接格式 /posts/<slug>，说说在 /moments，相册在 /albums，音乐馆在 /music，回答里可以附上这些链接。]`;
 
 /** 富内容卡片协议：AI 用 ```chat-card JSON 输出，前端渲染成站内原生卡片 */
 const RICH_OUTPUT = `[富内容卡片输出
@@ -84,6 +84,7 @@ const RICH_OUTPUT = `[富内容卡片输出
 - 推荐/列出文章 → {"type":"posts","items":[{"title","slug","date","category","description","cover","pinned"}]}
 - 最近的说说 → {"type":"moments","items":[{"content","date","mood","location","image"}]}
 - 相册介绍 → {"type":"albums","items":[{"title","description","cover","photoCount","createdAt"}]}
+- 音乐馆/歌单歌曲 → {"type":"music","items":[{"title","description","songCount","songs":[{"title","artist","duration"}]}]}
 - 博客规模/数据统计 → {"type":"stats","items":[{"label","value","icon","unit"}]}（icon 用 emoji，如 📝💬📷）
 - 两者对比（球队、方案、技术选型等）→ {"type":"vs","left":{"name","points":["…"]},"right":{"name","points":["…"]},"verdict":"一句话结论"}
 
@@ -97,7 +98,9 @@ const RICH_OUTPUT = `[富内容卡片输出
 const timelinessSection = () =>
   searchApiKey()
     ? `[时效性信息
-你可以调用 web_search 工具联网搜索实时信息。凡涉及"这个赛季/最新/今天/新版本"等时效性内容（体育赛事、新闻、版本发布、价格等），先调用 web_search 搜索，再基于搜索结果回答并附来源链接；搜索失败就坦诚说明，再用自己的知识分析（注明可能不是最新）。]`
+你可以调用 web_search 工具联网搜索实时信息。规则（必须遵守）：
+1. 只要问题涉及"最新/现在/今天/这个赛季/刚发布/新版本/近期/价格"等任何时效性内容（版本号、体育赛事、新闻、产品发布、排行榜等），就必须先调用 web_search 搜索，再基于搜索结果回答，并附上来源链接——不允许凭自己的记忆直接回答时效性问题。
+2. 搜索工具调用失败时才退回自己的知识，并明确说明"可能不是最新"。]`
     : `[时效性信息
 你没有实时联网能力，知识有截止日期。聊到"这个赛季/最近/最新"这类时效性话题（体育赛事、新闻、新版本、价格等）时，不要因此拒绝或绕开——照常大方地聊、给出你的分析（历史表现、阵容特点、口碑等），只是要坦诚说明你的情报可能不是最新的，不要把过时的信息当成现状来陈述；两队/两物对比时可以用 VS 卡片呈现。]`;
 

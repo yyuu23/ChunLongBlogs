@@ -8,6 +8,7 @@ import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useChat } from "@/components/chat/useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -85,19 +86,27 @@ export function ChatWidget() {
             <div ref={listRef} className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3">
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <span
-                    className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                      m.role === "user"
-                        ? "bg-accent-gradient rounded-br-sm text-white"
-                        : "rounded-bl-sm bg-white/50 dark:bg-white/10"
-                    }`}
-                  >
-                    {m.content}
-                    {m.streaming && m.content && <span className="animate-pulse">▍</span>}
-                  </span>
+                  {m.role === "user" ? (
+                    <span className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-gradient px-3 py-2 text-xs leading-relaxed text-white">
+                      {m.content}
+                    </span>
+                  ) : (
+                    (m.content || m.failed || (m.streaming && m.querying)) && (
+                      <div className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2 text-xs leading-relaxed dark:bg-white/10">
+                        {m.content ? (
+                          <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} />
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-muted">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {t("chat.querying")}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  )}
                 </div>
               ))}
-              {busy && !messages.at(-1)?.content && (
+              {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
                 <div className="flex justify-start">
                   <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3 py-2.5 dark:bg-white/10">
                     <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0ms]" />

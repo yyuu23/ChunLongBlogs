@@ -9,6 +9,7 @@ import {
   Copy,
   FileText,
   History,
+  Loader2,
   MessageSquareText,
   Pencil,
   Plus,
@@ -16,10 +17,12 @@ import {
   SendHorizonal,
   Square,
   Trash2,
+  X,
 } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useChat, type ChatMsg, type RelatedRef } from "./useChat";
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import {
   groupSessions,
   lastActiveId,
@@ -32,6 +35,7 @@ import {
   titleOf,
   type ChatSessionMeta,
 } from "@/lib/chatSessions";
+import { copyText } from "@/lib/clipboard";
 
 export function ChatPageClient() {
   const t = useT();
@@ -191,7 +195,7 @@ export function ChatPageClient() {
                 }}
               />
             ))}
-            {busy && !messages.at(-1)?.content && (
+            {busy && !messages.at(-1)?.content && !messages.at(-1)?.querying && (
               <div className="flex items-start gap-2.5">
                 <Avatar />
                 <span className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white/50 px-3.5 py-3 dark:bg-white/10">
@@ -375,26 +379,35 @@ function SessionSidebar({
   );
 }
 
-/** 消息复制小按钮：成功换 ✓ 两秒回弹（CodeBlockTools 同款交互） */
+/** 消息复制小按钮：成功换 ✓、失败换 ✗ 各两秒回弹（copyText 带 execCommand 兜底） */
 function CopyBtn({ text }: { text: string }) {
   const t = useT();
-  const [ok, setOk] = useState(false);
+  const [state, setState] = useState<"idle" | "ok" | "fail">("idle");
   return (
     <button
       type="button"
       onClick={() => {
-        void navigator.clipboard
-          .writeText(text)
-          .then(() => {
-            setOk(true);
-            window.setTimeout(() => setOk(false), 2000);
-          })
-          .catch(() => {}); // 非 https / 无权限：静默失败
+        void copyText(text).then((ok) => {
+          setState(ok ? "ok" : "fail");
+          window.setTimeout(() => setState("idle"), 2000);
+        });
       }}
-      aria-label={ok ? t("chatPage.copied") : t("chatPage.copyAria")}
+      aria-label={
+        state === "ok"
+          ? t("chatPage.copied")
+          : state === "fail"
+            ? t("chatPage.copyFailed")
+            : t("chatPage.copyAria")
+      }
       className="cl-msg-action"
     >
-      {ok ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+      {state === "ok" ? (
+        <Check className="h-3 w-3 text-emerald-500" />
+      ) : state === "fail" ? (
+        <X className="h-3 w-3 text-rose-500" />
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
     </button>
   );
 }
@@ -491,14 +504,23 @@ function MessageRow({
     <div className="flex items-start gap-2.5">
       <Avatar />
       <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
-        <span
-          className={`inline-block whitespace-pre-wrap rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed ${
-            m.failed ? "bg-rose-500/10 text-rose-600 dark:text-rose-300" : "bg-white/50 dark:bg-white/10"
-          }`}
-        >
-          {m.content}
-          {m.streaming && m.content && <span className="animate-pulse">▍</span>}
-        </span>
+        {/* 无内容的流式等待期不渲染空气泡，交给下方的等待动画/查询提示 */}
+        {(m.content || m.failed || (m.streaming && m.querying)) && (
+          <div
+            className={`w-fit max-w-full rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed ${
+              m.failed ? "bg-rose-500/10 text-rose-600 dark:text-rose-300" : "bg-white/50 dark:bg-white/10"
+            }`}
+          >
+            {m.content ? (
+              <ChatMarkdown content={m.streaming ? `${m.content}▍` : m.content} />
+            ) : (
+              <span className="flex items-center gap-1.5 py-0.5 text-xs text-muted">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t("chat.querying")}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* 参考来源 */}
         {m.related && m.related.length > 0 && !m.streaming && (

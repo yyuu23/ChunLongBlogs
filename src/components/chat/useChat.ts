@@ -36,6 +36,10 @@ export interface ChatMsg {
   querying?: boolean;
   /** querying 期间当前工具的标签（如「查询文章列表」），供等待提示展示 */
   toolLabel?: string;
+  /** querying 期间当前工具名（web_search 等，状态行区分联网/站内阶段） */
+  toolName?: string;
+  /** querying 期间工具参数摘要（如搜索关键词），状态行展示 */
+  toolDetail?: string;
   /** 思考模式推理中（status 事件置位，正文 delta 到达后清除） */
   thinking?: boolean;
   /** 本条回答用到的工具轨迹（AI 消息，随会话持久化） */
@@ -244,20 +248,26 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             if (event === "related") {
               patchLast({ related: Array.isArray(payload) ? (payload as unknown as RelatedRef[]) : [] });
             } else if (event === "status" && (payload.stage === "tools" || payload.stage === "tool")) {
-              // 工具执行中：显示带标签的等待提示（如「查询文章列表…」）
+              // 工具执行中：状态行显示阶段与搜索关键词（思考阶段结束）
               querying = true;
-              patchLast({ querying: true, toolLabel: payload.label });
+              patchLast({
+                querying: true,
+                toolLabel: payload.label,
+                toolName: (payload as { name?: string }).name,
+                toolDetail: (payload as { detail?: string }).detail,
+                thinking: false,
+              });
             } else if (event === "status" && payload.stage === "thinking") {
               // 思考模式：正文前先流推理内容，等待期显示「深度思考中」
               querying = true;
-              patchLast({ querying: true, thinking: true });
+              patchLast({ querying: true, thinking: true, toolName: undefined, toolDetail: undefined });
             } else if (event === "tools") {
               patchLast({ tools: Array.isArray(payload) ? (payload as unknown as ToolTrace[]) : [] });
             } else if (event === "delta" && typeof payload.text === "string") {
               gotAny = true;
               if (querying) {
                 querying = false;
-                patchLast({ querying: false, toolLabel: undefined, thinking: false });
+                patchLast({ querying: false, toolLabel: undefined, toolName: undefined, toolDetail: undefined, thinking: false });
               }
               const safe = moodFilter.feed(payload.text);
               replyText += safe;
@@ -268,6 +278,8 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                 streaming: false,
                 querying: false,
                 toolLabel: undefined,
+                toolName: undefined,
+                toolDetail: undefined,
                 thinking: false,
                 failed: !gotAny,
               });
@@ -276,7 +288,15 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                 ms.map((m, i) => {
                   if (i !== ms.length - 1) return m;
                   if (m.content)
-                    return { ...m, streaming: false, querying: false, toolLabel: undefined, thinking: false };
+                    return {
+                      ...m,
+                      streaming: false,
+                      querying: false,
+                      toolLabel: undefined,
+                      toolName: undefined,
+                      toolDetail: undefined,
+                      thinking: false,
+                    };
                   // done 但一个字都没收到
                   return {
                     ...m,
@@ -284,6 +304,8 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                     streaming: false,
                     querying: false,
                     toolLabel: undefined,
+                    toolName: undefined,
+                    toolDetail: undefined,
                     thinking: false,
                     failed: true,
                   };

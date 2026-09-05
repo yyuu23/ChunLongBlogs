@@ -1730,3 +1730,35 @@ body:has(.cl-chat-panel-open) [data-cl-mascot] {
   opacity: 0;
   pointer-events: none;
 }
+
+/* ===== 聊天状态行：等待期头像工作动画 + 状态药丸微光 ===== */
+@keyframes cl-working {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1.5px) rotate(-2.5deg); }
+  75% { transform: translateY(0.5px) rotate(2deg); }
+}
+.cl-avatar-working {
+  animation: cl-working 1.5s ease-in-out infinite;
+}
+.cl-status-pill {
+  position: relative;
+  overflow: hidden;
+}
+.cl-status-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.38) 50%, transparent 58%);
+  transform: translateX(-100%);
+  animation: cl-shimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cl-shimmer {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-avatar-working,
+  .cl-status-pill::after {
+    animation: none;
+  }
+}

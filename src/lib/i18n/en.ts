@@ -198,6 +198,13 @@ export const en: Dictionary = {
       max: "Max",
       on: "On",
     },
+    status: { waiting: "Reaching out", thinking: "Thinking hard", search: "Searching the web", site: "Checking the site" },
+    phrases: {
+      waiting: ["Knocking on the model's door…", "Warming up…", "Getting ready…"],
+      thinking: ["Let me think…", "Connecting the dots…", "Gears are turning", "Organizing thoughts…"],
+      search: ["Scouring the internet…", "Surfing for answers…", "Opening pages one by one…", "Checking the latest…"],
+      site: ["Checking the site's shelves…", "Looking through the archive…", "Flipping through notes…"],
+    },
     userLimit: "You have used up today's chats — take a break and come back later~",
     rateLimited: "That's a lot of questions — take a breather and retry in a minute (＞﹏＜)",
     dailyLimit: "Today's chat quota is used up — come play with me again tomorrow (´-ω-`)",

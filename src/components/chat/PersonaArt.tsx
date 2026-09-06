@@ -32,7 +32,9 @@ export function preheatPersona(provider: AiProvider) {
   }
 }
 
-/** 聊天气泡 AI 头像（圆形，尺寸由调用方定）：LazyImage 淡入 + shimmer 骨架，失败回退品牌标 */
+/** 聊天气泡 AI 头像（圆形，尺寸由调用方定）：原生 img 直接渲染 128px webp 源
+ *  （不经 next/image 优化器二次压缩——小尺寸线稿图被 q75 重编码会糊），
+ *  LazyImage 淡入 + shimmer 骨架，失败回退品牌标 */
 export function PersonaAvatar({
   provider,
   level,
@@ -51,11 +53,10 @@ export function PersonaAvatar({
       style={{ width: size, height: size }}
     >
       <LazyImage
+        natural
         src={personaAvatarSrc(provider, level)}
         alt=""
-        fill
-        sizes={`${size}px`}
-        className="object-cover"
+        className="h-full w-full object-cover"
         fallback={<BrandLogo provider={provider} size={size} className="rounded-full" />}
       />
     </span>

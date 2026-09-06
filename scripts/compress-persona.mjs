@@ -10,23 +10,27 @@ import sharp from "sharp";
 import fs from "node:fs";
 import path from "node:path";
 
-const DIR = path.resolve("public/assets/persona");
+// 母版（PNG）与产物（webp）分开放：母版不随 public 部署分发
+const SRC_DIR = path.resolve("assets-src/persona");
+const OUT_DIR = path.resolve("public/assets/persona");
 const FULL_HEIGHT = 400;
-const AVATAR_HEIGHT = 96;
-const QUALITY = 82;
+const AVATAR_HEIGHT = 128;
+// 头像显示仅 24~32px 但会被进一步缩放采样，线稿类小图给更高的质量参数防糊
+const FULL_QUALITY = 82;
+const AVATAR_QUALITY = 92;
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 
 async function compress(file) {
-  const src = path.join(DIR, file);
+  const src = path.join(SRC_DIR, file);
   const isFull = file.includes("-full.");
-  const out = path.join(DIR, file.replace(/\.png$/, ".webp"));
+  const out = path.join(OUT_DIR, file.replace(/\.png$/, ".webp"));
   const before = fs.statSync(src).size;
 
   let pipeline = sharp(src).resize({ height: isFull ? FULL_HEIGHT : AVATAR_HEIGHT, withoutEnlargement: true });
   if (isFull) pipeline = pipeline.trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } });
   const info = await pipeline
-    .webp({ quality: QUALITY, alphaQuality: 90 })
+    .webp({ quality: isFull ? FULL_QUALITY : AVATAR_QUALITY, alphaQuality: 95 })
     .toFile(out);
 
   const after = info.size;
@@ -36,9 +40,9 @@ async function compress(file) {
   return { before, after };
 }
 
-const files = fs.readdirSync(DIR).filter((f) => f.endsWith(".png"));
+const files = fs.readdirSync(SRC_DIR).filter((f) => f.endsWith(".png"));
 if (!files.length) {
-  console.log(`在 ${DIR} 没找到 PNG（母版应放在 assets-src/persona/，用完拷回或直接改 DIR 跑）`);
+  console.log(`在 ${SRC_DIR} 没找到 PNG 母版`);
   process.exit(0);
 }
 

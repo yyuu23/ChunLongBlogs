@@ -1,6 +1,7 @@
 import { asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { albums, moments, photos, playlists, songs } from "@/lib/db/schema";
+import type { AiChatConfig, AiCustomTool } from "@/lib/site";
 import {
   getCategoriesWithCount,
   getPostBySlug,
@@ -118,9 +119,49 @@ export function searchApiKey(): string | undefined {
   return process.env.SEARCH_API_KEY?.trim() || process.env.TAVILY_API_KEY?.trim() || undefined;
 }
 
-/** 当前可用的工具集：没配搜索 key 时 web_search 对模型不可见 */
-export function getChatTools() {
-  return searchApiKey() ? [...CHAT_TOOLS, WEB_SEARCH_TOOL] : [...CHAT_TOOLS];
+/** 工具定义的宽松形态（内置 + 自定义统一） */
+interface ToolDef {
+  type: "function";
+  function: { name: string; description: string; parameters: unknown };
+}
+
+/** 站长配置的自定义 HTTP 工具 → OpenAI 工具定义（单参数 input，端点收到 {name, input}） */
+function buildCustomToolDefs(list?: AiCustomTool[]): ToolDef[] {
+  return (list ?? [])
+    .filter((t) => t.name && t.endpoint)
+    .map((t) => ({
+      type: "function" as const,
+      function: {
+        name: t.name,
+        description: t.description || t.name,
+        parameters: {
+          type: "object",
+          properties: {
+            input: { type: "string", description: "调用该工具的输入内容（自然语言或参数文本）" },
+          },
+        },
+      },
+    }));
+}
+
+/**
+ * 当前可用的工具集（按后台配置过滤）：
+ * - 内置工具按 aiChat.tools 开关（缺省=开）
+ * - web_search 还需配置搜索 key
+ * - 追加站长在后台配置的自定义 HTTP 工具
+ */
+export function getChatTools(cfg?: Pick<AiChatConfig, "tools" | "customTools">) {
+  const on = (n: string) => cfg?.tools?.[n] !== false;
+  const list: ToolDef[] = CHAT_TOOLS.filter((t) => on(t.function.name));
+  if (on("web_search") && searchApiKey()) list.push(WEB_SEARCH_TOOL);
+  list.push(...buildCustomToolDefs(cfg?.customTools));
+  return list;
+}
+
+/** 工具名 → 徽章/状态行标签（自定义工具用其配置名） */
+export function toolLabelOf(name: string, cfg?: Pick<AiChatConfig, "customTools">): string {
+  if (cfg?.customTools?.some((t) => t.name === name)) return name;
+  return TOOL_LABELS[name] ?? name;
 }
 
 /** 工具的人类可读标签（前端「查询了什么」徽章用） */
@@ -148,8 +189,28 @@ export function toolCallSummary(name: string, argsJson: string): string {
   }
 }
 
-/** 模型侧看到的工具名集合（执行前校验用；含条件启用的 web_search） */
-const TOOL_NAMES = new Set<string>([...CHAT_TOOLS, WEB_SEARCH_TOOL].map((t) => t.function.name));
+/** 模型侧看到的工具名集合（执行前校验用；含条件启用的 web_search 与自定义工具） */
+const TOOL_NAMES = new Set<string>(
+  [...CHAT_TOOLS, WEB_SEARCH_TOOL].map((t) => t.function.name),
+);
+
+/** 执行站长配置的自定义 HTTP 工具：POST {name, input} → JSON/文本结果（截断保护上下文） */
+async function executeCustomTool(tool: AiCustomTool, args: Record<string, unknown>) {
+  const input = cleanStr(args.input, 500) ?? "";
+  const res = await fetch(tool.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: tool.name, input }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) return { error: `工具服务返回 ${res.status}` };
+  const text = (await res.text()).slice(0, 4000);
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { result: text };
+  }
+}
 
 /* ---------- 参数清洗：模型的输出不可信，一律钳制 ---------- */
 
@@ -354,8 +415,13 @@ async function siteStats() {
  * 执行一次工具调用，结果序列化为 JSON 字符串（role:"tool" 消息的 content）。
  * 任何异常都收敛成 {error}——查询失败不该炸掉整轮对话。
  */
-export async function executeTool(name: string, argsJson: string): Promise<string> {
-  if (!TOOL_NAMES.has(name)) return JSON.stringify({ error: `未知工具：${name}` });
+export async function executeTool(
+  name: string,
+  argsJson: string,
+  cfg?: Pick<AiChatConfig, "customTools">,
+): Promise<string> {
+  const custom = cfg?.customTools?.find((t) => t.name === name);
+  if (!TOOL_NAMES.has(name) && !custom) return JSON.stringify({ error: `未知工具：${name}` });
   let args: Record<string, unknown> = {};
   if (argsJson && argsJson.trim()) {
     try {
@@ -366,7 +432,8 @@ export async function executeTool(name: string, argsJson: string): Promise<strin
   }
   try {
     const result =
-      name === "list_posts"
+      custom ? await executeCustomTool(custom, args)
+      : name === "list_posts"
         ? await listPosts(args)
         : name === "get_post"
           ? await getPost(args)

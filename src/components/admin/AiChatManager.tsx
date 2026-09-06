@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Wrench } from "lucide-react";
 import { saveAiChat } from "@/app/admin/actions";
-import type { AiChatChoice, AiChatConfig, AiProvider } from "@/lib/site";
+import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site";
 import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 
 const input =
@@ -25,6 +25,17 @@ const LEVEL_LABELS: Record<ThinkingLevel, string> = {
   max: "最高",
   on: "开",
 };
+
+/** 内置工具清单（能力管理开关用） */
+const BUILTIN_TOOLS: { name: string; label: string; desc: string }[] = [
+  { name: "list_posts", label: "查询文章列表", desc: "AI 能实时查站内文章" },
+  { name: "get_post", label: "读取文章内容", desc: "AI 能读某篇文章全文做总结" },
+  { name: "list_moments", label: "查询最近说说", desc: "AI 能查站长的说说动态" },
+  { name: "list_albums", label: "查询相册", desc: "AI 能查相册与照片信息" },
+  { name: "site_stats", label: "查询站点统计", desc: "AI 能报文章数/字数等统计" },
+  { name: "list_music", label: "查询音乐馆", desc: "AI 能查歌单与歌曲" },
+  { name: "web_search", label: "联网搜索", desc: "Tavily 实时搜索（还需 .env 配置 key）" },
+];
 
 /**
  * AI 对话管理表单：模型预设 / 默认模型与思考强度 / 访客选择开关 / 每访客限额。
@@ -89,6 +100,27 @@ export function AiChatManager({
       defaultChoice: defaults.defaultChoice,
       defaultEffort: defaults.defaultEffort,
     }));
+
+  const toggleTool = (name: string, on: boolean) =>
+    setCfg((c) => ({ ...c, tools: { ...(c.tools ?? {}), [name]: on } }));
+
+  const updateCustom = (i: number, patch: Partial<AiCustomTool>) =>
+    setCfg((c) => ({
+      ...c,
+      customTools: (c.customTools ?? []).map((t, j) => (j === i ? { ...t, ...patch } : t)),
+    }));
+
+  const addCustom = () =>
+    setCfg((c) => ({
+      ...c,
+      customTools: [
+        ...(c.customTools ?? []),
+        { id: `tool-${Date.now().toString(36)}`, name: "", description: "", endpoint: "" },
+      ],
+    }));
+
+  const removeCustom = (i: number) =>
+    setCfg((c) => ({ ...c, customTools: (c.customTools ?? []).filter((_, j) => j !== i) }));
 
   // 默认模型的档位（默认强度下拉选项随它联动；不在档位内时保存会被服务端钳到首档）
   const defaultChoiceObj = cfg.choices.find((c) => c.id === cfg.defaultChoice);
@@ -293,6 +325,103 @@ export function AiChatManager({
           档位由供应商与模型名自动推断（与前台滑条一致）：qwen3.8* = 无/低/中/最高 · deepseek-v4* = 无/低/高/最高 ·
           glm-5.3* = 低/高/最高（该系列强制思考，无法关闭）。
         </p>
+      </section>
+
+      {/* 能力管理：内置工具开关 + 自定义 HTTP 工具 */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Wrench className="h-4 w-4 text-indigo-500" />
+          能力管理
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {BUILTIN_TOOLS.map((t) => {
+            const on = cfg.tools?.[t.name] !== false;
+            return (
+              <label
+                key={t.name}
+                className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 transition-colors ${
+                  on ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200 bg-slate-50/40"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) => toggleTool(t.name, e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-indigo-500"
+                />
+                <span>
+                  <span className="block text-xs font-medium text-slate-700">{t.label}</span>
+                  <span className="block text-[0.6875rem] text-slate-400">{t.desc}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className={label}>自定义工具（最多 6 个，AI 可调用的 HTTP 端点）</p>
+            <button
+              onClick={addCustom}
+              disabled={(cfg.customTools?.length ?? 0) >= 6}
+              className="flex items-center gap-1 rounded-xl border border-indigo-200 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              添加工具
+            </button>
+          </div>
+          <div className="space-y-2">
+            {(cfg.customTools ?? []).map((t, i) => (
+              <div key={t.id} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-3">
+                <div className="grid gap-2 sm:grid-cols-[0.8fr_1.4fr_1.6fr_auto]">
+                  <div>
+                    <p className={label}>工具名（英文）</p>
+                    <input
+                      className={`${input} mt-1`}
+                      value={t.name}
+                      maxLength={48}
+                      onChange={(e) => updateCustom(i, { name: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "") })}
+                      placeholder="如 get_weather"
+                    />
+                  </div>
+                  <div>
+                    <p className={label}>功能描述（给 AI 看）</p>
+                    <input
+                      className={`${input} mt-1`}
+                      value={t.description}
+                      maxLength={200}
+                      onChange={(e) => updateCustom(i, { description: e.target.value })}
+                      placeholder="如：查询指定城市的实时天气"
+                    />
+                  </div>
+                  <div>
+                    <p className={label}>POST 端点（收到 {"{ name, input }"} JSON）</p>
+                    <input
+                      className={`${input} mt-1`}
+                      value={t.endpoint}
+                      maxLength={300}
+                      onChange={(e) => updateCustom(i, { endpoint: e.target.value.trim() })}
+                      placeholder="https://your-service/api/tool"
+                    />
+                  </div>
+                  <div className="flex items-end pb-1">
+                    <button
+                      onClick={() => removeCustom(i)}
+                      title="删除该工具"
+                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            端点收到 POST {"{ name, input }"} JSON（10s 超时，返回 JSON 或纯文本）；仅站长可配置，
+            由服务器中转调用，结果截断 4000 字。名字与内置工具重复时以内置为准。
+          </p>
+        </div>
       </section>
 
       {/* 每访客限额 */}

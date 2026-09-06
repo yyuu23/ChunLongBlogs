@@ -201,6 +201,7 @@ export const zh = {
   },
   chat: {
     title: "和小助手聊天",
+    personaLoading: "立绘加载中…",
     openAria: "AI 聊天",
     closeAria: "关闭聊天",
     sendAria: "发送",
@@ -225,6 +226,11 @@ export const zh = {
       on: "开",
     },
     status: { waiting: "正在接洽", thinking: "深度思考中", search: "联网搜索中", site: "翻站内资料" },
+    attach: "上传图片",
+    removeImage: "移除图片",
+    imageOnlyNote: "（请看图片）",
+    thinkingTrace: "思考过程",
+    traceUnit: "字",
     phrases: {
       waiting: ["正在敲开模型的小门…", "热身中…", "准备就绪ing…"],
       thinking: ["让我想想…", "灵光乍现中", "小脑瓜飞速运转", "整理思路…", "翻翻记忆…"],

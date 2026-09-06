@@ -38,6 +38,17 @@ export interface AiChatChoice {
   thinking?: boolean;
 }
 
+/** 站长在 admin 配置的自定义 HTTP 工具：AI 可调用，服务端中转 POST 到指定端点 */
+export interface AiCustomTool {
+  id: string;
+  /** 工具名（模型可见，英文/数字/下划线，如 get_weather） */
+  name: string;
+  /** 给模型看的功能描述（决定模型什么时候调用它） */
+  description: string;
+  /** POST 端点，收到 {name, args} JSON，返回 JSON 结果 */
+  endpoint: string;
+}
+
 export interface AiChatConfig {
   /** 暴露给访客的模型预设（未配置 key 的供应商自动对访客隐藏） */
   choices: AiChatChoice[];
@@ -51,6 +62,10 @@ export interface AiChatConfig {
   perVisitorHourly: number;
   /** 每访客每天消息数（0 = 不限） */
   perVisitorDaily: number;
+  /** 内置工具开关（key=工具名；缺省视为开启；web_search 还需配置搜索 key） */
+  tools?: Record<string, boolean>;
+  /** 自定义 HTTP 工具（最多 6 个） */
+  customTools?: AiCustomTool[];
 }
 
 export interface SiteConfig {
@@ -140,7 +155,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   aiChat: {
     choices: [
       { id: "glm", label: "GLM 5.3 Flash", provider: "glm" },
-      { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek" },
+      { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek", model: "deepseek-v4-flash-vision-exp" },
       { id: "qwen", label: "Qwen 3.8 Flash", provider: "qwen" },
     ],
     defaultChoice: "glm",

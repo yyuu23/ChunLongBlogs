@@ -202,6 +202,7 @@ export const ko: Dictionary = {
   },
   chat: {
     title: "어시스턴트와 채팅",
+    personaLoading: "일러스트 로딩 중…",
     openAria: "AI 채팅",
     closeAria: "채팅 닫기",
     sendAria: "보내기",
@@ -226,6 +227,11 @@ export const ko: Dictionary = {
       on: "켬",
     },
     status: { waiting: "준비 중", thinking: "깊이 생각 중", search: "웹 검색 중", site: "사이트 내 조회 중" },
+    attach: "이미지 업로드",
+    removeImage: "이미지 제거",
+    imageOnlyNote: "(이미지 확인)",
+    thinkingTrace: "생각 과정",
+    traceUnit: "자",
     phrases: {
       waiting: ["모델의 문을 두드리는 중…", "몸풀기 중…", "준비 완료 중…"],
       thinking: ["생각해 볼게…", "번뜩이는 중", "머리 풀가동 중", "생각 정리 중…"],

@@ -204,6 +204,7 @@ export const ja: Dictionary = {
   },
   chat: {
     title: "アシスタントとチャット",
+    personaLoading: "立ち絵を読み込み中…",
     openAria: "AI チャット",
     closeAria: "チャットを閉じる",
     sendAria: "送信",
@@ -228,6 +229,11 @@ export const ja: Dictionary = {
       on: "オン",
     },
     status: { waiting: "準備中", thinking: "じっくり考え中", search: "ネット検索中", site: "サイト内を調査中" },
+    attach: "画像をアップロード",
+    removeImage: "画像を削除",
+    imageOnlyNote: "（画像を見て）",
+    thinkingTrace: "思考の過程",
+    traceUnit: "文字",
     phrases: {
       waiting: ["モデルの扉をノック中…", "ウォームアップ中…", "準備運動中…"],
       thinking: ["ちょっと考えさせて…", "ひらめきが閃いてる", "頭をフル回転中", "情報を整理中…"],

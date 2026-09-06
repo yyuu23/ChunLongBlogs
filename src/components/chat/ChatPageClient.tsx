@@ -10,6 +10,7 @@ import {
   Copy,
   FileText,
   History,
+  ImagePlus,
   MessageSquareText,
   Pencil,
   Plus,
@@ -42,6 +43,7 @@ import {
   type ChatSessionMeta,
 } from "@/lib/chatSessions";
 import { copyText } from "@/lib/clipboard";
+import { attachImage, type AttachedImage } from "@/lib/imageAttach";
 
 export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const t = useT();
@@ -55,8 +57,10 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
     persistKey: sessionKey(activeId),
   });
   const [input, setInput] = useState("");
+  const [pending, setPending] = useState<AttachedImage[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   // 模型/思考强度选择器（ModelPicker 内部管理 localStorage，悬浮窗共用同一存储）
   const showModelSelector = !!aiChoices?.allow && (aiChoices?.choices.length ?? 0) > 1;
 
@@ -108,13 +112,30 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
     }
   };
 
+  /** 添加图片附件（文件选择/粘贴共用；解码压缩失败静默跳过） */
+  const addImageFiles = async (files: FileList | File[] | null) => {
+    if (!files) return;
+    const imgs = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const room = 3 - pending.length;
+    const added: AttachedImage[] = [];
+    for (const f of imgs.slice(0, room)) {
+      const a = await attachImage(f);
+      if (a) added.push(a);
+    }
+    if (added.length) setPending((p) => [...p, ...added].slice(0, 3));
+  };
+
   const doSend = (text?: string) => {
     const q = (text ?? input).trim();
-    if (!q || busy) return;
-    touchSession(q); // 首次发送入索引（title 取本轮问题），此后刷新时间
+    if ((!q && !pending.length) || busy) return;
+    touchSession(q || t("chat.imageOnlyNote")); // 首次发送入索引（title 取本轮问题），此后刷新时间
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
-    void send(q);
+    const images = pending.length
+      ? { full: pending.map((p) => p.full), thumbs: pending.map((p) => p.thumb) }
+      : undefined;
+    setPending([]);
+    void send(q || t("chat.imageOnlyNote"), images);
   };
 
   const autoGrow = (el: HTMLTextAreaElement) => {
@@ -250,10 +271,54 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
           {/* 输入区 */}
           <div className="border-t border-[var(--glass-border)] p-3">
             {showModelSelector && (
-              <div className="mb-2">
+              <div className="mb-2 flex items-center gap-2">
                 <ModelPicker aiChoices={aiChoices!} />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={pending.length >= 3}
+                  aria-label={t("chat.attach")}
+                  title={t("chat.attach")}
+                  className="glass-button shrink-0 !rounded-full !p-1.5 text-muted transition-colors hover:text-accent disabled:opacity-40"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                </button>
               </div>
             )}
+            {/* 待发送图片预览 */}
+            {pending.length > 0 && (
+              <div className="mb-2 flex gap-2">
+                {pending.map((p, i) => (
+                  <span key={i} className="group/img relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.thumb}
+                      alt=""
+                      className="h-14 w-14 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPending((arr) => arr.filter((_, j) => j !== i))}
+                      aria-label={t("chat.removeImage")}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                void addImageFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
             <div className="flex items-end gap-2">
               <textarea
                 ref={taRef}
@@ -262,6 +327,12 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
                 onChange={(e) => {
                   setInput(e.target.value);
                   autoGrow(e.currentTarget);
+                }}
+                onPaste={(e) => {
+                  if (e.clipboardData.files.length) {
+                    e.preventDefault();
+                    void addImageFiles(e.clipboardData.files);
+                  }
                 }}
                 onKeyDown={onKeyDown}
                 placeholder={t("chatPage.inputPlaceholder")}
@@ -279,7 +350,7 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
               ) : (
                 <button
                   onClick={() => doSend()}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() && !pending.length}
                   aria-label={t("chat.sendAria")}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-gradient text-white transition-opacity disabled:opacity-40"
                 >
@@ -329,6 +400,35 @@ function MsgAvatar({ model, working }: { model?: { provider: AiProvider; level: 
     >
       <Bot className="h-4 w-4" />
     </span>
+  );
+}
+
+/** 思考轨迹块：流式期间显示实时尾部；完成后折叠为可展开回看的摘要行 */
+function ReasoningBlock({ text, streaming }: { text: string; streaming: boolean }) {
+  const t = useT();
+  if (streaming) {
+    return (
+      <div className="cl-status-pill mb-1.5 max-w-full rounded-xl border border-dashed border-[var(--glass-border)] bg-white/30 px-3 py-2 dark:bg-white/5">
+        <p className="text-[0.625rem] font-medium text-muted">💭 {t("chat.thinkingTrace")}</p>
+        <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.6875rem] leading-relaxed text-muted opacity-80">
+          {text.slice(-400)}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <details className="group/rt mb-1.5 w-fit rounded-xl border border-[var(--glass-border)] bg-white/30 px-3 py-1.5 dark:bg-white/5">
+      <summary className="cursor-pointer list-none text-[0.625rem] font-medium text-muted transition-colors hover:text-accent [&::-webkit-details-marker]:hidden">
+        💭 {t("chat.thinkingTrace")}
+        <span className="mx-1 opacity-70">
+          {text.length} {t("chat.traceUnit")}
+        </span>
+        <ChevronDown className="ml-0.5 inline h-3 w-3 transition-transform group-open/rt:rotate-180" />
+      </summary>
+      <p className="mt-1.5 max-h-44 overflow-y-auto border-t border-[var(--glass-border)] pt-1.5 text-[0.6875rem] leading-relaxed whitespace-pre-wrap text-muted">
+        {text}
+      </p>
+    </details>
   );
 }
 
@@ -452,11 +552,14 @@ function ToolsBadge({ tools }: { tools: ToolTrace[] }) {
         <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="glass-card mt-1.5 space-y-1 !rounded-xl px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-muted">
+        <div className="glass-card mt-1.5 space-y-1.5 !rounded-xl px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-muted">
           {tools.map((x, i) => (
-            <p key={i}>
-              <span className="font-sans text-accent">{x.label}</span> — {x.detail}
-            </p>
+            <div key={i}>
+              <p>
+                <span className="font-sans text-accent">{x.label}</span> — {x.detail}
+              </p>
+              {x.result && <p className="pl-3 opacity-75">↳ {x.result}</p>}
+            </div>
           ))}
         </div>
       )}
@@ -529,6 +632,19 @@ function MessageRow({
     }
     return (
       <div className="group flex flex-col items-end">
+        {m.images && m.images.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
+            {m.images.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={src}
+                alt=""
+                className="h-20 w-20 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
+              />
+            ))}
+          </div>
+        )}
         <span className="max-w-[calc(100%-2.75rem)] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-accent-gradient px-4 py-2.5 text-sm leading-relaxed text-white">
           {m.content}
         </span>
@@ -556,6 +672,8 @@ function MessageRow({
     <div className="flex items-start gap-2.5">
       <MsgAvatar model={m.model} working={m.streaming && !m.content} />
       <div className="group min-w-0 max-w-[calc(100%-2.75rem)]">
+        {/* 思考轨迹：流式期间实时尾部，完成后折叠可回看 */}
+        {m.reasoning && <ReasoningBlock text={m.reasoning} streaming={!!m.streaming} />}
         {/* 等待期：独立状态行（思考/搜索/站内阶段 + 耗时），首个正文到达后切换为气泡 */}
         {!m.content && !m.failed && m.streaming && (
           <ChatStatusLine phase={statusPhaseOf(m)} detail={m.toolDetail} />

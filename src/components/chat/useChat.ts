@@ -23,6 +23,8 @@ export interface ToolTrace {
   name: string;
   label: string;
   detail: string;
+  /** 执行结果摘要（截断） */
+  result?: string;
 }
 
 export interface ChatMsg {
@@ -30,6 +32,12 @@ export interface ChatMsg {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** 图片缩略图（dataURL，随会话持久化；仅展示用） */
+  images?: string[];
+  /** 本轮发送的全尺寸图（dataURL，只在请求期间存在于内存，不持久化） */
+  sendImages?: string[];
+  /** 思考过程轨迹（reasoning_content 累积，持久化截断） */
+  reasoning?: string;
   /** 流式生成中 */
   streaming?: boolean;
   /** 服务端正在调用站内数据工具（status 事件置位，首个 delta 到达后清除） */
@@ -101,6 +109,8 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             related: m.related,
             tools: m.tools,
             model: m.model,
+            images: m.images,
+            reasoning: m.reasoning,
           }));
         }
       }
@@ -124,6 +134,9 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             related: m.related,
             tools: m.tools,
             model: m.model,
+            // 图片只存缩略图、思考轨迹截断，防 localStorage 爆容
+            images: m.images,
+            reasoning: m.reasoning?.slice(0, 4000),
           }));
         if (clean.length <= 1) {
           localStorage.removeItem(persistKey);
@@ -146,6 +159,13 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
 
   const appendDelta = (text: string) => {
     setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 ? { ...m, content: m.content + text } : m)));
+  };
+
+  /** 思考轨迹累积（reasoning 事件） */
+  const appendReasoning = (text: string) => {
+    setMessages((ms) =>
+      ms.map((m, i) => (i === ms.length - 1 ? { ...m, reasoning: (m.reasoning ?? "") + text } : m)),
+    );
   };
 
   /** 跑一轮对话：history 已含最新 user 消息，尾部追加流式 assistant */
@@ -178,7 +198,15 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: history.slice(-16),
+            // 图片只随最后一条 user 消息上送（全尺寸 dataURL；旧消息的图折叠为占位）
+            messages: history.slice(-16).map((m, i, arr) => ({
+              role: m.role,
+              content: m.content,
+              images:
+                m.role === "user" && i === arr.map((x) => x.role).lastIndexOf("user")
+                  ? (m.sendImages ?? m.images)
+                  : undefined,
+            })),
             stream: true,
             localHour: new Date().getHours(),
             visitorId: getVisitorId(),
@@ -261,6 +289,9 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
               // 思考模式：正文前先流推理内容，等待期显示「深度思考中」
               querying = true;
               patchLast({ querying: true, thinking: true, toolName: undefined, toolDetail: undefined });
+            } else if (event === "reasoning" && typeof payload.text === "string") {
+              // 思考轨迹：转发给前端累积展示
+              appendReasoning(payload.text);
             } else if (event === "tools") {
               patchLast({ tools: Array.isArray(payload) ? (payload as unknown as ToolTrace[]) : [] });
             } else if (event === "delta" && typeof payload.text === "string") {
@@ -340,13 +371,19 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, images?: { full: string[]; thumbs: string[] }) => {
       const q = text.trim();
       if (!q || busy) return;
       trackEvent("use_chat");
       const history = [
         ...messages.filter((m) => !m.failed && !m.streaming),
-        { id: uid(), role: "user" as const, content: q },
+        {
+          id: uid(),
+          role: "user" as const,
+          content: q,
+          images: images?.thumbs,
+          sendImages: images?.full,
+        },
       ];
       await runTurn(history);
     },

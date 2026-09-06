@@ -6,7 +6,7 @@ import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chatPolicy";
-import { getChatTools, executeTool, TOOL_LABELS, toolCallSummary, searchApiKey } from "@/lib/chatTools";
+import { getChatTools, executeTool, toolCallSummary, toolLabelOf, searchApiKey } from "@/lib/chatTools";
 import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/llm";
 import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
 import { stripMood } from "@/lib/moodStream";
@@ -17,12 +17,14 @@ export const dynamic = "force-dynamic";
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  /** 图片（data URL，仅最后一条 user 消息生效；三家模型均为原生多模态） */
+  images?: string[];
 }
 
 /** 工具循环里的消息形态（OpenAI 协议；tool 消息只在服务端本次请求内存在，不回传客户端） */
 interface LoopMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content: string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
@@ -64,12 +66,40 @@ interface ToolTrace {
   name: string;
   label: string;
   detail: string;
+  /** 执行结果摘要（截断），轨迹展开时可见"查到了什么" */
+  result?: string;
 }
 
 /** SSE 帧格式：`event: <name>\ndata: <json>\n\n` */
 function sse(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
+
+/* ---------- 图片输入校验（不可信输入一律钳制） ---------- */
+
+const IMAGE_MIME_OK = ["data:image/jpeg", "data:image/png", "data:image/webp", "data:image/gif"];
+/** 单条消息最多 3 张；base64 ≤6M 字符（≈4.5MB 原图） */
+const validImages = (arr: unknown): string[] =>
+  Array.isArray(arr)
+    ? arr
+        .filter(
+          (x): x is string =>
+            typeof x === "string" && IMAGE_MIME_OK.some((m) => x.startsWith(m)) && x.length <= 6_000_000,
+        )
+        .slice(0, 3)
+    : [];
+
+/** 工具结果 → 展示用摘要（截断；搜索/查询结果给前端轨迹展开用） */
+const resultSummary = (raw: string): string => {
+  try {
+    const j = JSON.parse(raw) as Record<string, unknown>;
+    if (j && typeof j === "object" && !Array.isArray(j)) {
+      if (typeof j.error === "string") return `⚠ ${j.error.slice(0, 100)}`;
+      if (typeof j.answer === "string") return j.answer.slice(0, 100);
+    }
+  } catch {}
+  return raw.replace(/^\s+/, "").slice(0, 100);
+};
 
 /** 工具使用指引：让模型知道站内数据要查再说，而不是拒绝或编造 */
 const TOOL_GUIDE = `[站内数据查询能力
@@ -138,10 +168,13 @@ async function relayUpstream(
           };
           const delta = parsed.choices?.[0]?.delta;
           if (!delta) continue;
-          // 思考模式：正文之前会先流出推理内容——告知客户端显示「思考中」
-          if (!announcedThinking && typeof delta.reasoning_content === "string" && delta.reasoning_content) {
-            announcedThinking = true;
-            send(sse("status", { stage: "thinking" }));
+          // 思考模式：正文之前会先流出推理内容——告知客户端显示「思考中」并转发轨迹
+          if (typeof delta.reasoning_content === "string" && delta.reasoning_content) {
+            if (!announcedThinking) {
+              announcedThinking = true;
+              send(sse("status", { stage: "thinking" }));
+            }
+            send(sse("reasoning", { text: delta.reasoning_content }));
           }
           if (typeof delta.content === "string" && delta.content) {
             content += delta.content;
@@ -346,12 +379,32 @@ export async function POST(request: Request) {
   const thinks = levelThinks(llm.level);
   const streamTimeout = !thinks ? 60_000 : llm.level === "mid" ? 90_000 : 120_000;
   const fetchTimeout = !thinks ? 30_000 : llm.level === "mid" ? 60_000 : 90_000;
-  const tools = getChatTools();
+  const tools = getChatTools(config.aiChat);
+
+  // 组装上游消息：最后一条 user 消息带图 → content parts（三家模型均原生多模态）；
+  // 历史里的旧图折叠为"[图片]"文字占位（省 token，上游也不该重复吃旧图）
+  const lastUserIdx = history.map((m) => m.role).lastIndexOf("user");
+  const chatHistory: LoopMessage[] = history.map((m, i) => {
+    if (m.role === "user" && i === lastUserIdx) {
+      const imgs = validImages(m.images);
+      if (imgs.length) {
+        return {
+          role: "user",
+          content: [
+            { type: "text", text: m.content || "（请看图片）" },
+            ...imgs.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+          ],
+        };
+      }
+    }
+    const hadImages = m.role === "user" && Array.isArray(m.images) && m.images.length;
+    return { role: m.role, content: hadImages ? `${m.content}\n[图片]` : m.content };
+  });
 
   try {
     /* ===== 非流式：工具循环（≤ MAX_TOOL_ROUNDS 轮）后一次性 JSON ===== */
     if (!streamMode) {
-      const messages: LoopMessage[] = [{ role: "system", content: system }, ...history];
+      const messages: LoopMessage[] = [{ role: "system", content: system }, ...chatHistory];
       const toolsUsed: ToolTrace[] = [];
       let content = "";
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -387,16 +440,14 @@ export async function POST(request: Request) {
         if (!toolCalls.length || !allowTools) break;
         messages.push({ role: "assistant", content, tool_calls: toolCalls });
         for (const tc of toolCalls) {
+          const result = await executeTool(tc.function.name, tc.function.arguments, config.aiChat);
           toolsUsed.push({
             name: tc.function.name,
-            label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+            label: toolLabelOf(tc.function.name, config.aiChat),
             detail: toolCallSummary(tc.function.name, tc.function.arguments),
+            result: resultSummary(result),
           });
-          messages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: await executeTool(tc.function.name, tc.function.arguments),
-          });
+          messages.push({ role: "tool", tool_call_id: tc.id, content: result });
         }
       }
       const { text: reply, mood } = stripMood(content.trim());
@@ -437,7 +488,7 @@ export async function POST(request: Request) {
           }
         };
 
-        const messages: LoopMessage[] = [{ role: "system", content: system }, ...history];
+        const messages: LoopMessage[] = [{ role: "system", content: system }, ...chatHistory];
         const toolsUsed: ToolTrace[] = [];
         try {
           for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -470,16 +521,17 @@ export async function POST(request: Request) {
               send(
                 sse("status", {
                   stage: "tool",
-                  label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+                  label: toolLabelOf(tc.function.name, config.aiChat),
                   name: tc.function.name,
                   detail: toolCallSummary(tc.function.name, tc.function.arguments),
                 }),
               );
-              const result = await executeTool(tc.function.name, tc.function.arguments);
+              const result = await executeTool(tc.function.name, tc.function.arguments, config.aiChat);
               toolsUsed.push({
                 name: tc.function.name,
-                label: TOOL_LABELS[tc.function.name] ?? tc.function.name,
+                label: toolLabelOf(tc.function.name, config.aiChat),
                 detail: toolCallSummary(tc.function.name, tc.function.arguments),
+                result: resultSummary(result),
               });
               messages.push({ role: "tool", tool_call_id: tc.id, content: result });
             }

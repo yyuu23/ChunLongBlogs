@@ -202,6 +202,7 @@ export const en: Dictionary = {
   },
   chat: {
     title: "Chat with the assistant",
+    personaLoading: "Loading artwork…",
     openAria: "AI chat",
     closeAria: "Close chat",
     sendAria: "Send",
@@ -226,6 +227,11 @@ export const en: Dictionary = {
       on: "On",
     },
     status: { waiting: "Reaching out", thinking: "Thinking hard", search: "Searching the web", site: "Checking the site" },
+    attach: "Upload image",
+    removeImage: "Remove image",
+    imageOnlyNote: "(image)",
+    thinkingTrace: "Thoughts",
+    traceUnit: "chars",
     phrases: {
       waiting: ["Knocking on the model's door…", "Warming up…", "Getting ready…"],
       thinking: ["Let me think…", "Connecting the dots…", "Gears are turning", "Organizing thoughts…"],

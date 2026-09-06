@@ -814,6 +814,33 @@ export async function saveAiChat(input: AiChatConfig) {
   const defaultEffort = defLevels.includes(input.defaultEffort as ThinkingLevel)
     ? input.defaultEffort
     : defLevels[0]!;
+  // 内置工具开关：只认白名单键
+  const toolWhitelist = new Set([
+    "list_posts", "get_post", "list_moments", "list_albums", "site_stats", "list_music", "web_search",
+  ]);
+  const tools = Object.fromEntries(Object.entries(input.tools ?? {}).filter(([k]) => toolWhitelist.has(k)));
+  // 自定义 HTTP 工具：名称清洗为合法标识符、端点必须 http(s)、与内置名冲突或重名的丢弃
+  const seenNames = new Set<string>();
+  const customTools = (Array.isArray(input.customTools) ? input.customTools : [])
+    .slice(0, 6)
+    .map((t) => ({
+      id: String(t?.id ?? "").trim().slice(0, 64) || `tool-${Date.now().toString(36)}`,
+      name: String(t?.name ?? "")
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]/g, "")
+        .slice(0, 48),
+      description: String(t?.description ?? "").trim().slice(0, 200),
+      endpoint: String(t?.endpoint ?? "").trim().slice(0, 300),
+    }))
+    .filter(
+      (t) =>
+        !!t.name &&
+        !!t.endpoint &&
+        /^https?:\/\//.test(t.endpoint) &&
+        !toolWhitelist.has(t.name) &&
+        !seenNames.has(t.name) &&
+        (seenNames.add(t.name), true),
+    );
   const clamp = (n: unknown) => {
     const v = Number(n);
     return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 999) : 0;
@@ -828,6 +855,8 @@ export async function saveAiChat(input: AiChatConfig) {
       allowVisitorChoice: input.allowVisitorChoice === true,
       perVisitorHourly: clamp(input.perVisitorHourly),
       perVisitorDaily: clamp(input.perVisitorDaily),
+      tools,
+      customTools,
     },
   });
   revalidateAll();

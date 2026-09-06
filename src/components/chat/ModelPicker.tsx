@@ -7,7 +7,7 @@ import { useT } from "@/components/providers/LocaleProvider";
 import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
 import { BrandLogo } from "./BrandLogo";
-import { PersonaFull } from "./PersonaArt";
+import { PersonaFull, preheatPersona } from "./PersonaArt";
 
 /**
  * 模型与思考强度选择器（/chat 页）：
@@ -84,6 +84,12 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
   }, [open]);
 
   const choice = aiChoices.choices.find((c) => c.id === modelId) ?? aiChoices.choices[0];
+
+  // 预热当前模型的拟人图（~55KB，浏览器缓存）：打开弹窗/切档位基本秒出
+  const provider = choice?.provider;
+  useEffect(() => {
+    if (provider) preheatPersona(provider);
+  }, [provider]);
 
   if (!choice) return null;
 

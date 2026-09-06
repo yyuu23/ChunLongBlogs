@@ -34,7 +34,7 @@ function PolaroidPhoto({
     <motion.div
       initial={{ opacity: 0, y: 30, rotate: rotation * 2 }}
       animate={{ opacity: 1, y: 0, rotate: rotation }}
-      transition={{ duration: 0.55, delay: Math.min(index * 0.08, 0.6), ease: "easeOut" }}
+      transition={{ duration: 0.55, delay: Math.min(index * 0.05, 0.5), ease: "easeOut" }}
       whileHover={{
         rotate: 0,
         scale: 1.04,
@@ -45,14 +45,14 @@ function PolaroidPhoto({
       className="group relative cursor-pointer break-inside-avoid"
       style={{ transformOrigin: "center center" }}
     >
-      <div className="relative rounded-sm bg-white p-2 pb-6 shadow-lg ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-2xl dark:bg-slate-800 dark:ring-white/10">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-[2px]">
+      <div className="relative rounded-sm bg-white p-2 pb-6 shadow-lg ring-1 ring-black/5 transition-shadow duration-300 group-hover:shadow-[0_18px_45px_-12px_color-mix(in_srgb,var(--accent-solid)_35%,transparent)] dark:bg-slate-800 dark:ring-white/10">
+        {/* 原始宽高比：瀑布流里高低错落的关键，不裁剪 */}
+        <div className="relative overflow-hidden rounded-[2px]">
           <LazyImage
+            natural
             src={photo.url}
             alt={photo.caption || t("common.photoAlt")}
-            fill
-            sizes="(max-width: 640px) 50vw, 25vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-auto transition-transform duration-700 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
         </div>
@@ -119,11 +119,19 @@ function AlbumCard({
                   y: i * 12,
                   scale: 1 - i * 0.04,
                   zIndex: i + 1,
+                  // 底层两张灰度+模糊，制造"压在下面"的景深（hover 散开时恢复彩色）
+                  filter:
+                    i === 0
+                      ? "grayscale(60%) blur(1px)"
+                      : i === 1
+                        ? "grayscale(25%)"
+                        : "grayscale(0%)",
                 },
                 hover: {
                   rotate: FAN_ANGLES[i] ?? 0,
                   y: FAN_Y[i] ?? 0,
                   scale: i === 1 ? 1 : 0.95,
+                  filter: "grayscale(0%) blur(0px)",
                 },
               }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -168,8 +176,9 @@ function AlbumCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-6 md:px-6">
+              {/* CSS columns 瀑布流：照片保持原始比例、高低错落（卡片自带 break-inside-avoid） */}
               <div className="rounded-2xl bg-white/30 p-4 dark:bg-white/5 md:p-5">
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="columns-2 gap-4 space-y-4 sm:columns-3 lg:columns-4">
                   {album.photos.map((photo, i) => (
                     <PolaroidPhoto key={photo.id} photo={photo} index={i} onClick={() => onPhotoClick(i)} />
                   ))}

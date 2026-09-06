@@ -1,11 +1,13 @@
 /**
  * 聊天图片附件（纯客户端处理，不经服务器存储）：
  * - full：压缩到最长边 1568px / jpeg 85% 后的 dataURL，随请求发给模型（三家均原生多模态）
- * - thumb：96px 缩略图，消息气泡展示与会话持久化用（防 localStorage 爆容）
+ * - view：640px 预览级，灯箱放大与历史持久化用（点击图片可看清）
+ * - thumb：96px 缩略图，消息气泡内小图展示
  */
 
 export interface AttachedImage {
   full: string;
+  view: string;
   thumb: string;
 }
 
@@ -34,6 +36,7 @@ const drawScaled = async (blob: Blob, maxEdge: number, quality: number): Promise
 export async function attachImage(blob: Blob): Promise<AttachedImage | null> {
   const full = await drawScaled(blob, 1568, 0.85);
   if (!full) return null;
-  const thumb = (await drawScaled(blob, 96, 0.6)) ?? full;
-  return { full, thumb };
+  const view = (await drawScaled(blob, 640, 0.72)) ?? full;
+  const thumb = (await drawScaled(blob, 96, 0.6)) ?? view;
+  return { full, view, thumb };
 }

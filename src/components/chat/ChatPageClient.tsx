@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent as RDragEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -28,6 +28,7 @@ import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { ModelPicker, type AiChoicesPublic } from "./ModelPicker";
 import { PersonaAvatar } from "./PersonaArt";
 import { ChatStatusLine, statusPhaseOf } from "./ChatStatusLine";
+import { ImageLightbox, type LightboxState } from "./ImageLightbox";
 import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
 import {
@@ -58,9 +59,41 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   });
   const [input, setInput] = useState("");
   const [pending, setPending] = useState<AttachedImage[]>([]);
+  /** 拖拽深度计数（dragenter/leave 成对触发，计数防子元素间移动时闪烁） */
+  const [dragDepth, setDragDepth] = useState(0);
+  /** 图片灯箱（点击气泡/预览图打开，放大查看） */
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 拖拽期间拦截 window 级默认行为：松手不会让浏览器直接打开图片文件
+  useEffect(() => {
+    const prevent = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
+    return () => {
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
+    };
+  }, []);
+
+  const hasFiles = (e: RDragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+  const onDragEnter = (e: RDragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth((d) => d + 1);
+  };
+  const onDragLeave = (e: RDragEvent) => {
+    if (!hasFiles(e)) return;
+    setDragDepth((d) => Math.max(0, d - 1));
+  };
+  const onDropFiles = (e: RDragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth(0);
+    void addImageFiles(e.dataTransfer.files);
+  };
   // 模型/思考强度选择器（ModelPicker 内部管理 localStorage，悬浮窗共用同一存储）
   const showModelSelector = !!aiChoices?.allow && (aiChoices?.choices.length ?? 0) > 1;
 
@@ -132,7 +165,11 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
     const images = pending.length
-      ? { full: pending.map((p) => p.full), thumbs: pending.map((p) => p.thumb) }
+      ? {
+          full: pending.map((p) => p.full),
+          thumbs: pending.map((p) => p.thumb),
+          views: pending.map((p) => p.view),
+        }
       : undefined;
     setPending([]);
     void send(q || t("chat.imageOnlyNote"), images);
@@ -177,7 +214,25 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   );
 
   return (
-    <div className="cl-chat-page mx-auto flex w-[min(96%,64rem)] gap-4">
+    <div
+      className="cl-chat-page relative mx-auto flex w-[min(96%,64rem)] gap-4"
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => {
+        if (hasFiles(e)) e.preventDefault();
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={onDropFiles}
+    >
+      {/* 拖图入场：全屏虚化遮罩，对话卡抬升其上成为投递目标 */}
+      {dragDepth > 0 && (
+        <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-sm" aria-hidden>
+          <div className="absolute inset-x-0 top-6 flex flex-col items-center gap-1 text-center">
+            <ImagePlus className="h-8 w-8 text-white/90" />
+            <p className="text-sm font-medium text-white drop-shadow">{t("chat.dropHint")}</p>
+            <p className="text-xs text-white/80 drop-shadow">{t("chat.dropHintSub")}</p>
+          </div>
+        </div>
+      )}
       {/* 桌面侧栏：pt-14 精确跳过顶栏高度（h-11 + mb-3 = 56px），
           aside 本身不设高 —— 由外层 stretch 拉到主列总高，玻璃卡 flex-1 填满，
           顶部/底部即与聊天卡严格平齐 */}
@@ -220,8 +275,20 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
 
         {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩。
             页脚已收起（globals.css 的 body:has(.cl-chat-page)）；
-            12rem = 主区上内边距(6.4) + 顶栏含间距(3.5) + 底部 pb-8(2) */}
-        <div className="glass-card flex h-[calc(100dvh-12rem)] min-h-[24rem] flex-col overflow-hidden">
+            12rem = 主区上内边距(6.4) + 顶栏含间距(3.5) + 底部 pb-8(2)；
+            拖图时抬到遮罩之上并虚线高亮为投递目标 */}
+        <div
+          className={`glass-card relative flex h-[calc(100dvh-12rem)] min-h-[24rem] flex-col overflow-hidden ${
+            dragDepth > 0 ? "z-[71] ring-2 ring-accent ring-offset-2" : ""
+          }`}
+        >
+          {dragDepth > 0 && (
+            <div className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-accent/70 bg-white/40 backdrop-blur-[2px] dark:bg-slate-900/40">
+              <ImagePlus className="h-10 w-10 text-accent" />
+              <p className="text-sm font-medium text-accent">{t("chat.dropHint")}</p>
+              <p className="text-xs text-muted">{t("chat.dropHintSub")}</p>
+            </div>
+          )}
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {messages.map((m) => (
               <MessageRow
@@ -229,6 +296,9 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
                 m={m}
                 busy={busy}
                 onRetry={retry}
+                onOpenImage={(index) =>
+                  setLightbox({ srcs: m.viewImages ?? m.images ?? [], index })
+                }
                 onRegenerate={(id, text) => {
                   touchSession(text);
                   void regenerateFrom(id, text);
@@ -290,12 +360,19 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
               <div className="mb-2 flex gap-2">
                 {pending.map((p, i) => (
                   <span key={i} className="group/img relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.thumb}
-                      alt=""
-                      className="h-14 w-14 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setLightbox({ srcs: pending.map((x) => x.view), index: i })}
+                      className="block transition-transform hover:scale-105"
+                      aria-label={t("chat.imageViewer")}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.thumb}
+                        alt=""
+                        className="h-14 w-14 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
+                      />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setPending((arr) => arr.filter((_, j) => j !== i))}
@@ -385,6 +462,15 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
           </>
         )}
       </AnimatePresence>
+
+      {/* 图片灯箱 */}
+      {lightbox && (
+        <ImageLightbox
+          state={lightbox}
+          onClose={() => setLightbox(null)}
+          onNav={(index) => setLightbox((st) => (st ? { ...st, index } : st))}
+        />
+      )}
     </div>
   );
 }
@@ -572,11 +658,13 @@ function MessageRow({
   m,
   busy,
   onRetry,
+  onOpenImage,
   onRegenerate,
 }: {
   m: ChatMsg;
   busy: boolean;
   onRetry: () => void;
+  onOpenImage: (index: number) => void;
   onRegenerate: (id: string, text: string) => void;
 }) {
   const t = useT();
@@ -635,13 +723,20 @@ function MessageRow({
         {m.images && m.images.length > 0 && (
           <div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
             {m.images.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <button
                 key={i}
-                src={src}
-                alt=""
-                className="h-20 w-20 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
-              />
+                type="button"
+                onClick={() => onOpenImage(i)}
+                aria-label={t("chat.imageViewer")}
+                className="block transition-transform hover:scale-105"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt=""
+                  className="h-20 w-20 rounded-xl object-cover ring-1 ring-[var(--glass-border)]"
+                />
+              </button>
             ))}
           </div>
         )}

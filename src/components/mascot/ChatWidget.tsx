@@ -12,6 +12,7 @@ import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { PersonaAvatar } from "@/components/chat/PersonaArt";
 import { ChatStatusLine, statusPhaseOf } from "@/components/chat/ChatStatusLine";
 import { attachImage, type AttachedImage } from "@/lib/imageAttach";
+import { ImageLightbox, type LightboxState } from "@/components/chat/ImageLightbox";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -28,6 +29,8 @@ export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState<AttachedImage[]>([]);
+  const [dragOnPanel, setDragOnPanel] = useState(0);
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { messages, busy, send, stop } = useChat({ welcome: t("chat.welcome") });
   const listRef = useRef<HTMLDivElement>(null);
@@ -60,7 +63,11 @@ export function ChatWidget() {
     if ((!text && !pending.length) || busy) return;
     setInput("");
     const images = pending.length
-      ? { full: pending.map((p) => p.full), thumbs: pending.map((p) => p.thumb) }
+      ? {
+          full: pending.map((p) => p.full),
+          thumbs: pending.map((p) => p.thumb),
+          views: pending.map((p) => p.view),
+        }
       : undefined;
     setPending([]);
     void send(text || t("chat.imageOnlyNote"), images);
@@ -88,7 +95,26 @@ export function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="glass-card cl-chat-panel-open fixed bottom-3 left-3 z-40 flex h-[min(38rem,calc(100dvh-7.5rem))] w-[min(20rem,86vw)] flex-col overflow-hidden"
+            className={`glass-card cl-chat-panel-open fixed bottom-3 left-3 z-40 flex h-[min(38rem,calc(100dvh-7.5rem))] w-[min(20rem,86vw)] flex-col overflow-hidden ${
+              dragOnPanel > 0 ? "ring-2 ring-accent" : ""
+            }`}
+            onDragEnter={(e) => {
+              if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
+                e.preventDefault();
+                setDragOnPanel((d) => d + 1);
+              }
+            }}
+            onDragOver={(e) => {
+              if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) e.preventDefault();
+            }}
+            onDragLeave={() => setDragOnPanel((d) => Math.max(0, d - 1))}
+            onDrop={(e) => {
+              if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
+                e.preventDefault();
+                setDragOnPanel(0);
+                void addImageFiles(e.dataTransfer.files);
+              }
+            }}
           >
             <div className="flex items-center justify-between border-b border-[var(--glass-border)] px-4 py-2.5">
               <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
@@ -108,8 +134,16 @@ export function ChatWidget() {
                       {m.images && m.images.length > 0 && (
                         <div className="mb-1 flex flex-wrap justify-end gap-1">
                           {m.images.map((src, j) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img key={j} src={src} alt="" className="h-12 w-12 rounded-lg object-cover ring-1 ring-[var(--glass-border)]" />
+                            <button
+                              key={j}
+                              type="button"
+                              onClick={() => setLightbox({ srcs: m.viewImages ?? m.images ?? [], index: j })}
+                              aria-label={t("chat.imageViewer")}
+                              className="block transition-transform hover:scale-105"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={src} alt="" className="h-12 w-12 rounded-lg object-cover ring-1 ring-[var(--glass-border)]" />
+                            </button>
                           ))}
                         </div>
                       )}
@@ -170,8 +204,15 @@ export function ChatWidget() {
                 <div className="mb-1.5 flex gap-1.5">
                   {pending.map((p, i) => (
                     <span key={i} className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.thumb} alt="" className="h-10 w-10 rounded-lg object-cover ring-1 ring-[var(--glass-border)]" />
+                      <button
+                        type="button"
+                        onClick={() => setLightbox({ srcs: pending.map((x) => x.view), index: i })}
+                        aria-label={t("chat.imageViewer")}
+                        className="block transition-transform hover:scale-105"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.thumb} alt="" className="h-10 w-10 rounded-lg object-cover ring-1 ring-[var(--glass-border)]" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPending((arr) => arr.filter((_, j) => j !== i))}
@@ -242,6 +283,15 @@ export function ChatWidget() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 图片灯箱 */}
+      {lightbox && (
+        <ImageLightbox
+          state={lightbox}
+          onClose={() => setLightbox(null)}
+          onNav={(index) => setLightbox((st) => (st ? { ...st, index } : st))}
+        />
+      )}
     </>
   );
 }

@@ -32,8 +32,10 @@ export interface ChatMsg {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /** 图片缩略图（dataURL，随会话持久化；仅展示用） */
+  /** 图片缩略图（dataURL，仅气泡内小图展示） */
   images?: string[];
+  /** 预览级图（640px，灯箱放大查看用；随会话持久化，恢复后兼作展示图） */
+  viewImages?: string[];
   /** 本轮发送的全尺寸图（dataURL，只在请求期间存在于内存，不持久化） */
   sendImages?: string[];
   /** 思考过程轨迹（reasoning_content 累积，持久化截断） */
@@ -110,6 +112,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             tools: m.tools,
             model: m.model,
             images: m.images,
+            viewImages: m.viewImages,
             reasoning: m.reasoning,
           }));
         }
@@ -134,8 +137,9 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
             related: m.related,
             tools: m.tools,
             model: m.model,
-            // 图片只存缩略图、思考轨迹截断，防 localStorage 爆容
-            images: m.images,
+            // 图片持久化只存预览级（640px 灯箱可看），思考轨迹截断，防爆容
+            images: m.viewImages ?? m.images,
+            viewImages: m.viewImages,
             reasoning: m.reasoning?.slice(0, 4000),
           }));
         if (clean.length <= 1) {
@@ -371,7 +375,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
   );
 
   const send = useCallback(
-    async (text: string, images?: { full: string[]; thumbs: string[] }) => {
+    async (text: string, images?: { full: string[]; thumbs: string[]; views: string[] }) => {
       const q = text.trim();
       if (!q || busy) return;
       trackEvent("use_chat");
@@ -382,6 +386,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
           role: "user" as const,
           content: q,
           images: images?.thumbs,
+          viewImages: images?.views,
           sendImages: images?.full,
         },
       ];

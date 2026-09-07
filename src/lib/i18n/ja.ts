@@ -216,6 +216,8 @@ export const ja: Dictionary = {
     noCredits: "今日のクレジットを使い切りました！チェックインするか、また明日ね！",
     creditsBalance: "残りクレジット",
     creditsPerMsg: "1メッセージの消費",
+    peakNotice: "DeepSeek ピークタイム · クレジット2倍",
+    promoTag: "期間限定",
     stopAria: "生成を停止",
     querying: "サイト内を調べています…",
     thinking: "じっくり考え中",

@@ -10,6 +10,7 @@ import { BrandLogo } from "./BrandLogo";
 import { PersonaFull, preheatPersona } from "./PersonaArt";
 import { CreditIcon } from "./CreditIcon";
 import { fetchProgress } from "@/lib/track";
+import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/credits";
 
 /**
  * 模型与思考强度选择器（/chat 页）：
@@ -32,6 +33,8 @@ export interface PickerChoice {
   cost: number;
   /** 各档位实际积分价（档位 id → 分） */
   levelCosts: Record<string, number>;
+  /** 限时促销展示（划线原价；until 过期自动隐藏） */
+  promo?: { originalCost?: number; label?: string; until?: string };
 }
 
 export interface AiChoicesPublic {
@@ -40,7 +43,7 @@ export interface AiChoicesPublic {
   defaultEffort: string;
   choices: PickerChoice[];
   /** 积分体系：enabled=false 时选择器不显示价格元素 */
-  credits: { enabled: boolean; dailyGrant: number };
+  credits: { enabled: boolean; dailyGrant: number; peakMultiplier?: number };
 }
 
 export const MODEL_STORAGE_KEY = "cl-chat-model";
@@ -116,6 +119,17 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
     };
   }, [aiChoices.credits.enabled]);
 
+  // DeepSeek 高峰判定：每 30s 重估一次（跨过 9:00/12:00/14:00/18:00 时提示自动出现/消失）
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTick((v) => v + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const peak = aiChoices.credits.enabled && !!choice && isDeepSeekPeakNow();
+  const peakMult = peakMultiplierOf(aiChoices as unknown as Parameters<typeof peakMultiplierOf>[0]);
+  const peakFactor = peak && peakMult > 1 ? peakMult : 1;
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   if (!choice) return null;
 
   const selectModel = (c: PickerChoice) => {
@@ -160,6 +174,12 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
             className="glass-card absolute bottom-full left-0 z-30 mb-2 w-[min(21rem,calc(100vw-3rem))] !rounded-2xl p-3 shadow-xl"
           >
+            {/* DeepSeek 高峰时段警示 */}
+            {peakFactor > 1 && (
+              <div className="mb-2 flex items-center gap-1.5 rounded-xl border border-amber-300/60 bg-amber-100/70 px-2.5 py-1.5 text-[0.625rem] font-medium text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
+                ⚡ {t("chat.peakNotice")}
+              </div>
+            )}
             {/* 上：模型列表 + 当前模型立绘 */}
             <div className="flex gap-2">
               <div className="min-w-0 flex-1">
@@ -201,10 +221,22 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                         {aiChoices.credits.enabled && (
                           <span
                             title={t("chat.creditsPerMsg")}
-                            className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/5 px-1.5 py-0.5 text-[0.625rem] tabular-nums text-muted dark:bg-white/10"
+                            className="flex shrink-0 items-center gap-1 rounded-full bg-black/5 px-1.5 py-0.5 text-[0.625rem] tabular-nums text-muted dark:bg-white/10"
                           >
+                            {c.promo && (!c.promo.until || c.promo.until >= todayStr) && (
+                              <>
+                                {c.promo.label && (
+                                  <span className="rounded-full bg-rose-400/15 px-1 text-rose-500 dark:text-rose-300">
+                                    {c.promo.label}
+                                  </span>
+                                )}
+                                {!!c.promo.originalCost && (
+                                  <s className="opacity-60">{c.promo.originalCost}</s>
+                                )}
+                              </>
+                            )}
                             <CreditIcon size={10} />
-                            {c.cost}
+                            {Math.round(c.cost * peakFactor)}
                           </span>
                         )}
                         {active && <Check className="h-3.5 w-3.5 shrink-0 text-accent" />}
@@ -232,7 +264,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                       title={t("chat.creditsPerMsg")}
                       className="flex items-center gap-0.5 text-[0.625rem] tabular-nums text-muted"
                     >
-                      <CreditIcon size={10} />−{choice.levelCosts[effort] ?? choice.cost}
+                      <CreditIcon size={10} />−{Math.round((choice.levelCosts[effort] ?? choice.cost) * peakFactor)}
                     </span>
                   )}
                   <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[0.625rem] font-semibold text-accent">

@@ -11,6 +11,7 @@ import {
   FileText,
   History,
   ImagePlus,
+  Loader2,
   MessageSquareText,
   Pencil,
   Plus,
@@ -785,6 +786,18 @@ function MessageRow({
             ) : (
               <span className="text-xs text-muted">{t("chat.unknownError")}</span>
             )}
+          </div>
+        )}
+
+        {/* 搜索/工具执行中：仿思考过程的可见气泡（模型常先说一句话再调工具，
+            此时正文已在流式输出，状态行不渲染，页面会显得静止——这里补一个动态气泡） */}
+        {m.querying && m.streaming && (
+          <div className="cl-status-pill mb-1.5 w-fit max-w-full rounded-xl border border-dashed border-[var(--glass-border)] bg-white/30 px-3 py-2 dark:bg-white/5">
+            <p className="flex max-w-full items-center gap-1.5 text-[0.625rem] font-medium text-muted">
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent" />
+              <span className="shrink-0 text-accent">{m.toolLabel ?? t("chat.querying")}</span>
+              {m.toolDetail && <span className="truncate opacity-80">{m.toolDetail}</span>}
+            </p>
           </div>
         )}
 

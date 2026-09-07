@@ -12,7 +12,7 @@ import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
 import { incrStat } from "@/lib/stats";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
-import { creditsCfg, messageCost } from "@/lib/credits";
+import { creditsCfg, isPeakApplied, messageCost } from "@/lib/credits";
 import { spendCredits, refundCredits, ensureVisitorWithGrant } from "@/lib/credits-server";
 
 export const dynamic = "force-dynamic";
@@ -292,11 +292,13 @@ export async function POST(request: Request) {
   }
 
   /* ===== 积分扣减：按 模型基准价 × 真实档位倍率（getLlmRequest 钳制后的 llm.level） =====
+   * DeepSeek 高峰时段（北京时间工作日 9-12/14-18）自动 ×高峰倍率；
    * 原子扣减在调用上游之前——余额不足直接 429，不烧全站额度；
    * 上游首个请求就失败（没产生任何 token）时退款。 */
   let creditsSpent = 0;
   let creditsBalance = 0;
-  const creditCost = creditCfg.enabled && vidValid ? messageCost(config.aiChat, choice, llm.level) : 0;
+  const peakNow = choice ? isPeakApplied(choice) : false;
+  const creditCost = creditCfg.enabled && vidValid && choice ? messageCost(config.aiChat, choice, llm.level, peakNow) : 0;
   if (creditCost > 0) {
     // 新访客行不存在时先落一行并预发当日额度（500+Lv1 加成，与 player 路由首见发放同公式；
     // 种子 stats 带今日已访问标记，player 同日不会重复发放）

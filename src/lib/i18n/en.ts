@@ -214,6 +214,8 @@ export const en: Dictionary = {
     noCredits: "You're out of credits for today — check in daily or come back tomorrow!",
     creditsBalance: "Credits available",
     creditsPerMsg: "Cost per message",
+    peakNotice: "DeepSeek peak hours · 2× credits",
+    promoTag: "Promo",
     stopAria: "Stop generating",
     querying: "Looking through the site…",
     thinking: "Thinking hard",

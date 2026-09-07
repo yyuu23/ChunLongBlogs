@@ -798,13 +798,26 @@ export async function saveAiChat(input: AiChatConfig) {
   };
   const choices = (Array.isArray(input.choices) ? input.choices : [])
     .slice(0, 6)
-    .map((c) => ({
-      id: String(c.id ?? "").trim().slice(0, 64),
-      label: String(c.label ?? "").trim().slice(0, 24),
-      provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
-      model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
-      cost: clampCost(c.cost),
-    }))
+    .map((c) => {
+      // 促销（划线价展示）：三字段全空视为无促销
+      const p = c.promo;
+      const promo = p
+        ? {
+            originalCost: clampCost(p.originalCost),
+            label: typeof p.label === "string" && p.label.trim() ? p.label.trim().slice(0, 12) : undefined,
+            until: /^\d{4}-\d{2}-\d{2}$/.test(String(p.until ?? "")) ? String(p.until).slice(0, 10) : undefined,
+          }
+        : undefined;
+      const hasPromo = promo && (promo.originalCost !== undefined || !!promo.label || !!promo.until);
+      return {
+        id: String(c.id ?? "").trim().slice(0, 64),
+        label: String(c.label ?? "").trim().slice(0, 24),
+        provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
+        model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
+        cost: clampCost(c.cost),
+        promo: hasPromo ? promo : undefined,
+      };
+    })
     .filter((c) => c.id && c.label);
   // id 去重（重复的丢弃）
   const seen = new Set<string>();
@@ -865,6 +878,7 @@ export async function saveAiChat(input: AiChatConfig) {
     dailyGrant: clampBig(creditCfgIn.dailyGrant ?? 500),
     checkinBonus: clampBig(creditCfgIn.checkinBonus ?? 100),
     levelBonusPerLevel: clamp(creditCfgIn.levelBonusPerLevel ?? 5),
+    peakMultiplier: creditCfgIn.peakMultiplier !== undefined ? clampMult(creditCfgIn.peakMultiplier) : undefined,
   };
   const effortCost = Object.fromEntries(
     Object.entries(input.effortCost ?? {})

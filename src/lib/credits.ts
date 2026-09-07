@@ -33,6 +33,8 @@ export interface CreditsConfig {
   checkinBonus: number;
   /** 每等级加成/日（Lv 越高领越多） */
   levelBonusPerLevel: number;
+  /** DeepSeek 高峰时段积分倍率（北京时间工作日 9-12/14-18 点），<2 视为关闭 */
+  peakMultiplier?: number;
 }
 
 const CREDITS_DEFAULTS: CreditsConfig = {
@@ -71,7 +73,42 @@ export function choiceCostOf(aiChat: AiChatConfig, choice: AiChatChoice): number
   return CHOICE_COST_DEFAULTS[choice.provider] ?? 10;
 }
 
-/** 一条消息的积分价 = 基准价 × 档位倍率（level 必须传钳制后的真实档位） */
-export function messageCost(aiChat: AiChatConfig, choice: AiChatChoice, level: ThinkingLevel): number {
-  return Math.max(0, Math.round(choiceCostOf(aiChat, choice) * effortCostOf(aiChat, level)));
+/** DeepSeek 高峰时段（北京时间周一至周五 9:00–12:00、14:00–18:00，与官方计费口径一致） */
+export function isDeepSeekPeakNow(now = new Date()): boolean {
+  try {
+    const bj = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+    const day = bj.getDay();
+    const h = bj.getHours();
+    if (day === 0 || day === 6) return false;
+    return (h >= 9 && h < 12) || (h >= 14 && h < 18);
+  } catch {
+    return false;
+  }
+}
+
+/** DeepSeek 高峰倍率（<2 视为关闭） */
+export function peakMultiplierOf(aiChat: AiChatConfig): number {
+  const n = Number(aiChat.credits?.peakMultiplier);
+  return Number.isFinite(n) && n >= 2 ? n : 2;
+}
+
+/** 当前是否应对该模型应用高峰加价（仅 deepseek 供应商生效） */
+export function isPeakApplied(choice: AiChatChoice, now = new Date()): boolean {
+  return choice.provider === "deepseek" && isDeepSeekPeakNow(now);
+}
+
+/** 一条消息的积分价 = 基准价 × 档位倍率（level 必须传钳制后的真实档位）；
+ *  DeepSeek 在高峰时段整体乘以高峰倍率（peak=true 时生效） */
+export function messageCost(
+  aiChat: AiChatConfig,
+  choice: AiChatChoice,
+  level: ThinkingLevel,
+  peak = false,
+): number {
+  const base = Math.max(0, Math.round(choiceCostOf(aiChat, choice) * effortCostOf(aiChat, level)));
+  if (peak && choice.provider === "deepseek") {
+    const mult = peakMultiplierOf(aiChat);
+    if (mult > 1) return base * mult;
+  }
+  return base;
 }

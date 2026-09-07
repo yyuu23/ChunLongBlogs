@@ -213,6 +213,8 @@ export const zh = {
     noCredits: "今天的积分用完啦！完成每日签到或明天再来找我聊～",
     creditsBalance: "今日可用积分",
     creditsPerMsg: "每条消息消耗",
+    peakNotice: "DeepSeek 高峰时段 · 积分双倍扣除",
+    promoTag: "限时优惠",
     stopAria: "停止生成",
     querying: "正在翻站内资料…",
     thinking: "深度思考中",

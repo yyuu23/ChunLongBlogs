@@ -36,6 +36,8 @@ export interface AiChatChoice {
   model?: string;
   /** 每条消息基准积分（✦）；缺省用供应商默认（glm 12 / deepseek 15 / qwen 10） */
   cost?: number;
+  /** 限时促销展示：划线原价 + 标签 + 截止日（YYYY-MM-DD，过期自动隐藏；仅展示，扣费以 cost 为准） */
+  promo?: { originalCost?: number; label?: string; until?: string };
   /** @deprecated 已由访客侧思考强度滑条取代，仅为兼容旧配置保留、逻辑忽略 */
   thinking?: boolean;
 }
@@ -60,6 +62,8 @@ export interface AiCreditsConfig {
   checkinBonus: number;
   /** 每等级加成/日（Lv 越高领越多） */
   levelBonusPerLevel: number;
+  /** DeepSeek 高峰时段积分倍率（北京时间工作日 9-12/14-18），≥2 生效 */
+  peakMultiplier?: number;
 }
 
 export interface AiChatConfig {
@@ -171,7 +175,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
   aiChat: {
     choices: [
-      { id: "glm", label: "GLM 5.3 Flash", provider: "glm", cost: 12 },
+      { id: "glm", label: "GLM 5.3 Flash", provider: "glm", cost: 12, promo: { originalCost: 24, label: "限时半价", until: "2026-09-15" } },
       { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek", model: "deepseek-v4-flash-vision-exp", cost: 15 },
       { id: "qwen", label: "Qwen 3.8 Flash", provider: "qwen", cost: 10 },
     ],

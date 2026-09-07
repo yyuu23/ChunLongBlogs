@@ -214,6 +214,8 @@ export const ko: Dictionary = {
     noCredits: "오늘의 크레딧을 모두 사용했어요! 출석 체크하거나 내일 다 만나요!",
     creditsBalance: "사용 가능 크레딧",
     creditsPerMsg: "메시지당 소비",
+    peakNotice: "DeepSeek 피크 타임 · 크레딧 2배",
+    promoTag: "한정 특가",
     stopAria: "생성 중지",
     querying: "사이트 자료를 찾는 중…",
     thinking: "깊이 생각 중",

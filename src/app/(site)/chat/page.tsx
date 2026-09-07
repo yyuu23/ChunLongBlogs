@@ -5,7 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { getSiteConfig } from "@/lib/site";
 import { providerAvailable, resolveAiChatChoice, resolveProviderModel } from "@/lib/llm";
 import { thinkingSpec } from "@/lib/llm-thinking";
-import { CHOICE_COST_DEFAULTS, creditsCfg, effortCostOf } from "@/lib/credits";
+import { CHOICE_COST_DEFAULTS, creditsCfg, effortCostOf, peakMultiplierOf } from "@/lib/credits";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function ChatPage() {
     allow: config.aiChat.allowVisitorChoice,
     defaultChoice: resolved?.id ?? "",
     defaultEffort: config.aiChat.defaultEffort,
-    // 积分价随选择器下发：模型行显示基准价、档位滑条旁显示当前档实际价
+    // 积分价随选择器下发：模型行显示基准价（含促销划线原价），档位滑条旁显示当前档实际价
     choices: config.aiChat.choices
       .filter((c) => providerAvailable(c.provider))
       .map((c) => {
@@ -39,13 +39,18 @@ export default async function ChatPage() {
           model,
           levels,
           cost: base,
+          promo: c.promo,
           // 该模型各档位的实际积分价（钳制到其支持的档位）
           levelCosts: Object.fromEntries(
             levels.map((lv) => [lv, Math.max(0, Math.round(base * effortCostOf(config.aiChat, lv)))]),
           ) as Record<string, number>,
         };
       }),
-    credits: { enabled: creditCfg.enabled, dailyGrant: creditCfg.dailyGrant },
+    credits: {
+      enabled: creditCfg.enabled,
+      dailyGrant: creditCfg.dailyGrant,
+      peakMultiplier: peakMultiplierOf(config.aiChat),
+    },
   };
   return (
     <PageTransition>

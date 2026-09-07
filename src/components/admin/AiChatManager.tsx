@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Wrench } from "lucide-react";
+import { useState, useTransition, useRef } from "react";
+import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Undo2, Wrench } from "lucide-react";
 import { saveAiChat } from "@/app/admin/actions";
 import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site";
 import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
@@ -63,6 +63,29 @@ export function AiChatManager({
   const [message, setMessage] = useState("");
   // 积分配置视图（cfg.credits 缺字段时 creditsCfg 补默认值）
   const cr = creditsCfg(cfg);
+
+  /* ===== 每日预算换算器：1 元 = 1000 积分，就近取整到 50（大额 100）的倍数 ===== */
+  const CREDIT_RATE = 1000;
+  const [budgetYuan, setBudgetYuan] = useState("");
+  const prevGrantRef = useRef<number | null>(null);
+  const convertedGrant = (() => {
+    const v = Number(budgetYuan);
+    if (!Number.isFinite(v) || v <= 0) return null;
+    const raw = v * CREDIT_RATE;
+    return raw >= 1000 ? Math.round(raw / 100) * 100 : Math.round(raw / 50) * 50;
+  })();
+  const applyBudget = () => {
+    if (convertedGrant === null) return;
+    prevGrantRef.current = cr.dailyGrant;
+    set("credits", { ...cr, dailyGrant: convertedGrant });
+  };
+  const undoBudget = () => {
+    if (prevGrantRef.current === null) return;
+    set("credits", { ...cr, dailyGrant: prevGrantRef.current });
+    prevGrantRef.current = null;
+    setBudgetYuan("");
+  };
+  const budgetApplied = prevGrantRef.current !== null;
 
   const set = <K extends keyof typeof cfg>(key: K, value: (typeof cfg)[K]) =>
     setCfg((c) => ({ ...c, [key]: value }));
@@ -326,6 +349,41 @@ export function AiChatManager({
                     </button>
                   </div>
                 </div>
+                {/* 限时促销（可复用）：前台显示划线原价 + 标签，到期自动隐藏；扣费始终按基准积分 */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-slate-200 pt-2">
+                  <span className="text-xs font-medium text-slate-400">促销</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={9999}
+                    className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                    value={c.promo?.originalCost ?? ""}
+                    onChange={(e) =>
+                      updateChoice(i, {
+                        promo: {
+                          ...c.promo,
+                          originalCost:
+                            e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                        },
+                      })
+                    }
+                    placeholder="原价✦"
+                  />
+                  <input
+                    className="w-28 rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                    value={c.promo?.label ?? ""}
+                    maxLength={12}
+                    onChange={(e) => updateChoice(i, { promo: { ...c.promo, label: e.target.value || undefined } })}
+                    placeholder="标签（如 限时半价）"
+                  />
+                  <input
+                    type="date"
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500 outline-none focus:border-indigo-400"
+                    value={c.promo?.until ?? ""}
+                    onChange={(e) => updateChoice(i, { promo: { ...c.promo, until: e.target.value || undefined } })}
+                  />
+                  <span className="text-[11px] text-slate-400">前台显示划线原价，到期自动隐藏；留空 = 无促销</span>
+                </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem]">
                   {c.id === cfg.defaultChoice && <span className="text-indigo-500">⭐ 当前默认</span>}
                   <span className="flex items-center gap-1 text-slate-500">
@@ -490,7 +548,50 @@ export function AiChatManager({
             启用积分体系（关闭则回退「每天消息数」限制）
           </label>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+
+        {/* 每日预算换算器 */}
+        <div className="mb-4 rounded-xl bg-indigo-50/60 p-3">
+          <p className="text-xs font-medium text-slate-600">按每日预算换算发放积分（汇率固定：1 元 = 1000 积分）</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={budgetYuan}
+                onChange={(e) => setBudgetYuan(e.target.value)}
+                placeholder="0.5"
+                className="w-24 rounded-xl border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+              />
+              <span className="text-xs text-slate-400">元/人/天</span>
+            </div>
+            <span className="text-xs text-slate-400">→</span>
+            <span className="text-sm font-semibold text-indigo-600">
+              {convertedGrant !== null ? `✦ ${convertedGrant} / 天` : "—"}
+            </span>
+            <button
+              onClick={applyBudget}
+              disabled={convertedGrant === null}
+              className="rounded-lg bg-indigo-500 px-3 py-1 text-xs font-medium text-white transition-opacity disabled:opacity-40"
+            >
+              填入
+            </button>
+            {budgetApplied && (
+              <button
+                onClick={undoBudget}
+                className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs text-slate-500 hover:bg-slate-200"
+              >
+                <Undo2 className="h-3 w-3" /> 还原
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            结果就近取整到 50（≥1000 时取整到 100）的倍数；「填入」只改每日首访发放，
+            随时可「还原」到填入前的值。
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className={label}>每日首访发放</p>
             <input
@@ -524,6 +625,24 @@ export function AiChatManager({
               onChange={(e) => set("credits", { ...cr, levelBonusPerLevel: Number(e.target.value) || 0 })}
             />
           </div>
+          <div>
+            <p className={label}>DeepSeek 高峰倍率</p>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              className={`${input} mt-1`}
+              value={cfg.credits?.peakMultiplier ?? ""}
+              onChange={(e) =>
+                set("credits", {
+                  ...cr,
+                  peakMultiplier:
+                    e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              placeholder="默认 2"
+            />
+          </div>
         </div>
         <p className={label + " mt-4"}>思考档位倍率（每条消息积分 = 模型基准价 × 倍率）</p>
         <div className="mt-1 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -548,9 +667,10 @@ export function AiChatManager({
           ))}
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-400">
-          发放时点：每日首次到访自动发放（等级越高加成越多）、每日签到额外加成。扣减时点：访客每发一条消息，
-          按「该模型基准价 × 实际档位倍率」原子扣减，余额不足返回引导文案；上游接口失败未产生内容时自动退款。
-          空白输入 = 用内置默认（发放 500/签到 100/每等级 5；倍率 无1·低1·中2·高4·最高6）。
+          DeepSeek 高峰时段 = 北京时间工作日 9:00–12:00、14:00–18:00（与官方计费一致），倍率 ≥2
+          时高峰期自动双倍以上扣积分，前台同步显示高峰提示。发放时点：每日首次到访、每日签到；
+          扣减时点：每条消息按「基准价 × 档位倍率（× 高峰倍率）」原子扣减，余额不足返回引导文案，
+          上游失败未产生内容时自动退款。空白输入 = 用内置默认。
         </p>
       </section>
 

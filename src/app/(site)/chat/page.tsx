@@ -40,9 +40,9 @@ export default async function ChatPage() {
           levels,
           cost: base,
           promo: c.promo,
-          // 该模型各档位的实际积分价（钳制到其支持的档位）
+          // 该模型各档位的实际积分价（与扣费同口径：向下取整，钳制到其支持的档位）
           levelCosts: Object.fromEntries(
-            levels.map((lv) => [lv, Math.max(0, Math.round(base * effortCostOf(config.aiChat, lv)))]),
+            levels.map((lv) => [lv, Math.max(0, Math.floor(base * effortCostOf(config.aiChat, lv)))]),
           ) as Record<string, number>,
         };
       }),

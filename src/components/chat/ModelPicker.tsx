@@ -63,9 +63,12 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
   const [open, setOpen] = useState(false);
   const [modelId, setModelId] = useState("");
   const [effort, setEffort] = useState<ThinkingLevel>("off");
+  /** 每个模型各自的记忆档位（行价按它显示；localStorage 恢复 + 选择/拖动时更新） */
+  const [efforts, setEfforts] = useState<Record<string, ThinkingLevel>>({});
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // 初始化：恢复上次选择（无效则回退后台默认），并回写 provider 供悬浮窗头像兜底
+  // 初始化：恢复上次选择（无效则回退后台默认），并回写 provider 供悬浮窗头像兜底；
+  // 同时把所有模型的记忆档位一次性读出（行价按各自档位显示）
   useEffect(() => {
     if (!aiChoices.choices.length) return;
     const stored = localStorage.getItem(MODEL_STORAGE_KEY);
@@ -73,6 +76,9 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
     const choice = hit ?? aiChoices.choices.find((c) => c.id === aiChoices.defaultChoice) ?? aiChoices.choices[0]!;
     setModelId(choice.id);
     setEffort(readEffort(choice, aiChoices.defaultEffort));
+    setEfforts(Object.fromEntries(
+      aiChoices.choices.map((c) => [c.id, readEffort(c, aiChoices.defaultEffort)]),
+    ));
     localStorage.setItem(MODEL_STORAGE_KEY, choice.id);
     localStorage.setItem(PROVIDER_STORAGE_KEY, choice.provider);
   }, [aiChoices]);
@@ -132,18 +138,20 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
   const peakMult = peakMultiplierOf(aiChoices as unknown as Parameters<typeof peakMultiplierOf>[0]);
   const todayStr = new Date().toISOString().slice(0, 10);
   /** 行显示价：
-   *  - 选中的行 = 当前档位价（拖滑条时它随之变化，与下方 ✦−N 同步）
-   *  - 未选中的行 = 基准价（静态，不跟着滑条跳）
+   *  - 每行按它自己的记忆档位显示价格（选中行跟随滑条，未选中行静止在它上次选的档位）
    *  - DeepSeek 行在高峰时段一律 ×高峰倍率（无论是否选中——高峰期它的真实成本就是双倍） */
+  const rowLevel = (c: PickerChoice): ThinkingLevel =>
+    efforts[c.id] ?? (c.id === choice?.id ? effort : c.levels[0]!);
   const displayCost = (c: PickerChoice) => {
-    const base = c.id === choice?.id ? (c.levelCosts[effort] ?? c.cost) : c.cost;
+    const lv = rowLevel(c);
+    const base = c.levelCosts[lv] ?? c.cost;
     return Math.round(base * (peakTime && c.provider === "deepseek" ? peakMult : 1));
   };
-  /** 促销划线原价：选中的行随档位等比缩放（半价关系每档成立），未选中的行显示原价 */
+  /** 促销划线原价：按该行显示档位等比缩放（折扣比例每档成立） */
   const promoStrike = (c: PickerChoice) => {
     if (!c.promo?.originalCost) return null;
-    const ratio = c.id === choice?.id ? (c.levelCosts[effort] ?? c.cost) / c.cost : 1;
-    return Math.round(c.promo.originalCost * ratio);
+    const lv = rowLevel(c);
+    return Math.round(c.promo.originalCost * ((c.levelCosts[lv] ?? c.cost) / c.cost));
   };
   const promoOn = (c: PickerChoice) => !!c.promo && (!c.promo.until || c.promo.until >= todayStr);
 
@@ -153,6 +161,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
     setModelId(c.id);
     const lv = readEffort(c, aiChoices.defaultEffort);
     setEffort(lv);
+    setEfforts((m) => ({ ...m, [c.id]: lv }));
     localStorage.setItem(MODEL_STORAGE_KEY, c.id);
     localStorage.setItem(PROVIDER_STORAGE_KEY, c.provider);
     localStorage.setItem(effortStorageKey(c.id), lv);
@@ -160,6 +169,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
 
   const setLevel = (lv: ThinkingLevel) => {
     setEffort(lv);
+    setEfforts((m) => ({ ...m, [choice.id]: lv }));
     localStorage.setItem(effortStorageKey(choice.id), lv);
   };
 

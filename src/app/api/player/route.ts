@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
+import { incrStat } from "@/lib/stats";
 import { getLocale } from "@/lib/i18n/server";
 import {
   EMPTY_STATS,
@@ -92,6 +93,8 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
     }
     case "play_music":
       stats.songsPlayed += 1;
+      // 统计面板：按歌名记一次播放（聚合存储，见 lib/stats.ts）
+      void incrStat("music_play", String(payload?.title ?? "").slice(0, 80));
       break;
     case "switch_accent": {
       const a = String(payload?.accent ?? "");

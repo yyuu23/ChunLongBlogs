@@ -15,6 +15,7 @@ import { ChatWidget } from "@/components/mascot/ChatWidget";
 import { ProactiveChat } from "@/components/mascot/ProactiveChat";
 import { SearchPalette } from "@/components/layout/SearchPalette";
 import { WallpaperProvider } from "@/components/providers/WallpaperProvider";
+import { VisitBeacon } from "@/components/VisitBeacon";
 import { getSiteConfig } from "@/lib/site";
 
 /** 公开站点布局：背景三明治 + 粒子 + 导航 + 页脚 */
@@ -57,6 +58,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <ChatWidget />
       <ProactiveChat />
       <AchievementToasts />
+      {/* PV/UV 埋点（路由变化上报，30s 同路径去重） */}
+      <VisitBeacon />
     </WallpaperProvider>
   );
 }

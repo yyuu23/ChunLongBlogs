@@ -169,3 +169,32 @@ export const bottles = sqliteTable(
   },
   (t) => [uniqueIndex("bottles_visitor_kind_ref_idx").on(t.visitorId, t.kind, t.refKey)],
 );
+
+/**
+ * 按天聚合的行为计数（admin 数据统计面板）。
+ * 不存原始事件流水——每次事件只 UPSERT +1，一年约 1.8 万行 < 1MB。
+ * metric：pv（key=路径）| ai_call（key=供应商|模型|档位）| ai_tool（key=工具名）
+ *         | ai_image（key=张数）| music_play（key=歌名）
+ */
+export const statsDaily = sqliteTable(
+  "stats_daily",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    day: text("day").notNull(), // 本地时区 YYYY-MM-DD
+    metric: text("metric").notNull(),
+    key: text("key").notNull().default(""),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [uniqueIndex("stats_daily_day_metric_key_idx").on(t.day, t.metric, t.key)],
+);
+
+/** 每日独立访客（day+visitorId 唯一 → UV 精确去重；一年约 1-2MB） */
+export const visitorDays = sqliteTable(
+  "visitor_days",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    day: text("day").notNull(),
+    visitorId: text("visitor_id").notNull(),
+  },
+  (t) => [uniqueIndex("visitor_days_day_vid_idx").on(t.day, t.visitorId)],
+);

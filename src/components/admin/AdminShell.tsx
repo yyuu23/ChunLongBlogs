@@ -13,6 +13,7 @@ import {
   Music2,
   Bot,
   Settings,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/admin/albums", label: "相册管理", icon: Images },
   { href: "/admin/music", label: "音乐馆", icon: Music2 },
   { href: "/admin/ai-chat", label: "AI 对话", icon: Bot },
+  { href: "/admin/stats", label: "数据统计", icon: BarChart3 },
   { href: "/admin/settings", label: "站点设置", icon: Settings },
 ];
 

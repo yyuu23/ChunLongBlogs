@@ -9,6 +9,7 @@ import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTon
 import { getChatTools, executeTool, toolCallSummary, toolLabelOf, searchApiKey } from "@/lib/chatTools";
 import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/llm";
 import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
+import { incrStat } from "@/lib/stats";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 
@@ -293,6 +294,9 @@ export async function POST(request: Request) {
   if (!choice || !llm) {
     return NextResponse.json({ error: LLM_NOT_CONFIGURED_MSG }, { status: 503 });
   }
+  // 统计：模型调用（供应商|模型|档位）与带图消息（fire-and-forget 不阻塞）
+  void incrStat("ai_call", `${choice.provider}|${llm.model}|${llm.level}`);
+  if (validImages(history.at(-1)?.images).length) void incrStat("ai_image");
 
   const persona = config.aiPersona || "你是 ChunLong Blog 的看板娘助手，回答简洁友好，偶尔用一点颜文字。";
   // 注入站点事实，避免模型在"本站"相关问题上幻觉
@@ -527,6 +531,7 @@ export async function POST(request: Request) {
                 }),
               );
               const result = await executeTool(tc.function.name, tc.function.arguments, config.aiChat);
+              void incrStat("ai_tool", tc.function.name);
               toolsUsed.push({
                 name: tc.function.name,
                 label: toolLabelOf(tc.function.name, config.aiChat),

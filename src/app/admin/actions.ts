@@ -868,9 +868,10 @@ export async function saveAiChat(input: AiChatConfig) {
     return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 99999) : 0;
   };
   // 积分配置：数值 ≥0 钳制；enabled 缺省视为 true
+  // 倍率允许一位小数（1.5），向下截到 0.1 精度（1.25 → 1.2）；最终积分扣减时再整体向下取整
   const clampMult = (n: unknown) => {
     const v = Number(n);
-    return Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 999) : undefined;
+    return Number.isFinite(v) && v >= 0 ? Math.min(Math.floor(v * 10) / 10, 999) : undefined;
   };
   const creditCfgIn = (input.credits ?? {}) as Partial<NonNullable<AiChatConfig["credits"]>>;
   const credits = {

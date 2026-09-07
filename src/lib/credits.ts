@@ -98,6 +98,7 @@ export function isPeakApplied(choice: AiChatChoice, now = new Date()): boolean {
 }
 
 /** 一条消息的积分价 = 基准价 × 档位倍率（level 必须传钳制后的真实档位）；
+ *  结果向下取整为整数（积分不出现小数，如 15×1.5=22.5 → 22）；
  *  DeepSeek 在高峰时段整体乘以高峰倍率（peak=true 时生效） */
 export function messageCost(
   aiChat: AiChatConfig,
@@ -105,10 +106,10 @@ export function messageCost(
   level: ThinkingLevel,
   peak = false,
 ): number {
-  const base = Math.max(0, Math.round(choiceCostOf(aiChat, choice) * effortCostOf(aiChat, level)));
+  const base = Math.floor(choiceCostOf(aiChat, choice) * effortCostOf(aiChat, level));
   if (peak && choice.provider === "deepseek") {
     const mult = peakMultiplierOf(aiChat);
-    if (mult > 1) return base * mult;
+    if (mult > 1) return Math.floor(base * mult);
   }
   return base;
 }

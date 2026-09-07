@@ -87,6 +87,26 @@ export function AiChatManager({
   };
   const budgetApplied = prevGrantRef.current !== null;
 
+  /* ===== 档位倍率输入：允许一位小数（1.5 ✓ / 1.25 ✗）=====
+   * 草稿态保证 "1." 这类中间态能正常输入（受控 number 输入会把小数点吃掉）；
+   * 两位小数等非法输入直接忽略；最终扣费时服务端向下取整为整数积分。 */
+  const [effortDraft, setEffortDraft] = useState<Partial<Record<ThinkingLevel, string>>>({});
+  const updateEffort = (lv: ThinkingLevel, raw: string) => {
+    const clean = raw.replace(/[^\d.]/g, "").slice(0, 6);
+    if (!/^\d{0,3}(\.\d?)?$/.test(clean)) return;
+    setEffortDraft((d) => ({ ...d, [lv]: clean }));
+    set("effortCost", {
+      ...(cfg.effortCost ?? {}),
+      [lv]: clean === "" || clean.endsWith(".") ? undefined : Math.max(0, Math.min(999, parseFloat(clean))),
+    });
+  };
+  const clearEffortDraft = (lv: ThinkingLevel) =>
+    setEffortDraft((d) => {
+      const next = { ...d };
+      delete next[lv];
+      return next;
+    });
+
   const set = <K extends keyof typeof cfg>(key: K, value: (typeof cfg)[K]) =>
     setCfg((c) => ({ ...c, [key]: value }));
 
@@ -650,17 +670,12 @@ export function AiChatManager({
             <div key={lv}>
               <p className="text-center text-xs text-slate-400">{LEVEL_LABELS[lv]}</p>
               <input
-                type="number"
-                min={0}
-                max={999}
+                type="text"
+                inputMode="decimal"
                 className={`${input} mt-1 text-center`}
-                value={cfg.effortCost?.[lv] ?? ""}
-                onChange={(e) =>
-                  set("effortCost", {
-                    ...(cfg.effortCost ?? {}),
-                    [lv]: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
-                  })
-                }
+                value={effortDraft[lv] ?? cfg.effortCost?.[lv] ?? ""}
+                onChange={(e) => updateEffort(lv, e.target.value)}
+                onBlur={() => clearEffortDraft(lv)}
                 placeholder={String(EFFORT_COST_DEFAULTS[lv])}
               />
               {/* 「开」只服务仅支持思考开/关的老款二档模型（glm-4.x 等），现役模型用不到 */}

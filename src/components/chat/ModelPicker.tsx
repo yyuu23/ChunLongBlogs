@@ -131,14 +131,20 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
   const peakActive = peakTime && isDeepSeekSel;
   const peakMult = peakMultiplierOf(aiChoices as unknown as Parameters<typeof peakMultiplierOf>[0]);
   const todayStr = new Date().toISOString().slice(0, 10);
-  /** 行/滑条显示价：当前档位价（与滑条同步），DeepSeek 高峰 ×2 */
-  const displayCost = (c: PickerChoice) =>
-    Math.round((c.levelCosts[effort] ?? c.cost) * (peakActive && c.provider === "deepseek" ? peakMult : 1));
-  /** 促销划线原价按当前档位等比缩放，"折扣比例"在每一档都成立 */
-  const promoStrike = (c: PickerChoice) =>
-    c.promo?.originalCost && c.cost > 0
-      ? Math.round(c.promo.originalCost * ((c.levelCosts[effort] ?? c.cost) / c.cost))
-      : null;
+  /** 行显示价：
+   *  - 选中的行 = 当前档位价（拖滑条时它随之变化，与下方 ✦−N 同步）
+   *  - 未选中的行 = 基准价（静态，不跟着滑条跳）
+   *  - DeepSeek 行在高峰时段一律 ×高峰倍率（无论是否选中——高峰期它的真实成本就是双倍） */
+  const displayCost = (c: PickerChoice) => {
+    const base = c.id === choice?.id ? (c.levelCosts[effort] ?? c.cost) : c.cost;
+    return Math.round(base * (peakTime && c.provider === "deepseek" ? peakMult : 1));
+  };
+  /** 促销划线原价：选中的行随档位等比缩放（半价关系每档成立），未选中的行显示原价 */
+  const promoStrike = (c: PickerChoice) => {
+    if (!c.promo?.originalCost) return null;
+    const ratio = c.id === choice?.id ? (c.levelCosts[effort] ?? c.cost) / c.cost : 1;
+    return Math.round(c.promo.originalCost * ratio);
+  };
   const promoOn = (c: PickerChoice) => !!c.promo && (!c.promo.until || c.promo.until >= todayStr);
 
   if (!choice) return null;
@@ -183,7 +189,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            className="glass-card absolute bottom-full left-0 z-30 mb-2 w-[min(24rem,calc(100vw-3rem))] !rounded-2xl p-3 shadow-xl ![background:color-mix(in_srgb,var(--glass-bg)_55%,transparent)]"
+            className="glass-card cl-model-popup absolute bottom-full left-0 z-30 mb-2 w-[min(24rem,calc(100vw-3rem))] !rounded-2xl p-3 shadow-xl"
           >
             {/* DeepSeek 高峰时段警示（仅选中 DeepSeek 且处于高峰时出现） */}
             {peakActive && (

@@ -119,16 +119,27 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
     };
   }, [aiChoices.credits.enabled]);
 
-  // DeepSeek 高峰判定：每 30s 重估一次（跨过 9:00/12:00/14:00/18:00 时提示自动出现/消失）
+  // DeepSeek 高峰判定：每 30s 重估一次（跨过 9:00/12:00/14:00/18:00 时提示自动出现/消失）。
+  // 高峰加价只作用于 DeepSeek 自己的行——其它模型的积分与高峰无关
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick((v) => v + 1), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  const peak = aiChoices.credits.enabled && !!choice && isDeepSeekPeakNow();
+  const peakTime = aiChoices.credits.enabled && isDeepSeekPeakNow();
+  const isDeepSeekSel = choice?.provider === "deepseek";
+  const peakActive = peakTime && isDeepSeekSel;
   const peakMult = peakMultiplierOf(aiChoices as unknown as Parameters<typeof peakMultiplierOf>[0]);
-  const peakFactor = peak && peakMult > 1 ? peakMult : 1;
   const todayStr = new Date().toISOString().slice(0, 10);
+  /** 行/滑条显示价：当前档位价（与滑条同步），DeepSeek 高峰 ×2 */
+  const displayCost = (c: PickerChoice) =>
+    Math.round((c.levelCosts[effort] ?? c.cost) * (peakActive && c.provider === "deepseek" ? peakMult : 1));
+  /** 促销划线原价按当前档位等比缩放，"折扣比例"在每一档都成立 */
+  const promoStrike = (c: PickerChoice) =>
+    c.promo?.originalCost && c.cost > 0
+      ? Math.round(c.promo.originalCost * ((c.levelCosts[effort] ?? c.cost) / c.cost))
+      : null;
+  const promoOn = (c: PickerChoice) => !!c.promo && (!c.promo.until || c.promo.until >= todayStr);
 
   if (!choice) return null;
 
@@ -172,10 +183,10 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            className="glass-card absolute bottom-full left-0 z-30 mb-2 w-[min(21rem,calc(100vw-3rem))] !rounded-2xl p-3 shadow-xl"
+            className="glass-card absolute bottom-full left-0 z-30 mb-2 w-[min(24rem,calc(100vw-3rem))] !rounded-2xl p-3 shadow-xl ![background:color-mix(in_srgb,var(--glass-bg)_55%,transparent)]"
           >
-            {/* DeepSeek 高峰时段警示 */}
-            {peakFactor > 1 && (
+            {/* DeepSeek 高峰时段警示（仅选中 DeepSeek 且处于高峰时出现） */}
+            {peakActive && (
               <div className="mb-2 flex items-center gap-1.5 rounded-xl border border-amber-300/60 bg-amber-100/70 px-2.5 py-1.5 text-[0.625rem] font-medium text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300">
                 ⚡ {t("chat.peakNotice")}
               </div>
@@ -223,20 +234,18 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                             title={t("chat.creditsPerMsg")}
                             className="flex shrink-0 items-center gap-1 rounded-full bg-black/5 px-1.5 py-0.5 text-[0.625rem] tabular-nums text-muted dark:bg-white/10"
                           >
-                            {c.promo && (!c.promo.until || c.promo.until >= todayStr) && (
+                            {promoOn(c) && (
                               <>
-                                {c.promo.label && (
+                                {c.promo?.label && (
                                   <span className="rounded-full bg-rose-400/15 px-1 text-rose-500 dark:text-rose-300">
                                     {c.promo.label}
                                   </span>
                                 )}
-                                {!!c.promo.originalCost && (
-                                  <s className="opacity-60">{c.promo.originalCost}</s>
-                                )}
+                                {!!promoStrike(c) && <s className="opacity-60">{promoStrike(c)}</s>}
                               </>
                             )}
                             <CreditIcon size={10} />
-                            {Math.round(c.cost * peakFactor)}
+                            {displayCost(c)}
                           </span>
                         )}
                         {active && <Check className="h-3.5 w-3.5 shrink-0 text-accent" />}
@@ -264,7 +273,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                       title={t("chat.creditsPerMsg")}
                       className="flex items-center gap-0.5 text-[0.625rem] tabular-nums text-muted"
                     >
-                      <CreditIcon size={10} />−{Math.round((choice.levelCosts[effort] ?? choice.cost) * peakFactor)}
+                      <CreditIcon size={10} />−{displayCost(choice)}
                     </span>
                   )}
                   <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[0.625rem] font-semibold text-accent">

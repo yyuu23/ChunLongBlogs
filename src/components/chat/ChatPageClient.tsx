@@ -29,6 +29,7 @@ import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { ModelPicker, type AiChoicesPublic } from "./ModelPicker";
 import { CreditIcon } from "./CreditIcon";
 import { PersonaAvatar } from "./PersonaArt";
+import { fetchProgress } from "@/lib/track";
 import { ChatStatusLine, statusPhaseOf } from "./ChatStatusLine";
 import { ImageLightbox, type LightboxState } from "./ImageLightbox";
 import type { AiProvider } from "@/lib/site";
@@ -355,6 +356,7 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
                 >
                   <ImagePlus className="h-4 w-4" />
                 </button>
+                <CreditsChip />
               </div>
             )}
             {/* 待发送图片预览 */}
@@ -623,6 +625,34 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 /** 工具调用轨迹徽章：一排标签概览，点开显示每一步的工具名与参数摘要 */
+/** 输入区积分余额徽章（✦）：初始拉取 + 订阅扣减/发放事件实时刷新 */
+function CreditsChip() {
+  const t = useT();
+  const [credits, setCredits] = useState<number | null>(null);
+  useEffect(() => {
+    void fetchProgress().then((p) => p && setCredits(p.credits));
+    const onCredits = (e: Event) => {
+      const v = (e as CustomEvent<{ credits?: number }>).detail?.credits;
+      if (typeof v === "number") setCredits(v);
+    };
+    window.addEventListener("cl-credits-update", onCredits);
+    window.addEventListener("cl-player-update", onCredits);
+    return () => {
+      window.removeEventListener("cl-credits-update", onCredits);
+      window.removeEventListener("cl-player-update", onCredits);
+    };
+  }, []);
+  return (
+    <span
+      title={t("chat.creditsBalance")}
+      className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-accent"
+    >
+      <CreditIcon size={12} />
+      {credits ?? "—"}
+    </span>
+  );
+}
+
 function ToolsBadge({ tools }: { tools: ToolTrace[] }) {
   const t = useT();
   const [open, setOpen] = useState(false);

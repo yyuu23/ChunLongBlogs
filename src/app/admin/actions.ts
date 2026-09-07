@@ -792,6 +792,10 @@ const AI_PROVIDERS = new Set(["deepseek", "glm", "qwen"]);
 export async function saveAiChat(input: AiChatConfig) {
   await guard();
   // 服务端清洗：客户端表单不可信
+  const clampCost = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 9999) : undefined;
+  };
   const choices = (Array.isArray(input.choices) ? input.choices : [])
     .slice(0, 6)
     .map((c) => ({
@@ -799,6 +803,7 @@ export async function saveAiChat(input: AiChatConfig) {
       label: String(c.label ?? "").trim().slice(0, 24),
       provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
       model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
+      cost: clampCost(c.cost),
     }))
     .filter((c) => c.id && c.label);
   // id 去重（重复的丢弃）
@@ -845,6 +850,27 @@ export async function saveAiChat(input: AiChatConfig) {
     const v = Number(n);
     return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 999) : 0;
   };
+  const clampBig = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 99999) : 0;
+  };
+  // 积分配置：数值 ≥0 钳制；enabled 缺省视为 true
+  const clampMult = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 999) : undefined;
+  };
+  const creditCfgIn = (input.credits ?? {}) as Partial<NonNullable<AiChatConfig["credits"]>>;
+  const credits = {
+    enabled: creditCfgIn.enabled !== false,
+    dailyGrant: clampBig(creditCfgIn.dailyGrant ?? 500),
+    checkinBonus: clampBig(creditCfgIn.checkinBonus ?? 100),
+    levelBonusPerLevel: clamp(creditCfgIn.levelBonusPerLevel ?? 5),
+  };
+  const effortCost = Object.fromEntries(
+    Object.entries(input.effortCost ?? {})
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, clampMult(v)]),
+  );
   const current = await getSiteConfig();
   await saveSiteConfig({
     ...current,
@@ -857,6 +883,8 @@ export async function saveAiChat(input: AiChatConfig) {
       perVisitorDaily: clamp(input.perVisitorDaily),
       tools,
       customTools,
+      ...(Object.keys(effortCost).length ? { effortCost } : {}),
+      credits,
     },
   });
   revalidateAll();

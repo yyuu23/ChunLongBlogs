@@ -26,6 +26,7 @@ import { useChat, type ChatMsg, type RelatedRef, type ToolTrace } from "./useCha
 import { AffinityBadge } from "@/components/chat/AffinityBadge";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { ModelPicker, type AiChoicesPublic } from "./ModelPicker";
+import { CreditIcon } from "./CreditIcon";
 import { PersonaAvatar } from "./PersonaArt";
 import { ChatStatusLine, statusPhaseOf } from "./ChatStatusLine";
 import { ImageLightbox, type LightboxState } from "./ImageLightbox";
@@ -785,6 +786,16 @@ function MessageRow({
               <span className="text-xs text-muted">{t("chat.unknownError")}</span>
             )}
           </div>
+        )}
+
+        {/* 积分消耗（✦）：done 帧下发的本条扣减 */}
+        {typeof m.creditsSpent === "number" && m.creditsSpent > 0 && !m.streaming && (
+          <span
+            title={t("chat.creditsPerMsg")}
+            className="mt-1 flex w-fit items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[0.625rem] tabular-nums text-muted dark:bg-white/10"
+          >
+            <CreditIcon size={10} />−{m.creditsSpent}
+          </span>
         )}
 
         {/* 工具调用轨迹（可展开看每步查了什么） */}

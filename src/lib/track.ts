@@ -24,6 +24,8 @@ export interface PlayerProgress {
   progress: number;
   tier: string;
   achievements: string[];
+  /** AI 积分（✦）余额：对话扣减、每日/签到发放 */
+  credits: number;
   /** API 响应本来就带 stats（成就进度展示用），此前类型没声明 */
   stats: PlayerStats;
 }

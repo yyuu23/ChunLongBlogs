@@ -5,6 +5,7 @@ import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Wrench } fro
 import { saveAiChat } from "@/app/admin/actions";
 import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site";
 import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
+import { EFFORT_COST_DEFAULTS, creditsCfg } from "@/lib/credits";
 
 const input =
   "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400";
@@ -60,6 +61,8 @@ export function AiChatManager({
   const [pending, startTransition] = useTransition();
   const [cfg, setCfg] = useState(initial);
   const [message, setMessage] = useState("");
+  // 积分配置视图（cfg.credits 缺字段时 creditsCfg 补默认值）
+  const cr = creditsCfg(cfg);
 
   const set = <K extends keyof typeof cfg>(key: K, value: (typeof cfg)[K]) =>
     setCfg((c) => ({ ...c, [key]: value }));
@@ -260,7 +263,7 @@ export function AiChatManager({
                   c.id === cfg.defaultChoice ? "border-indigo-200 bg-indigo-50/40" : "border-slate-200 bg-slate-50/40"
                 }`}
               >
-                <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1.2fr_auto]">
+                <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1.2fr_0.7fr_auto]">
                   <div>
                     <p className={label}>名称（访客可见）</p>
                     <input
@@ -294,6 +297,22 @@ export function AiChatManager({
                       maxLength={64}
                       onChange={(e) => updateChoice(i, { model: e.target.value.trim() || undefined })}
                       placeholder="留空用供应商默认（如 glm-5.3-flash）"
+                    />
+                  </div>
+                  <div>
+                    <p className={label}>基准积分（✦/条）</p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      className={`${input} mt-1`}
+                      value={c.cost ?? ""}
+                      onChange={(e) =>
+                        updateChoice(i, {
+                          cost: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                      placeholder="按供应商默认"
                     />
                   </div>
                   <div className="flex items-end justify-end pb-1">
@@ -454,7 +473,84 @@ export function AiChatManager({
         <p className="mt-3 text-xs leading-relaxed text-slate-400">
           按访客身份（浏览器本地 ID）计数，重启服务清零；同 IP 每分钟限流与全站每日总额度仍在 .env
           （CHAT_RATE_LIMIT / CHAT_DAILY_LIMIT）作为外层硬护栏。访客切换浏览器身份可绕过此层，
-          因此这里定位是"礼貌限额"，不是防刷。
+          因此这里定位是"礼貌限额"，不是防刷。积分开启时，这里的「每天消息数」不生效（被积分替代）。
+        </p>
+      </section>
+
+      {/* AI 积分（✦） */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">AI 积分（✦）</h2>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={cr.enabled}
+              onChange={(e) => set("credits", { ...cr, enabled: e.target.checked })}
+            />
+            启用积分体系（关闭则回退「每天消息数」限制）
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className={label}>每日首访发放</p>
+            <input
+              type="number"
+              min={0}
+              max={99999}
+              className={`${input} mt-1`}
+              value={cr.dailyGrant}
+              onChange={(e) => set("credits", { ...cr, dailyGrant: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <p className={label}>每日签到加成</p>
+            <input
+              type="number"
+              min={0}
+              max={99999}
+              className={`${input} mt-1`}
+              value={cr.checkinBonus}
+              onChange={(e) => set("credits", { ...cr, checkinBonus: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <p className={label}>每等级加成/日</p>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              className={`${input} mt-1`}
+              value={cr.levelBonusPerLevel}
+              onChange={(e) => set("credits", { ...cr, levelBonusPerLevel: Number(e.target.value) || 0 })}
+            />
+          </div>
+        </div>
+        <p className={label + " mt-4"}>思考档位倍率（每条消息积分 = 模型基准价 × 倍率）</p>
+        <div className="mt-1 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {(Object.keys(LEVEL_LABELS) as ThinkingLevel[]).map((lv) => (
+            <div key={lv}>
+              <p className="text-center text-xs text-slate-400">{LEVEL_LABELS[lv]}</p>
+              <input
+                type="number"
+                min={0}
+                max={999}
+                className={`${input} mt-1 text-center`}
+                value={cfg.effortCost?.[lv] ?? ""}
+                onChange={(e) =>
+                  set("effortCost", {
+                    ...(cfg.effortCost ?? {}),
+                    [lv]: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+                placeholder={String(EFFORT_COST_DEFAULTS[lv])}
+              />
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">
+          发放时点：每日首次到访自动发放（等级越高加成越多）、每日签到额外加成。扣减时点：访客每发一条消息，
+          按「该模型基准价 × 实际档位倍率」原子扣减，余额不足返回引导文案；上游接口失败未产生内容时自动退款。
+          空白输入 = 用内置默认（发放 500/签到 100/每等级 5；倍率 无1·低1·中2·高4·最高6）。
         </p>
       </section>
 

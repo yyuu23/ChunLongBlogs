@@ -8,6 +8,8 @@ import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
 import { BrandLogo } from "./BrandLogo";
 import { PersonaFull, preheatPersona } from "./PersonaArt";
+import { CreditIcon } from "./CreditIcon";
+import { fetchProgress } from "@/lib/track";
 
 /**
  * 模型与思考强度选择器（/chat 页）：
@@ -26,6 +28,10 @@ export interface PickerChoice {
   model: string;
   /** 该模型支持的思考档位（弱→强） */
   levels: ThinkingLevel[];
+  /** 每条消息基准积分（✦） */
+  cost: number;
+  /** 各档位实际积分价（档位 id → 分） */
+  levelCosts: Record<string, number>;
 }
 
 export interface AiChoicesPublic {
@@ -33,6 +39,8 @@ export interface AiChoicesPublic {
   defaultChoice: string;
   defaultEffort: string;
   choices: PickerChoice[];
+  /** 积分体系：enabled=false 时选择器不显示价格元素 */
+  credits: { enabled: boolean; dailyGrant: number };
 }
 
 export const MODEL_STORAGE_KEY = "cl-chat-model";
@@ -91,6 +99,23 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
     if (provider) preheatPersona(provider);
   }, [provider]);
 
+  // 积分余额：初始拉取 + 订阅实时刷新（对话扣减/每日签到发放都会广播）
+  const [credits, setCredits] = useState<number | null>(null);
+  useEffect(() => {
+    if (!aiChoices.credits.enabled) return;
+    void fetchProgress().then((p) => p && setCredits(p.credits));
+    const onCredits = (e: Event) => {
+      const v = (e as CustomEvent<{ credits?: number }>).detail?.credits;
+      if (typeof v === "number") setCredits(v);
+    };
+    window.addEventListener("cl-credits-update", onCredits);
+    window.addEventListener("cl-player-update", onCredits);
+    return () => {
+      window.removeEventListener("cl-credits-update", onCredits);
+      window.removeEventListener("cl-player-update", onCredits);
+    };
+  }, [aiChoices.credits.enabled]);
+
   if (!choice) return null;
 
   const selectModel = (c: PickerChoice) => {
@@ -138,9 +163,20 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
             {/* 上：模型列表 + 当前模型立绘 */}
             <div className="flex gap-2">
               <div className="min-w-0 flex-1">
-                <p className="px-1 pb-1.5 text-[0.625rem] font-semibold tracking-widest text-muted">
-                  {t("chat.sectionModel")}
-                </p>
+                <div className="flex items-center justify-between px-1 pb-1.5">
+                  <p className="text-[0.625rem] font-semibold tracking-widest text-muted">
+                    {t("chat.sectionModel")}
+                  </p>
+                  {aiChoices.credits.enabled && credits !== null && (
+                    <span
+                      title={t("chat.creditsBalance")}
+                      className="flex items-center gap-1 rounded-full bg-white/50 px-2 py-0.5 text-[0.625rem] font-semibold tabular-nums text-muted dark:bg-white/10"
+                    >
+                      <CreditIcon size={10} />
+                      {credits}
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-1">
                   {aiChoices.choices.map((c) => {
                     const active = c.id === choice.id;
@@ -162,6 +198,15 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                           </span>
                           <span className="block truncate font-mono text-[0.625rem] text-muted">{c.model}</span>
                         </span>
+                        {aiChoices.credits.enabled && (
+                          <span
+                            title={t("chat.creditsPerMsg")}
+                            className="flex shrink-0 items-center gap-0.5 rounded-full bg-black/5 px-1.5 py-0.5 text-[0.625rem] tabular-nums text-muted dark:bg-white/10"
+                          >
+                            <CreditIcon size={10} />
+                            {c.cost}
+                          </span>
+                        )}
                         {active && <Check className="h-3.5 w-3.5 shrink-0 text-accent" />}
                       </button>
                     );
@@ -181,9 +226,19 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
                   <BrainCog className="h-3 w-3" />
                   {t("chat.sectionEffort")}
                 </p>
-                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[0.625rem] font-semibold text-accent">
-                  {t(`chat.level.${effort}`)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {aiChoices.credits.enabled && (
+                    <span
+                      title={t("chat.creditsPerMsg")}
+                      className="flex items-center gap-0.5 text-[0.625rem] tabular-nums text-muted"
+                    >
+                      <CreditIcon size={10} />−{choice.levelCosts[effort] ?? choice.cost}
+                    </span>
+                  )}
+                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[0.625rem] font-semibold text-accent">
+                    {t(`chat.level.${effort}`)}
+                  </span>
+                </div>
               </div>
               <input
                 type="range"

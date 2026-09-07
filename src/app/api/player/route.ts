@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { incrStat } from "@/lib/stats";
 import { getLocale } from "@/lib/i18n/server";
+import { getSiteConfig } from "@/lib/site";
 import {
   EMPTY_STATS,
   XP_RULES,
@@ -15,6 +16,7 @@ import {
   type PlayerStats,
   type XpEvent,
 } from "@/lib/achievements";
+import { creditsCfg } from "@/lib/credits";
 import { grantBottle, themeFromMeta } from "@/lib/bottles";
 import { festivalOf } from "@/lib/festivals";
 
@@ -194,15 +196,37 @@ export async function POST(request: Request) {
   const gained = applyEvent(stats, daily, event, body?.payload);
   const xp = (existing?.xp ?? 0) + gained;
 
+  /* ===== AI 积分（✦）发放 =====
+   * 每日首见 + dailyGrant + 等级加成；当日首次签到 + checkinBonus。
+   * 去重复用 __visit / DAILY_CAPS.checkin 的当日去重机制；
+   * 发放走 credits 增量（SQL 端 +=）而非整包改写，与 xp 一起 UPSERT。 */
+  const siteCfg = await getSiteConfig();
+  const creditCfg = creditsCfg(siteCfg.aiChat);
+  let creditsGain = 0;
+  if (creditCfg.enabled) {
+    if (firstVisitToday) {
+      creditsGain += creditCfg.dailyGrant + levelOf(existing?.xp ?? 0).level * creditCfg.levelBonusPerLevel;
+    }
+    if (event === "daily_checkin" && gained > 0) {
+      creditsGain += creditCfg.checkinBonus;
+    }
+  }
+  const creditsBalance = (existing?.credits ?? 0) + creditsGain;
+
   // stats 里捎带当日计数（简单起见存同列）
   const statsWithDaily = { ...stats, __daily: daily } as unknown as PlayerStats & { __daily: DayCounter };
 
   await db
     .insert(visitors)
-    .values({ id: visitorId, xp, stats: JSON.stringify(statsWithDaily) })
+    .values({ id: visitorId, xp, credits: creditsGain, stats: JSON.stringify(statsWithDaily) })
     .onConflictDoUpdate({
       target: visitors.id,
-      set: { xp, stats: JSON.stringify(statsWithDaily), lastSeen: new Date() },
+      set: {
+        xp,
+        credits: sql`${visitors.credits} + ${creditsGain}`,
+        stats: JSON.stringify(statsWithDaily),
+        lastSeen: new Date(),
+      },
     });
 
   // ===== 漂流瓶（幂等，失败不阻断结算）=====
@@ -229,6 +253,7 @@ export async function POST(request: Request) {
     tier: lvl.tier,
     achievements: unlockedAchievements(stats),
     stats,
+    credits: creditsBalance,
   });
 }
 
@@ -251,6 +276,7 @@ export async function GET(request: Request) {
       tier: lvl.tier,
       achievements: [],
       stats: EMPTY_STATS,
+      credits: 0,
     });
   }
   // 老访客的 stats 里没有新字段，normalizeStats 补齐默认值，否则 check() 会读到 undefined
@@ -266,5 +292,6 @@ export async function GET(request: Request) {
     tier: lvl.tier,
     achievements: unlockedAchievements(stats),
     stats,
+    credits: row.credits ?? 0,
   });
 }

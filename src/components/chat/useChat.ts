@@ -58,6 +58,8 @@ export interface ChatMsg {
   related?: RelatedRef[];
   /** 本条回答用的模型元信息（AI 消息；头像随模型与思考档位切换，随会话持久化） */
   model?: { provider: AiProvider; level: ThinkingLevel };
+  /** 本条回答消耗的 AI 积分（✦，done 帧下发；随会话持久化） */
+  creditsSpent?: number;
   /** 失败（显示重试） */
   failed?: boolean;
 }
@@ -75,7 +77,17 @@ interface SsePayload {
   message?: string;
   stage?: string;
   label?: string;
+  /** done 帧：本条消耗与扣后余额 */
+  creditsSpent?: number;
+  creditsBalance?: number;
 }
+
+/** 积分余额变动：广播给 ModelPicker 等徽章（useChat 扣费后 / player 发放后） */
+export const dispatchCredits = (credits: number) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("cl-credits-update", { detail: { credits } }));
+  }
+};
 
 /**
  * 聊天状态机（悬浮窗与 /chat 页共用一份实现，避免两处流式逻辑漂移）。
@@ -235,9 +247,13 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
           if (res.status === 429) {
             msg = t("chat.rateLimited");
             try {
-              const j = (await res.json()) as { code?: string };
+              const j = (await res.json()) as { code?: string; creditsBalance?: number };
               if (j.code === "chat_daily_limit") msg = t("chat.dailyLimit");
               else if (j.code === "chat_user_limit") msg = t("chat.userLimit");
+              else if (j.code === "chat_no_credits") {
+                msg = t("chat.noCredits");
+                if (typeof j.creditsBalance === "number") dispatchCredits(j.creditsBalance);
+              }
             } catch {}
           } else {
             try {
@@ -319,12 +335,17 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                 failed: !gotAny,
               });
             } else if (event === "done") {
+              // 积分消耗与扣后余额随 done 帧下发：挂到消息元信息 + 广播余额刷新
+              const spent = typeof payload.creditsSpent === "number" ? payload.creditsSpent : undefined;
+              const balance = typeof payload.creditsBalance === "number" ? payload.creditsBalance : undefined;
+              if (typeof balance === "number") dispatchCredits(balance);
               setMessages((ms) =>
                 ms.map((m, i) => {
                   if (i !== ms.length - 1) return m;
                   if (m.content)
                     return {
                       ...m,
+                      creditsSpent: spent,
                       streaming: false,
                       querying: false,
                       toolLabel: undefined,
@@ -336,6 +357,7 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
                   return {
                     ...m,
                     content: t("chat.unknownError"),
+                    creditsSpent: spent,
                     streaming: false,
                     querying: false,
                     toolLabel: undefined,

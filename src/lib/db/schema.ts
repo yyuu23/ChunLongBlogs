@@ -140,6 +140,10 @@ export const visitors = sqliteTable("visitors", {
   id: text("id").primaryKey(), // 匿名 UUID（localStorage 生成）
   xp: integer("xp").notNull().default(0),
   stats: text("stats").notNull().default("{}"), // JSON：各类行为计数
+  // AI 积分余额（可消耗货币）：每日首访/签到发放，对话按 模型基准价×档位倍率 扣减。
+  // 独立列而非塞进 stats JSON——扣减需要 SQL 级原子操作（credits >= cost 才减），
+  // JSON 整包读改写在并发请求下会丢更新。
+  credits: integer("credits").notNull().default(0),
   lastSeen: integer("last_seen", ts).notNull().default(sql`(unixepoch() * 1000)`),
 });
 

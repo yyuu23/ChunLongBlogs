@@ -12,6 +12,8 @@ import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
 import { incrStat } from "@/lib/stats";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
+import { creditsCfg, messageCost } from "@/lib/credits";
+import { spendCredits, refundCredits, ensureVisitorWithGrant } from "@/lib/credits-server";
 
 export const dynamic = "force-dynamic";
 
@@ -248,10 +250,12 @@ export async function POST(request: Request) {
 
   const config = await getSiteConfig();
   const vid = typeof body?.visitorId === "string" ? body.visitorId.trim() : "";
+  const creditCfg = creditsCfg(config.aiChat);
+  const vidValid = vid.length > 0 && vid.length <= 64;
 
   // 每访客限额（后台 aiChat 配置；visitorId 是客户端生成的，属"礼貌层"，
   // IP 分钟限流与下方全站日额度才是硬护栏）。放在全站计数前——被拒不烧全站额度
-  if (vid && vid.length <= 64) {
+  if (vidValid) {
     const { perVisitorHourly, perVisitorDaily } = config.aiChat;
     if (perVisitorHourly > 0) {
       const uh = rateLimit(`chat:u:${vid}:h`, perVisitorHourly, 3_600_000);
@@ -262,7 +266,8 @@ export async function POST(request: Request) {
         );
       }
     }
-    if (perVisitorDaily > 0) {
+    // 积分开启时每日次数限制被积分体系替代（积分才是真实成本口径），次数仅作关闭积分时的兜底
+    if (!creditCfg.enabled && perVisitorDaily > 0) {
       const ud = dailyCount(`chat:u:${vid}:d`, perVisitorDaily);
       if (!ud.ok) {
         return NextResponse.json(
@@ -273,16 +278,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // 每日总额度熔断:防脚本低频长跑刷爆 API 账单(限流挡"快",这里挡"久");
-  // 放在空请求校验之后——400 不烧额度;上游 5xx 仍计数(成本确实发生了,简单可预测)
-  const dailyLimit = Number(process.env.CHAT_DAILY_LIMIT) || 500;
-  const dl = dailyCount("chat:global", dailyLimit);
-  if (!dl.ok) {
-    return NextResponse.json(
-      { error: "daily limit", code: "chat_daily_limit" },
-      { status: 429, headers: { "Retry-After": String(dl.resetIn) } },
-    );
-  }
+  // 每日总额度熔断挪到积分扣减之后（见下方）：被积分拒绝的请求没有上游成本，不该烧全站额度
 
   // 模型预设解析（/admin/ai-chat 管理）：访客选择 → 后台默认 → env 匹配 → 第一个可用；
   // 思考强度：访客档位 → 后台默认档 → 该模型第一个可用档（getLlmRequest 内部规格钳制）
@@ -293,6 +289,45 @@ export async function POST(request: Request) {
   const llm = choice ? getLlmRequest({ provider: choice.provider, model: choice.model, level: effort }) : null;
   if (!choice || !llm) {
     return NextResponse.json({ error: LLM_NOT_CONFIGURED_MSG }, { status: 503 });
+  }
+
+  /* ===== 积分扣减：按 模型基准价 × 真实档位倍率（getLlmRequest 钳制后的 llm.level） =====
+   * 原子扣减在调用上游之前——余额不足直接 429，不烧全站额度；
+   * 上游首个请求就失败（没产生任何 token）时退款。 */
+  let creditsSpent = 0;
+  let creditsBalance = 0;
+  const creditCost = creditCfg.enabled && vidValid ? messageCost(config.aiChat, choice, llm.level) : 0;
+  if (creditCost > 0) {
+    // 新访客行不存在时先落一行并预发当日额度（500+Lv1 加成，与 player 路由首见发放同公式；
+    // 种子 stats 带今日已访问标记，player 同日不会重复发放）
+    await ensureVisitorWithGrant(vid, creditCfg.dailyGrant + creditCfg.levelBonusPerLevel);
+    const spend = await spendCredits(vid, creditCost);
+    if (!spend.ok) {
+      return NextResponse.json(
+        {
+          error: "insufficient credits",
+          code: "chat_no_credits",
+          creditsBalance: spend.balance,
+        },
+        { status: 429, headers: { "Retry-After": "3600" } },
+      );
+    }
+    creditsSpent = creditCost;
+    creditsBalance = spend.balance;
+  }
+  void incrStat("ai_credit", String(creditsSpent));
+
+  // 每日总额度熔断：防脚本低频长跑刷爆 API 账单（限流挡"快"，这里挡"久"）。
+  // 放在积分扣减之后——被积分/校验拒绝的请求没有上游成本，不该烧全站额度；
+  // 若恰好在此被熔断则把刚扣的积分退回去
+  const dailyLimit = Number(process.env.CHAT_DAILY_LIMIT) || 500;
+  const dl = dailyCount("chat:global", dailyLimit);
+  if (!dl.ok) {
+    if (creditsSpent > 0) await refundCredits(vid, creditsSpent);
+    return NextResponse.json(
+      { error: "daily limit", code: "chat_daily_limit" },
+      { status: 429, headers: { "Retry-After": String(dl.resetIn) } },
+    );
   }
   // 统计：模型调用（供应商|模型|档位）与带图消息（fire-and-forget 不阻塞）
   void incrStat("ai_call", `${choice.provider}|${llm.model}|${llm.level}`);
@@ -428,6 +463,8 @@ export async function POST(request: Request) {
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
+          // 上游首个请求就失败：没产生任何 token，把扣掉的积分退回去
+          if (creditsSpent > 0) await refundCredits(vid, creditsSpent);
           return NextResponse.json(
             { error: `AI 接口返回 ${res.status}：${text.slice(0, 140)}` },
             { status: 502 },
@@ -455,7 +492,10 @@ export async function POST(request: Request) {
         }
       }
       const { text: reply, mood } = stripMood(content.trim());
-      if (!reply) return NextResponse.json({ error: "AI 没有返回内容" }, { status: 502 });
+      if (!reply) {
+        if (creditsSpent > 0) await refundCredits(vid, creditsSpent);
+        return NextResponse.json({ error: "AI 没有返回内容" }, { status: 502 });
+      }
       const relatedLinks = related.length
         ? "\n\n" +
           related
@@ -466,7 +506,14 @@ export async function POST(request: Request) {
             )
             .join("\n")
         : "";
-      return NextResponse.json({ reply: reply + relatedLinks, related, tools: toolsUsed, mood });
+      return NextResponse.json({
+        reply: reply + relatedLinks,
+        related,
+        tools: toolsUsed,
+        mood,
+        creditsSpent,
+        creditsBalance,
+      });
     }
 
     /* ===== 流式：SSE 转发（related 先行 → delta* → status? → done）。
@@ -485,10 +532,10 @@ export async function POST(request: Request) {
         send(sse("related", related));
 
         let sentDone = false;
-        const finish = () => {
+        const finish = (payload: Record<string, unknown> = {}) => {
           if (!sentDone) {
             sentDone = true;
-            send(sse("done", {}));
+            send(sse("done", payload));
           }
         };
 
@@ -514,6 +561,8 @@ export async function POST(request: Request) {
             });
             if (!res.ok || !res.body) {
               const text = res.body ? await res.text().catch(() => "") : "";
+              // 首轮就失败：一个字都没流出去，没产生有效消费，退款
+              if (round === 0 && creditsSpent > 0) await refundCredits(vid, creditsSpent);
               send(sse("error", { message: `AI 接口返回 ${res.status}：${text.slice(0, 140)}` }));
               break;
             }
@@ -543,7 +592,7 @@ export async function POST(request: Request) {
             // 持久轨迹：徽章数据在正文 delta 之前到达
             if (toolsUsed.length) send(sse("tools", toolsUsed));
           }
-          finish(); // 上游结束但没发 [DONE] 的保险
+          finish({ creditsSpent, creditsBalance }); // 上游结束但没发 [DONE] 的保险
         } catch (e) {
           // 客户端断开/超时：静默收尾，已生成的部分已发出
           if (!(e instanceof Error && e.name === "AbortError")) {

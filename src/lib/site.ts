@@ -34,6 +34,8 @@ export interface AiChatChoice {
   provider: AiProvider;
   /** 覆盖该供应商默认模型名（不填用 env/内置默认） */
   model?: string;
+  /** 每条消息基准积分（✦）；缺省用供应商默认（glm 12 / deepseek 15 / qwen 10） */
+  cost?: number;
   /** @deprecated 已由访客侧思考强度滑条取代，仅为兼容旧配置保留、逻辑忽略 */
   thinking?: boolean;
 }
@@ -49,6 +51,17 @@ export interface AiCustomTool {
   endpoint: string;
 }
 
+/** AI 积分（✦）体系配置：每日发放 + 对话按量扣减；enabled=false 整体回退旧的每日次数限制 */
+export interface AiCreditsConfig {
+  enabled: boolean;
+  /** 每日首访发放 */
+  dailyGrant: number;
+  /** 每日签到加成 */
+  checkinBonus: number;
+  /** 每等级加成/日（Lv 越高领越多） */
+  levelBonusPerLevel: number;
+}
+
 export interface AiChatConfig {
   /** 暴露给访客的模型预设（未配置 key 的供应商自动对访客隐藏） */
   choices: AiChatChoice[];
@@ -58,14 +71,18 @@ export interface AiChatConfig {
   defaultEffort: string;
   /** false = 访客无选择器，固定用默认预设 */
   allowVisitorChoice: boolean;
-  /** 每访客每小时消息数（滑动窗口，0 = 不限） */
+  /** 每访客每小时消息数（滑动窗口，0 = 不限；防瞬时滥用的硬护栏，积分开启时仍生效） */
   perVisitorHourly: number;
-  /** 每访客每天消息数（0 = 不限） */
+  /** 每访客每天消息数（0 = 不限；积分开启时被积分体系替代，此值仅在 credits.enabled=false 时生效） */
   perVisitorDaily: number;
   /** 内置工具开关（key=工具名；缺省视为开启；web_search 还需配置搜索 key） */
   tools?: Record<string, boolean>;
   /** 自定义 HTTP 工具（最多 6 个） */
   customTools?: AiCustomTool[];
+  /** 档位倍率：每条消息积分 = 模型基准价 × 倍率（缺省 off/low 1、mid 2、high 4、max/on 6） */
+  effortCost?: Partial<Record<import("@/lib/llm-thinking").ThinkingLevel, number>>;
+  /** 积分体系配置（缺省 enabled + 500/日 + 签到 100 + 每等级 5） */
+  credits?: AiCreditsConfig;
 }
 
 export interface SiteConfig {
@@ -154,15 +171,17 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
   aiChat: {
     choices: [
-      { id: "glm", label: "GLM 5.3 Flash", provider: "glm" },
-      { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek", model: "deepseek-v4-flash-vision-exp" },
-      { id: "qwen", label: "Qwen 3.8 Flash", provider: "qwen" },
+      { id: "glm", label: "GLM 5.3 Flash", provider: "glm", cost: 12 },
+      { id: "deepseek", label: "DeepSeek V4 Flash", provider: "deepseek", model: "deepseek-v4-flash-vision-exp", cost: 15 },
+      { id: "qwen", label: "Qwen 3.8 Flash", provider: "qwen", cost: 10 },
     ],
     defaultChoice: "glm",
     defaultEffort: "low",
     allowVisitorChoice: true,
     perVisitorHourly: 15,
     perVisitorDaily: 60,
+    effortCost: { off: 1, low: 1, mid: 2, high: 4, max: 6, on: 6 },
+    credits: { enabled: true, dailyGrant: 500, checkinBonus: 100, levelBonusPerLevel: 5 },
   },
 };
 

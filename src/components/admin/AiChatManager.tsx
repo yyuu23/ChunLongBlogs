@@ -663,6 +663,14 @@ export function AiChatManager({
                 }
                 placeholder={String(EFFORT_COST_DEFAULTS[lv])}
               />
+              {/* 「开」只服务仅支持思考开/关的老款二档模型（glm-4.x 等），现役模型用不到 */}
+              {lv === "on" && (
+                <p className="mt-1 text-center text-[0.625rem] leading-tight text-slate-300">
+                  仅老款开/关
+                  <br />
+                  二档模型使用
+                </p>
+              )}
             </div>
           ))}
         </div>

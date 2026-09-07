@@ -139,6 +139,9 @@ certbot --nginx -d chunlong.me
   **不要**用 `npm run db:seed` 修密码——它会清空全部内容表（文章/说说/相册）再写演示数据
 - **图片上传 401**：确认是从 `/admin` 登录后的会话操作
 - **端口被占**：`pm2 delete chunlong-blog && PORT=3001 pm2 start npm --name chunlong-blog -- start` 并同步修改 Nginx
+- **升级后 API 报 500（no such column 类）**：新版代码用了新数据库列，但服务器上的 `db:push` 在非交互终端被确认提示拦住没执行。在服务器博客目录跑幂等修复命令（已存在的列会自动跳过），然后 `pm2 restart chunlong-blog`。以补 `visitors.credits` 列为例：
+  `node -e 'const db=require("better-sqlite3")("data/db.sqlite");const cols=db.prepare("PRAGMA table_info(visitors)").all().map(c=>c.name);if(!cols.includes("credits"))db.exec("ALTER TABLE visitors ADD COLUMN credits integer NOT NULL DEFAULT 0");console.log("columns:",cols.join(","));'`
+  （部署脚本 server-finalize.sh 现已改用 `drizzle-kit push --force`，之后的新增列会自动执行，无需手动处理）
 
 ## 9. AI 聊天助手（可选）
 

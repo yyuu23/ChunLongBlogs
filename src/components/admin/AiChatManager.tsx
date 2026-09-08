@@ -39,7 +39,8 @@ const BUILTIN_TOOLS: { name: string; label: string; desc: string }[] = [
 ];
 
 /**
- * AI 对话管理表单：模型预设 / 默认模型与思考强度 / 访客选择开关 / 每访客限额。
+ * AI 对话管理表单：模型预设（含牌价换算/促销）/ 默认模型与思考强度 / 访客选择开关 / AI 积分。
+ * （旧的每访客次数限制已移除——积分开启时天然限速；关闭积分时按已存配置回退生效）
  * 供应商 Key 只认 .env——这里未配 key 的供应商，其预设对访客自动隐藏（仅作保留）。
  * 思考档位由供应商与模型代际自动推断（llm-thinking.ts），与前台滑条一致。
  */
@@ -86,6 +87,20 @@ export function AiChatManager({
     setBudgetYuan("");
   };
   const budgetApplied = prevGrantRef.current !== null;
+
+  /* ===== API 牌价换算：按官方 元/百万tokens 牌价自动算基准积分 =====
+   * 建议积分 = ⌈(预估输入×(50%×缓存价+50%×输入价) + 预估输出×输出倍数×输出价) ÷ 1M
+   *            × 1000积分/元 × 加价倍数⌉；缓存价留空按 0% 命中；只写 cost，扣费口径不变 */
+  const markup = cr.pricingMarkup ?? 2;
+  const estIn = cr.estInputTokens ?? 4000;
+  const estOut = cr.estOutputTokens ?? 1000;
+  const apiPriceSuggest = (c: AiChatChoice): number | null => {
+    const p = c.apiPrice;
+    if (!p?.input || !p?.output) return null;
+    const inPrice = p.cache ? 0.5 * p.cache + 0.5 * p.input : p.input;
+    const costYuan = (estIn * inPrice + estOut * (p.outputMult ?? 1) * p.output) / 1_000_000;
+    return Math.max(1, Math.ceil(costYuan * 1000 * markup));
+  };
 
   /* ===== 档位倍率输入：允许一位小数（1.5 ✓ / 1.25 ✗）=====
    * 草稿态保证 "1." 这类中间态能正常输入（受控 number 输入会把小数点吃掉）；
@@ -369,6 +384,64 @@ export function AiChatManager({
                     </button>
                   </div>
                 </div>
+                {/* API 牌价换算：填官方牌价自动算基准积分（强制思考模型的输出倍数填 3） */}
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-slate-200 pt-2">
+                  <span className="text-xs font-medium text-slate-400">牌价换算（元/百万tokens）</span>
+                  {([
+                    ["input", "输入价", "0.8"],
+                    ["output", "输出价", "2.7"],
+                    ["cache", "缓存价(选填)", "0.1"],
+                  ] as const).map(([key, label2, ph]) => (
+                    <input
+                      key={key}
+                      type="number"
+                      min={0}
+                      step={0.001}
+                      className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                      value={c.apiPrice?.[key] ?? ""}
+                      onChange={(e) =>
+                        updateChoice(i, {
+                          apiPrice: {
+                            ...c.apiPrice,
+                            [key]: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                          },
+                        })
+                      }
+                      placeholder={ph}
+                      title={label2}
+                    />
+                  ))}
+                  <span className="text-xs text-slate-400">×</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    step={0.5}
+                    className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                    value={c.apiPrice?.outputMult ?? ""}
+                    onChange={(e) =>
+                      updateChoice(i, {
+                        apiPrice: {
+                          ...c.apiPrice,
+                          outputMult: e.target.value === "" ? undefined : Math.max(1, Number(e.target.value) || 1),
+                        },
+                      })
+                    }
+                    placeholder="倍数"
+                    title="输出膨胀倍数（强制思考模型填 3）"
+                  />
+                  {apiPriceSuggest(c) !== null && (
+                    <>
+                      <span className="text-sm font-semibold text-indigo-600">≈ ✦{apiPriceSuggest(c)}</span>
+                      <button
+                        onClick={() => updateChoice(i, { cost: apiPriceSuggest(c) ?? c.cost })}
+                        className="rounded-lg bg-indigo-500 px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-85"
+                      >
+                        填入
+                      </button>
+                    </>
+                  )}
+                </div>
                 {/* 限时促销（可复用）：前台显示划线原价 + 标签，到期自动隐藏；扣费始终按基准积分 */}
                 <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-slate-200 pt-2">
                   <span className="text-xs font-medium text-slate-400">促销</span>
@@ -521,40 +594,6 @@ export function AiChatManager({
         </div>
       </section>
 
-      {/* 每访客限额 */}
-      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold">每访客限额</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className={label}>每小时消息数（滑动窗口，0 = 不限）</p>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              className={`${input} mt-1`}
-              value={cfg.perVisitorHourly}
-              onChange={(e) => set("perVisitorHourly", Number(e.target.value) || 0)}
-            />
-          </div>
-          <div>
-            <p className={label}>每天消息数（0 = 不限）</p>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              className={`${input} mt-1`}
-              value={cfg.perVisitorDaily}
-              onChange={(e) => set("perVisitorDaily", Number(e.target.value) || 0)}
-            />
-          </div>
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-slate-400">
-          按访客身份（浏览器本地 ID）计数，重启服务清零；同 IP 每分钟限流与全站每日总额度仍在 .env
-          （CHAT_RATE_LIMIT / CHAT_DAILY_LIMIT）作为外层硬护栏。访客切换浏览器身份可绕过此层，
-          因此这里定位是"礼貌限额"，不是防刷。积分开启时，这里的「每天消息数」不生效（被积分替代）。
-        </p>
-      </section>
-
       {/* AI 积分（✦） */}
       <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
@@ -652,7 +691,7 @@ export function AiChatManager({
               min={0}
               max={99}
               className={`${input} mt-1`}
-              value={cfg.credits?.peakMultiplier ?? ""}
+              value={cr.peakMultiplier ?? ""}
               onChange={(e) =>
                 set("credits", {
                   ...cr,
@@ -661,6 +700,64 @@ export function AiChatManager({
                 })
               }
               placeholder="默认 2"
+            />
+          </div>
+        </div>
+        <p className={label + " mt-4"}>牌价换算参数（供各预设卡的「牌价换算」使用）</p>
+        <div className="mt-1 grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className={label}>加价倍数（成本 × 倍数 = 售价）</p>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              step={0.1}
+              className={`${input} mt-1`}
+              value={cr.pricingMarkup ?? ""}
+              onChange={(e) =>
+                set("credits", {
+                  ...cr,
+                  pricingMarkup:
+                    e.target.value === "" ? undefined : Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              placeholder="默认 2"
+            />
+          </div>
+          <div>
+            <p className={label}>预估输入 tokens/条</p>
+            <input
+              type="number"
+              min={100}
+              max={999999}
+              className={`${input} mt-1`}
+              value={cr.estInputTokens ?? ""}
+              onChange={(e) =>
+                set("credits", {
+                  ...cr,
+                  estInputTokens:
+                    e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value) || 0)),
+                })
+              }
+              placeholder="4000"
+            />
+          </div>
+          <div>
+            <p className={label}>预估输出 tokens/条（不含思考膨胀）</p>
+            <input
+              type="number"
+              min={100}
+              max={999999}
+              className={`${input} mt-1`}
+              value={cr.estOutputTokens ?? ""}
+              onChange={(e) =>
+                set("credits", {
+                  ...cr,
+                  estOutputTokens:
+                    e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value) || 0)),
+                })
+              }
+              placeholder="1000"
             />
           </div>
         </div>

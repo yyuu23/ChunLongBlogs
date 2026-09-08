@@ -253,9 +253,9 @@ export async function POST(request: Request) {
   const creditCfg = creditsCfg(config.aiChat);
   const vidValid = vid.length > 0 && vid.length <= 64;
 
-  // 每访客限额（后台 aiChat 配置；visitorId 是客户端生成的，属"礼貌层"，
-  // IP 分钟限流与下方全站日额度才是硬护栏）。放在全站计数前——被拒不烧全站额度
-  if (vidValid) {
+  // 每访客次数限制：仅在积分体系关闭时生效（积分开启时每条消息都扣积分，
+  // 每日额度天然封顶，次数限制无意义）；IP 分钟限流与全站日熔断始终在岗
+  if (!creditCfg.enabled && vidValid) {
     const { perVisitorHourly, perVisitorDaily } = config.aiChat;
     if (perVisitorHourly > 0) {
       const uh = rateLimit(`chat:u:${vid}:h`, perVisitorHourly, 3_600_000);
@@ -266,8 +266,7 @@ export async function POST(request: Request) {
         );
       }
     }
-    // 积分开启时每日次数限制被积分体系替代（积分才是真实成本口径），次数仅作关闭积分时的兜底
-    if (!creditCfg.enabled && perVisitorDaily > 0) {
+    if (perVisitorDaily > 0) {
       const ud = dailyCount(`chat:u:${vid}:d`, perVisitorDaily);
       if (!ud.ok) {
         return NextResponse.json(

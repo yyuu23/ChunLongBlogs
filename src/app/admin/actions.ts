@@ -796,6 +796,11 @@ export async function saveAiChat(input: AiChatConfig) {
     const v = Number(n);
     return Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 9999) : undefined;
   };
+  // API 牌价（元/百万 tokens）：保留 3 位小数（如 0.115）
+  const clampMoney = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v * 1000) / 1000, 9999) : undefined;
+  };
   const choices = (Array.isArray(input.choices) ? input.choices : [])
     .slice(0, 6)
     .map((c) => {
@@ -809,12 +814,27 @@ export async function saveAiChat(input: AiChatConfig) {
           }
         : undefined;
       const hasPromo = promo && (promo.originalCost !== undefined || !!promo.label || !!promo.until);
+      // API 牌价（换算工具用）：输入/输出都没填视为未配置
+      const ap = c.apiPrice;
+      const apiPrice = ap
+        ? {
+            input: clampMoney(ap.input),
+            output: clampMoney(ap.output),
+            cache: clampMoney(ap.cache),
+            outputMult:
+              ap.outputMult !== undefined
+                ? Math.max(1, Math.min(20, Math.round(Number(ap.outputMult) * 10) / 10))
+                : undefined,
+          }
+        : undefined;
+      const hasApiPrice = apiPrice && (apiPrice.input !== undefined || apiPrice.output !== undefined);
       return {
         id: String(c.id ?? "").trim().slice(0, 64),
         label: String(c.label ?? "").trim().slice(0, 24),
         provider: (AI_PROVIDERS.has(c.provider) ? c.provider : "deepseek") as AiChatConfig["choices"][number]["provider"],
         model: typeof c.model === "string" && c.model.trim() ? c.model.trim().slice(0, 64) : undefined,
         cost: clampCost(c.cost),
+        apiPrice: hasApiPrice ? apiPrice : undefined,
         promo: hasPromo ? promo : undefined,
       };
     })
@@ -880,6 +900,13 @@ export async function saveAiChat(input: AiChatConfig) {
     checkinBonus: clampBig(creditCfgIn.checkinBonus ?? 100),
     levelBonusPerLevel: clamp(creditCfgIn.levelBonusPerLevel ?? 5),
     peakMultiplier: creditCfgIn.peakMultiplier !== undefined ? clampMult(creditCfgIn.peakMultiplier) : undefined,
+    // 牌价换算参数（一位小数/整数钳制；留 undefined 走默认 2 / 4000 / 1000）
+    pricingMarkup:
+      creditCfgIn.pricingMarkup !== undefined
+        ? Math.max(0, Math.min(Math.round(Number(creditCfgIn.pricingMarkup) * 10) / 10, 99))
+        : undefined,
+    estInputTokens: creditCfgIn.estInputTokens !== undefined ? clampBig(creditCfgIn.estInputTokens) : undefined,
+    estOutputTokens: creditCfgIn.estOutputTokens !== undefined ? clampBig(creditCfgIn.estOutputTokens) : undefined,
   };
   const effortCost = Object.fromEntries(
     Object.entries(input.effortCost ?? {})

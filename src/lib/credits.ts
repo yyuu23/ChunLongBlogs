@@ -35,6 +35,12 @@ export interface CreditsConfig {
   levelBonusPerLevel: number;
   /** DeepSeek 高峰时段积分倍率（北京时间工作日 9-12/14-18 点），<2 视为关闭 */
   peakMultiplier?: number;
+  /** 定价加价倍数（admin 的 API 价格换算工具用：成本 × 此倍数 = 售价） */
+  pricingMarkup?: number;
+  /** 换算预估：单条消息输入 tokens */
+  estInputTokens?: number;
+  /** 换算预估：单条消息输出 tokens（思考膨胀由各模型 apiPrice.outputMult 表达） */
+  estOutputTokens?: number;
 }
 
 const CREDITS_DEFAULTS: CreditsConfig = {
@@ -49,7 +55,8 @@ const clamp0 = (n: unknown, fallback: number) => {
   return Number.isFinite(v) && v >= 0 ? v : fallback;
 };
 
-/** 配置合并（老配置 JSON 缺字段时全部走缺省值，admin 可逐项覆盖） */
+/** 配置合并（老配置 JSON 缺字段时全部走缺省值，admin 可逐项覆盖；
+ *  可选字段原样透传——admin 里 {...cr, x} 展开时不能丢掉它们） */
 export function creditsCfg(aiChat: AiChatConfig): CreditsConfig {
   const c = (aiChat.credits ?? {}) as Partial<CreditsConfig>;
   return {
@@ -57,6 +64,10 @@ export function creditsCfg(aiChat: AiChatConfig): CreditsConfig {
     dailyGrant: clamp0(c.dailyGrant, CREDITS_DEFAULTS.dailyGrant),
     checkinBonus: clamp0(c.checkinBonus, CREDITS_DEFAULTS.checkinBonus),
     levelBonusPerLevel: clamp0(c.levelBonusPerLevel, CREDITS_DEFAULTS.levelBonusPerLevel),
+    peakMultiplier: c.peakMultiplier,
+    pricingMarkup: c.pricingMarkup,
+    estInputTokens: c.estInputTokens,
+    estOutputTokens: c.estOutputTokens,
   };
 }
 

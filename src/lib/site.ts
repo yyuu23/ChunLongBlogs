@@ -36,6 +36,15 @@ export interface AiChatChoice {
   model?: string;
   /** 每条消息基准积分（✦）；缺省用供应商默认（glm 12 / deepseek 15 / qwen 10） */
   cost?: number;
+  /** API 牌价（元/百万 tokens，admin 换算基准积分用；扣费只看 cost） */
+  apiPrice?: {
+    input?: number;
+    output?: number;
+    /** 缓存命中输入价（换算按 50% 命中率估算） */
+    cache?: number;
+    /** 输出膨胀倍数（强制思考模型填 3：思维链计入输出计费） */
+    outputMult?: number;
+  };
   /** 限时促销展示：划线原价 + 标签 + 截止日（YYYY-MM-DD，过期自动隐藏；仅展示，扣费以 cost 为准） */
   promo?: { originalCost?: number; label?: string; until?: string };
   /** @deprecated 已由访客侧思考强度滑条取代，仅为兼容旧配置保留、逻辑忽略 */
@@ -64,6 +73,12 @@ export interface AiCreditsConfig {
   levelBonusPerLevel: number;
   /** DeepSeek 高峰时段积分倍率（北京时间工作日 9-12/14-18），≥2 生效 */
   peakMultiplier?: number;
+  /** 定价加价倍数（API 价格换算积分用：成本 × 此倍数 = 售价，默认 2） */
+  pricingMarkup?: number;
+  /** 换算预估：单条消息输入 tokens（默认 4000，含 system/历史/RAG） */
+  estInputTokens?: number;
+  /** 换算预估：单条消息输出 tokens（默认 1000；思考膨胀由各模型的 outputMult 表达） */
+  estOutputTokens?: number;
 }
 
 export interface AiChatConfig {
@@ -75,9 +90,9 @@ export interface AiChatConfig {
   defaultEffort: string;
   /** false = 访客无选择器，固定用默认预设 */
   allowVisitorChoice: boolean;
-  /** 每访客每小时消息数（滑动窗口，0 = 不限；防瞬时滥用的硬护栏，积分开启时仍生效） */
+  /** @deprecated 积分体系启用时不再生效（积分天然限速）；仅在 credits.enabled=false 时回退生效，UI 已移除 */
   perVisitorHourly: number;
-  /** 每访客每天消息数（0 = 不限；积分开启时被积分体系替代，此值仅在 credits.enabled=false 时生效） */
+  /** @deprecated 同上：仅在 credits.enabled=false 时回退生效，UI 已移除 */
   perVisitorDaily: number;
   /** 内置工具开关（key=工具名；缺省视为开启；web_search 还需配置搜索 key） */
   tools?: Record<string, boolean>;

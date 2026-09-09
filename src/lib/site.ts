@@ -130,6 +130,8 @@ export interface SiteConfig {
   aiPersona: string;
   /** AI 对话模型预设与每访客限额（/admin/ai-chat 管理） */
   aiChat: AiChatConfig;
+  /** 节气瓶中信：festival key → 站长一句话（开瓶后可读，/admin/settings 的"节气语录"维护） */
+  festivalQuotes?: Record<string, string>;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -188,6 +190,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   footerText: "",
   ccLicense: "BY-NC-SA 4.0",
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",
+  festivalQuotes: {},
   aiChat: {
     choices: [
       { id: "glm", label: "GLM 5.3 Flash", provider: "glm", cost: 12, promo: { originalCost: 24, label: "限时半价", until: "2026-09-15" } },

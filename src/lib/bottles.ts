@@ -4,7 +4,8 @@ import { bottles } from "@/lib/db/schema";
 /** 瓶内季节 = 获得时的粒子主题 */
 export const BOTTLE_THEMES = ["sakura", "firefly", "leaf", "snow"] as const;
 export type BottleTheme = (typeof BOTTLE_THEMES)[number];
-export type BottleKind = "star" | "achievement" | "festival";
+/** newyear = 年末开瓶夜（12/25-12/31 窗口内来访获得，一年一只） */
+export type BottleKind = "star" | "achievement" | "festival" | "newyear";
 
 export function normalizeTheme(v: unknown): BottleTheme {
   return BOTTLE_THEMES.includes(v as BottleTheme) ? (v as BottleTheme) : "sakura";

@@ -155,3 +155,8 @@ export function festivalTintOf(f: FestivalDef): string {
   if (f.key.startsWith("solar-")) return SEASON_PARTICLE_TINT[festivalParticleOf(f)];
   return LUNAR_TINT[lunarStem(f.key)] ?? SEASON_PARTICLE_TINT.firefly;
 }
+
+/** 年末开瓶夜窗口：12 月 25–31 日（七日窗口，任意一天来访都能领跨年瓶） */
+export function isYearEndWindow(date = new Date()): boolean {
+  return date.getMonth() === 11 && date.getDate() >= 25;
+}

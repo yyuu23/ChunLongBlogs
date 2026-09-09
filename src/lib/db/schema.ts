@@ -160,20 +160,22 @@ export const stars = sqliteTable("stars", {
 });
 
 /**
- * 访客漂流瓶：留星 / 解锁成就 / 节气节日来访 的纪念收藏（实验室瓶子架展示）。
+ * 访客漂流瓶：留星 / 成就 / 节气节日 / 跨年 的封存纪念（实验室瓶子架展示）。
  * theme 记录"获得当时的粒子季节"，瓶里永远封着那一天的风景。
  * (visitorId, kind, refKey) 唯一 —— 同一来源幂等，不重复发瓶。
+ * openedAt：开瓶仪式时间（不可逆；开过瓶液体剩四成、节气信笺可读）。
  */
 export const bottles = sqliteTable(
   "bottles",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     visitorId: text("visitor_id").notNull(),
-    kind: text("kind").notNull(), // star | achievement | festival
-    refKey: text("ref_key").notNull().default(""), // 留星=starId、成就=key、节日=festival key
+    kind: text("kind").notNull(), // star | achievement | festival | newyear
+    refKey: text("ref_key").notNull().default(""), // 留星=starId、成就=key、节日=festival key、跨年=年份
     title: text("title").notNull().default(""), // 留星内容摘录（展示快照）
     theme: text("theme").notNull().default("sakura"), // sakura | firefly | leaf | snow
     createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+    openedAt: integer("opened_at", ts),
   },
   (t) => [uniqueIndex("bottles_visitor_kind_ref_idx").on(t.visitorId, t.kind, t.refKey)],
 );

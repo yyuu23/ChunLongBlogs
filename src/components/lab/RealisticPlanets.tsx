@@ -479,6 +479,8 @@ const sunVert = /* glsl */ `
 
 const sunFrag = /* glsl */ `
   uniform float uTime;
+  uniform vec3 uTint;
+  uniform float uTintMix;
   varying vec3 vSP;
   varying vec3 vSN;
   varying vec3 vSV;

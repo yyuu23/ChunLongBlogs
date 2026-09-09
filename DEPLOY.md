@@ -115,10 +115,17 @@ certbot --nginx -d chunlong.me
 - `data/db.sqlite`（全部内容数据）
 - `public/uploads/`（上传的图片）
 
+推荐用仓库自带的备份脚本（先用 SQLite Online Backup API 生成一致性快照再打包，
+避免直接 tar 活库在写入瞬间产生撕裂快照；自动只保留最近 30 份，与部署流水线
+用的是同一个脚本、同一个备份目录 `/opt/chunlong-backups`）：
+
 ```bash
-# crontab 每天凌晨备份
-0 3 * * * tar -czf /opt/backup/cl-$(date +\%F).tar.gz -C /opt/chunlong-blog data public/uploads
+# crontab 每天凌晨 4:10 备份（服务器上执行 crontab -e 添加这一行，只需装一次）
+10 4 * * * /bin/bash /opt/chunlong-blog/scripts/server-backup.sh >> /var/log/chunlong-backup.log 2>&1
 ```
+
+不装 crontab 也有保底：每次 GitHub Actions 部署时都会自动执行一次同样的备份，
+但两次部署之间写入的数据不在覆盖范围内——建议装上每日备份。
 
 恢复：解压覆盖后 `pm2 restart chunlong-blog`。
 

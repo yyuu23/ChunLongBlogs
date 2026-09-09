@@ -231,6 +231,7 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | 回滚到上一版 | `git revert <坏提交> && git push origin main`，走同一条流水线重新部署（服务器无 .git，不能用 git 方式回退） |
 | 恢复数据 | `/opt/chunlong-backups/` 里取最近的 tar.gz 解压覆盖后 `pm2 restart` |
 | 暂停自动部署 | Actions → Deploy production → `...` → Disable workflow |
+| 安装每日备份 crontab | 服务器上 `crontab -e` 添加：`10 4 * * * /bin/bash /opt/chunlong-blog/scripts/server-backup.sh >> /var/log/chunlong-backup.log 2>&1`（详见 [DEPLOY.md §5](../DEPLOY.md)） |
 
 应急（Actions 整体不可用时的手工路径）见 [DEPLOY.md](../DEPLOY.md)。
 
@@ -247,7 +248,7 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | nginx 配置 | 服务器 `/etc/nginx/sites-available/chunlongblog.top.conf`；仓库模板 `deploy/nginx/chunlongblog.top.conf`（两者保持同步） |
 | 数据库 | 服务器 `/opt/chunlong-blog/data/db.sqlite`（单文件） |
 | 上传文件 | 服务器 `/opt/chunlong-blog/public/uploads/` |
-| 自动备份 | 服务器 `/opt/chunlong-backups/`（保留 10 份）+ crontab 每日备份见 DEPLOY.md §5 |
+| 自动备份 | 服务器 `/opt/chunlong-backups/`（保留 30 份；每次部署自动执行一次，每日 crontab 见 [DEPLOY.md §5](../DEPLOY.md)） |
 | workflow 本体 | `.github/workflows/deploy.yml` |
 | 服务器端脚本 | `scripts/server-backup.sh`、`scripts/server-finalize.sh`（经 ssh 管道执行，永远运行本次版本） |
 

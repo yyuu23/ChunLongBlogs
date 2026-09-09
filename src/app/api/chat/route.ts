@@ -14,6 +14,7 @@ import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 import { creditsCfg, isPeakApplied, messageCost } from "@/lib/credits";
 import { spendCredits, refundCredits, ensureDailyCredits } from "@/lib/credits-server";
+import { logError } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -384,7 +385,7 @@ export async function POST(request: Request) {
           .join("\n\n");
     }
   } catch (e) {
-    console.error("[rag] retrieve failed:", e);
+    logError("chat/rag", e);
   }
 
   // 记忆注入:客户端 localStorage 的长期记忆是不可信数据——框架声明防注入 + 服务端长度钳制(不信客户端)
@@ -599,6 +600,7 @@ export async function POST(request: Request) {
         } catch (e) {
           // 客户端断开/超时：静默收尾，已生成的部分已发出
           if (!(e instanceof Error && e.name === "AbortError")) {
+            logError("chat/stream", e, { provider: choice?.provider, model: choice?.model });
             send(sse("error", { message: "stream interrupted" }));
           }
         } finally {

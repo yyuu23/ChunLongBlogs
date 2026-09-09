@@ -12,6 +12,8 @@ const globalForDb = globalThis as unknown as { __clSqlite?: Database.Database };
 const sqlite = globalForDb.__clSqlite ?? new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
+// 写锁冲突时等待而非立刻抛 SQLITE_BUSY（单进程下罕见，给同步事务兜底）
+sqlite.pragma("busy_timeout = 5000");
 globalForDb.__clSqlite = sqlite;
 
 export const db = drizzle(sqlite, { schema });

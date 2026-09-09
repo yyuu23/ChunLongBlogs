@@ -18,6 +18,7 @@ import {
 } from "@/lib/achievements";
 import { creditsCfg } from "@/lib/credits";
 import { ensureDailyCredits } from "@/lib/credits-server";
+import { logError } from "@/lib/logger";
 import { grantBottle, themeFromMeta } from "@/lib/bottles";
 import { festivalOf } from "@/lib/festivals";
 
@@ -176,91 +177,106 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
-  const rows = await db.select().from(visitors).where(eq(visitors.id, visitorId)).limit(1);
-  const existing = rows[0];
-
-  /* 直接从解析后的对象里取 __daily。
-     旧实现用正则从 JSON 字符串里抠（/"__daily":\s*(\{[^}]*\})/），
-     但 [^}]* 会在内层 counts 的 } 处就停下，抠出来永远是不闭合的片段，
-     JSON.parse 必抛错 → 每次都回落到新计数器 → 单日上限形同虚设。 */
-  const raw = existing
-    ? (JSON.parse(existing.stats) as Partial<PlayerStats> & { __daily?: DayCounter })
-    : null;
-  const { __daily, ...rest } = raw ?? {};
-  const stats: PlayerStats = normalizeStats(rest);
-  const daily: DayCounter =
-    __daily && __daily.date === today() ? __daily : { date: today(), counts: {} };
-
-  // 成就 diff 的基线要含 touchVisit 之前的状态（夜之住民等首见成就也算"本次解锁"）
-  const beforeKeys = new Set(unlockedAchievements(stats));
-  const firstVisitToday = touchVisit(stats, daily, existing?.lastSeen ?? null);
-  const gained = applyEvent(stats, daily, event, body?.payload);
-  const xp = (existing?.xp ?? 0) + gained;
-
-  /* ===== AI 积分（✦）每日重置 =====
+  /* ===== AI 积分（✦）每日重置（必须在 stats 事务之前） =====
    * 新的一天首次触达（chat / player 路由谁先到谁触发）：余额「重置」为
-   * dailyGrant + 等级加成——昨天的剩余不结转，不能每天 +500 累上去；
-   * 当日首次签到另 +checkinBonus（这部分是加成，仍走累加）。
-   * 重置去重靠 stats.__credits.date 标记（ensureDailyCredits 里 SQL 原子判定），
-   * 与 __visit 的访问记账解耦；签到去重仍走 DAILY_CAPS.checkin。 */
-  const siteCfg = await getSiteConfig();
-  const creditCfg = creditsCfg(siteCfg.aiChat);
-  let creditsGain = 0;
-  let creditsBase = existing?.credits ?? 0;
+   * dailyGrant + 等级加成——昨天的剩余不结转，不能每天 +500 累上去。
+   * 顺序约束：下面的事务会把 __credits 标记写回 stats，若先写标记后重置，
+   * ensureDailyCredits 会误判"今天已重置"而跳过，当日额度就丢了。 */
+  const creditCfg = creditsCfg((await getSiteConfig()).aiChat);
+  let creditsBase = 0;
   if (creditCfg.enabled) {
     creditsBase = (await ensureDailyCredits(visitorId, creditCfg.dailyGrant, creditCfg.levelBonusPerLevel)).balance;
-    if (event === "daily_checkin" && gained > 0) {
-      creditsGain += creditCfg.checkinBonus;
-    }
   }
-  const creditsBalance = creditsBase + creditsGain;
 
-  // stats 里捎带当日计数与积分重置标记（简单起见存同列）；
-  // __credits 标记必须写回，否则下方整包 UPSERT 会把 ensureDailyCredits
-  // 刚打上的标记抹掉，导致同日第二次触达被再重置一次
-  const statsWithDaily = {
-    ...stats,
-    __daily: daily,
-    ...(creditCfg.enabled ? { __credits: { date: today() } } : {}),
-  } as unknown as PlayerStats & { __daily: DayCounter; __credits?: { date: string } };
+  /* ===== stats/xp 结算：同步事务 =====
+   * 旧实现「await 读 → 计算 → await 写」之间存在微任务让出点，两个并发埋点
+   * 的续体会交错，后写者用旧 stats 整包覆盖先写者（丢更新：XP 丢失、单日
+   * 上限计数失真）。better-sqlite3 的事务回调要求全程同步（见 admin/import
+   * 路由同款模式与注释）：回调执行期间事件循环无法插入其他请求，读-算-写
+   * 在结构上原子；任何一步抛错整体回滚，不再出现写一半的中间态。
+   * credits 列不经此事务：重置由 ensureDailyCredits 的 SQL 原子 CAS 完成，
+   * 签到加成在事务后原子累加——避免绝对值覆盖踩掉并发的扣减/退款。 */
+  const r = db.$client.transaction(() => {
+    const rows = db.select().from(visitors).where(eq(visitors.id, visitorId)).limit(1).all();
+    const existing = rows[0];
 
-  await db
-    .insert(visitors)
-    .values({ id: visitorId, xp, credits: creditsGain, stats: JSON.stringify(statsWithDaily) })
-    .onConflictDoUpdate({
-      target: visitors.id,
-      set: {
-        xp,
-        credits: sql`${visitors.credits} + ${creditsGain}`,
-        stats: JSON.stringify(statsWithDaily),
-        lastSeen: new Date(),
-      },
-    });
+    /* 直接从解析后的对象里取 __daily。
+       旧实现用正则从 JSON 字符串里抠（/"__daily":\s*(\{[^}]*\})/），
+       但 [^}]* 会在内层 counts 的 } 处就停下，抠出来永远是不闭合的片段，
+       JSON.parse 必抛错 → 每次都回落到新计数器 → 单日上限形同虚设。 */
+    const raw = existing
+      ? (JSON.parse(existing.stats) as Partial<PlayerStats> & { __daily?: DayCounter })
+      : null;
+    const { __daily, ...rest } = raw ?? {};
+    const stats: PlayerStats = normalizeStats(rest);
+    const daily: DayCounter =
+      __daily && __daily.date === today() ? __daily : { date: today(), counts: {} };
+
+    // 成就 diff 的基线要含 touchVisit 之前的状态（夜之住民等首见成就也算"本次解锁"）
+    const beforeKeys = new Set(unlockedAchievements(stats));
+    const firstVisitToday = touchVisit(stats, daily, existing?.lastSeen ?? null);
+    const gained = applyEvent(stats, daily, event, body?.payload);
+    const xp = (existing?.xp ?? 0) + gained;
+
+    // stats 里捎带当日计数与积分重置标记（简单起见存同列）；
+    // __credits 标记必须写回，否则整包 UPSERT 会把 ensureDailyCredits
+    // 刚打上的标记抹掉，导致同日第二次触达被再重置一次
+    const statsWithDaily = {
+      ...stats,
+      __daily: daily,
+      ...(creditCfg.enabled ? { __credits: { date: today() } } : {}),
+    } as unknown as PlayerStats & { __daily: DayCounter; __credits?: { date: string } };
+
+    db.insert(visitors)
+      .values({ id: visitorId, xp, stats: JSON.stringify(statsWithDaily) })
+      .onConflictDoUpdate({
+        target: visitors.id,
+        set: {
+          xp,
+          stats: JSON.stringify(statsWithDaily),
+          lastSeen: new Date(),
+        },
+      })
+      .run();
+
+    return { gained, xp, stats, beforeKeys, firstVisitToday, credits: existing?.credits ?? 0 };
+  })();
+
+  // 当日首次签到 +checkinBonus（加成而非重置；DAILY_CAPS 限 1 次/天）
+  let creditsGain = 0;
+  if (creditCfg.enabled && event === "daily_checkin" && r.gained > 0) {
+    creditsGain = creditCfg.checkinBonus;
+    await db.run(sql`UPDATE visitors SET credits = credits + ${creditsGain} WHERE id = ${visitorId}`);
+  }
+  const creditsBalance = creditCfg.enabled ? creditsBase + creditsGain : r.credits;
 
   // ===== 漂流瓶（幂等，失败不阻断结算）=====
   const theme = themeFromMeta(body?.__meta);
   try {
     // 当日首见撞上节气/农历节日 → 封一只节日限定瓶
-    if (firstVisitToday) {
+    if (r.firstVisitToday) {
       const fest = festivalOf(new Date());
       if (fest) await grantBottle(visitorId, "festival", fest.key, theme);
     }
     // 本次新解锁的成就逐个封瓶（纪念瓶）
-    for (const key of unlockedAchievements(stats)) {
-      if (!beforeKeys.has(key)) await grantBottle(visitorId, "achievement", key, theme);
+    for (const key of unlockedAchievements(r.stats)) {
+      if (!r.beforeKeys.has(key)) await grantBottle(visitorId, "achievement", key, theme);
     }
-  } catch {}
+  } catch (err) {
+    // 发瓶失败不阻断结算，但要有迹可循（此前静默吞掉，线上无从排查）
+    logError("player/bottles", err, { event });
+  }
 
-  const lvl = levelOf(xp);
+  const lvl = levelOf(r.xp);
   return NextResponse.json({
-    xp,
-    gained,
+    xp: r.xp,
+    gained: r.gained,
     level: lvl.level,
     title: levelTitle(lvl.level, locale),
     progress: lvl.progress,
     tier: lvl.tier,
-    achievements: unlockedAchievements(stats),
-    stats,
+    achievements: unlockedAchievements(r.stats),
+    stats: r.stats,
     credits: creditsBalance,
   });
 }

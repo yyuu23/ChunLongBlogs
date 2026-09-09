@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { logError } from "@/lib/logger";
 
 const COOKIE_NAME = "cl_admin";
 const encoder = new TextEncoder();
@@ -11,6 +12,7 @@ function secret() {
    * 漏配时任何人都能用它伪造 admin JWT。宁可响亮地失败，也不静默落到已知密钥。
    * 放在函数内而非模块顶层抛——避免 next build 静态分析期误伤，只在真正签发/校验会话时检查。 */
   if (!s && process.env.NODE_ENV === "production") {
+    logError("auth", new Error("AUTH_SECRET is not set"));
     throw new Error("AUTH_SECRET is not set — refusing to sign/verify admin sessions in production");
   }
   return encoder.encode(s ?? "dev-secret-do-not-use-in-production");

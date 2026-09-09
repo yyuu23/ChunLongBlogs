@@ -182,6 +182,9 @@ export const ja: Dictionary = {
     fwCount: "{n} 発打ち上げ",
     fwAuto: "自動",
     fwAutoOff: "自動を止める",
+    lightStar: "光を送る",
+    lightDone: "光を送った ✨",
+    lightCount: "{n} 人が光をくれた",
   },
   ach: {
     unlocked: "実績解除！",

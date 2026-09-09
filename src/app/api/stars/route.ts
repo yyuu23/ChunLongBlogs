@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { stars } from "@/lib/db/schema";
+import { stars, starLights } from "@/lib/db/schema";
 import { grantBottle } from "@/lib/bottles";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +36,24 @@ export async function GET(request: Request) {
   const inWindow = new Set(rows.map((s) => s.id));
   const merged = [...rows, ...own.filter((s) => !inWindow.has(s.id))];
 
+  // 回一束光：每颗星的回光总数 + 当前访客是否回过（弹卡展示与按钮状态用）
+  const ids = merged.map((s) => s.id);
+  const lightCountMap = new Map<number, number>();
+  const litByMeSet = new Set<number>();
+  if (visitorId && ids.length) {
+    const countRows = await db
+      .select({ starId: starLights.starId, n: sql<number>`count(*)` })
+      .from(starLights)
+      .where(inArray(starLights.starId, ids))
+      .groupBy(starLights.starId);
+    for (const r of countRows) lightCountMap.set(r.starId, Number(r.n));
+    const mine = await db
+      .select({ starId: starLights.starId })
+      .from(starLights)
+      .where(and(eq(starLights.visitorId, visitorId), inArray(starLights.starId, ids)));
+    for (const r of mine) litByMeSet.add(r.starId);
+  }
+
   return NextResponse.json({
     stars: merged.map((s) => ({
       id: s.id,
@@ -43,6 +61,7 @@ export async function GET(request: Request) {
       createdAt: s.createdAt,
       ...(visitorId && s.visitorId === visitorId ? { mine: true } : {}),
       ...(s.featured ? { featured: true } : {}),
+      ...(visitorId ? { lights: lightCountMap.get(s.id) ?? 0, litByMe: litByMeSet.has(s.id) } : {}),
     })),
   });
 }

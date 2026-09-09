@@ -5,15 +5,17 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 
 /**
- * /api/stars 集成测试（临时库）。
- * 核心回归点：「找到我的星」依赖的三个行为——
+ * /api/stars 与 /api/stars/light 集成测试（临时库）。
+ * 核心回归点：
  *   1) ?visitorId= 时自己的星带 mine 标记；
  *   2) 自己的星即使被最新 80 颗窗口顶出去也照常返回（80 ∪ 自己）；
- *   3) 软删除的星对公开接口不可见。
+ *   3) 软删除的星对公开接口不可见；
+ *   4) 回一束光：同访客同星去重、每日限流、软删星拒绝、GET 附带 lights/litByMe。
  * DATABASE_PATH 必须在动态 import 之前设置（db 是模块级单例）。
  */
 
 let api: typeof import("@/app/api/stars/route");
+let lightApi: typeof import("@/app/api/stars/light/route");
 let raw: Database.Database;
 
 beforeAll(async () => {
@@ -28,6 +30,13 @@ beforeAll(async () => {
     featured INTEGER NOT NULL DEFAULT 0,
     deleted_at INTEGER
   )`);
+  raw.exec(`CREATE TABLE star_lights (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    star_id INTEGER NOT NULL,
+    visitor_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  )`);
+  raw.exec("CREATE UNIQUE INDEX star_lights_star_visitor_idx ON star_lights (star_id, visitor_id)");
   const add = raw.prepare(
     "INSERT INTO stars (content, visitor_id, created_at, featured, deleted_at) VALUES (?, ?, ?, ?, ?)",
   );
@@ -41,11 +50,12 @@ beforeAll(async () => {
   add.run("已删-D1", "v-C", Date.now() - 400, 0, Date.now() - 300);
 
   api = await import("@/app/api/stars/route");
+  lightApi = await import("@/app/api/stars/light/route");
 });
 
 const get = async (qs = "") =>
   (await (await api.GET(new Request(`http://localhost/api/stars${qs}`))).json()) as {
-    stars: { id: number; content: string; mine?: boolean; featured?: boolean }[];
+    stars: { id: number; content: string; mine?: boolean; featured?: boolean; lights?: number; litByMe?: boolean }[];
   };
 
 describe("GET /api/stars", () => {
@@ -96,5 +106,61 @@ describe("POST /api/stars", () => {
     }
     const fourth = await post("第四颗", "v-D");
     expect(fourth.status).toBe(429);
+  });
+});
+
+describe("POST /api/stars/light —— 回一束光", () => {
+  const starIdOf = (content: string) =>
+    (raw.prepare("SELECT id FROM stars WHERE content = ?").get(content) as { id: number } | undefined)?.id;
+  const light = (starId: number, visitorId: string) =>
+    lightApi.POST(
+      new Request("http://localhost/api/stars/light", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starId, visitorId }),
+      }),
+    );
+
+  it("回光成功返回计数；同访客同星重复回光不叠加", async () => {
+    const id = starIdOf("新星-A1")!;
+    const first = await light(id, "v-L");
+    expect(first.status).toBe(200);
+    expect(((await first.json()) as { lights: number }).lights).toBe(1);
+    const again = await light(id, "v-L");
+    expect(((await again.json()) as { lights: number }).lights).toBe(1); // 去重
+    // 第二个访客可以再回
+    const other = await light(id, "v-L2");
+    expect(((await other.json()) as { lights: number }).lights).toBe(2);
+  });
+
+  it("软删除的星不可回光", async () => {
+    const id = starIdOf("已删-D1")!;
+    const res = await light(id, "v-L");
+    expect(res.status).toBe(404);
+  });
+
+  it("每访客每天限 20 次", async () => {
+    const ids = (
+      raw.prepare("SELECT id FROM stars WHERE content LIKE 'filler-%' ORDER BY id LIMIT 21").all() as { id: number }[]
+    ).map((r) => r.id);
+    expect(ids.length).toBe(21);
+    for (let i = 0; i < 20; i++) {
+      const res = await light(ids[i]!, "v-LIMIT");
+      expect(res.status).toBe(200);
+    }
+    const over = await light(ids[20]!, "v-LIMIT");
+    expect(over.status).toBe(429);
+  });
+
+  it("GET 附带 lights 计数与 litByMe 标记", async () => {
+    const { stars } = await get("?visitorId=v-L");
+    const a1 = stars.find((s) => s.content === "新星-A1");
+    expect(a1?.lights).toBe(2);
+    expect(a1?.litByMe).toBe(true);
+    // 窗口内一颗无关星：litByMe 显式为 false（按钮状态依赖该字段存在）
+    const filler = stars.find((s) => s.content === "filler-84");
+    expect(filler).toBeTruthy();
+    expect(filler?.litByMe).toBe(false);
+    expect(filler?.lights).toBe(0);
   });
 });

@@ -44,6 +44,8 @@ export interface PlayerStats {
   labDemos: number;
   /** 实验台：玩过的实验 slug（留最近 10 个，demo_all 成就判定用，仿 readPostIds） */
   labDemoIds?: string[];
+  /** 给别人的留声星「回一束光」的次数（传灯人成就用） */
+  lightsGiven: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -73,6 +75,7 @@ export const EMPTY_STATS: PlayerStats = {
   checkinDays: 0,
   labDemos: 0,
   labDemoIds: [],
+  lightsGiven: 0,
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -97,6 +100,7 @@ export const XP_RULES = {
   set_custom_hue: 2,
   pick_wallpaper: 2,
   visit_lab_demo: 3,
+  light_star: 2,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -122,6 +126,7 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   set_custom_hue: 3,
   pick_wallpaper: 5,
   visit_lab_demo: 5,
+  light_star: 10,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

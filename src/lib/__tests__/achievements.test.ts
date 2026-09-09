@@ -63,4 +63,9 @@ describe("unlockedAchievements", () => {
     // 累计到访很多天但当前断签（streak=1）不解锁连珠——两个维度互补
     expect(unlockedAchievements(normalizeStats({ visitDays: 30, streak: 1 }))).not.toContain("streak_3");
   });
+
+  it("传灯人：回光 10 次解锁，9 次不解锁", () => {
+    expect(unlockedAchievements(normalizeStats({ lightsGiven: 9 }))).not.toContain("light_10");
+    expect(unlockedAchievements(normalizeStats({ lightsGiven: 10 }))).toContain("light_10");
+  });
 });

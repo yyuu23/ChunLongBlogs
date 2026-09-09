@@ -34,6 +34,10 @@ export interface StarItem {
   mine?: boolean;
   /** 站长精选：更大的白金亮星 */
   featured?: boolean;
+  /** 这颗星收到的「回一束光」总数（弹卡展示） */
+  lights?: number;
+  /** 当前访客是否已对这颗星回过光（按钮状态） */
+  litByMe?: boolean;
 }
 
 export interface PlanetCounts {

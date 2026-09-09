@@ -410,6 +410,15 @@ export const EXPLORE: AchievementDef[] = [
 /* ============================ 交情 ============================ */
 export const SOCIAL: AchievementDef[] = [
   {
+    key: "light_10",
+    name: { zh: "传灯人", en: "Lamplighter", ja: "灯を伝える人", ko: "등불을 전하는 사람" },
+    description: { zh: "给别人的留声星回过 10 束光", en: "Send light back to 10 stars left by others", ja: "他の人の星に 10 回光を送る", ko: "다른 사람의 별에 빛을 10번 보내기" },
+    emoji: "🕯️",
+    category: "social",
+    check: (s) => (s.lightsGiven ?? 0) >= 10,
+    progress: { stat: "lightsGiven", target: 10 },
+  },
+  {
     key: "pat_1",
     name: { zh: "摸头杀", en: "Head Pat", ja: "頭撫で", ko: "머리 쓰다듬기" },
     description: { zh: "第一次摸看板娘的头", en: "Pat the mascot's head for the first time", ja: "看板娘の頭を初めて撫でる", ko: "마스코트 머리를 처음 쓰다듬기" },

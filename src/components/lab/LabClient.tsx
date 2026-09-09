@@ -68,16 +68,28 @@ export function LabClient({
     if (!vid) return;
     fetch(`/api/stars?visitorId=${encodeURIComponent(vid)}`)
       .then((r) => r.json())
-      .then((d: { stars?: { id: number; content: string; createdAt: number; mine?: boolean; featured?: boolean }[] }) => {
-        if (d.stars?.length) {
-          setStars(
-            d.stars.map((s) => ({
-              ...s,
-              date: new Date(s.createdAt).toLocaleDateString(DATE_LOCALE[locale]),
-            })),
-          );
-        }
-      })
+      .then(
+        (d: {
+          stars?: {
+            id: number;
+            content: string;
+            createdAt: number;
+            mine?: boolean;
+            featured?: boolean;
+            lights?: number;
+            litByMe?: boolean;
+          }[];
+        }) => {
+          if (d.stars?.length) {
+            setStars(
+              d.stars.map((s) => ({
+                ...s,
+                date: new Date(s.createdAt).toLocaleDateString(DATE_LOCALE[locale]),
+              })),
+            );
+          }
+        },
+      )
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -89,6 +101,30 @@ export function LabClient({
       setStarMsg(t("lab.starFoundHint"));
     } else {
       setStarMsg(t("lab.noOwnStarHint"));
+    }
+  };
+
+  /** 回一束光：成功后弹卡就地更新计数/按钮，并在带里该星位置放金色闪光 */
+  const [lightFx, setLightFx] = useState<{ starId: number; at: number } | null>(null);
+  const lightStar = async (s: StarItem) => {
+    try {
+      const res = await fetch("/api/stars/light", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starId: s.id, visitorId: getVisitorId() }),
+      });
+      const data = (await res.json()) as { ok?: boolean; lights?: number };
+      if (res.ok && data.ok) {
+        setStars((prev) =>
+          prev.map((x) =>
+            x.id === s.id ? { ...x, lights: data.lights ?? (x.lights ?? 0) + 1, litByMe: true } : x,
+          ),
+        );
+        setLightFx({ starId: s.id, at: Date.now() });
+        trackEvent("light_star", { starId: s.id });
+      }
+    } catch {
+      /* 静默：按钮保持可点，下次再试 */
     }
   };
 
@@ -128,7 +164,15 @@ export function LabClient({
   return (
     <div className="flex flex-col gap-5">
       <div className="relative h-[min(78vh,46rem)] w-full overflow-hidden rounded-[2rem] bg-[radial-gradient(ellipse_at_center,#1e1b4b_0%,#0b1020_55%,#05070f_100%)] shadow-2xl">
-        <LabScene moments={moments} stars={stars} counts={counts} highlight={highlightToken} festivalTint={festivalTint} />
+        <LabScene
+          moments={moments}
+          stars={stars}
+          counts={counts}
+          highlight={highlightToken}
+          festivalTint={festivalTint}
+          onLightStar={lightStar}
+          lightFx={lightFx}
+        />
 
         {/* 等级 HUD */}
         {progress && (

@@ -266,13 +266,69 @@ function SpecialStar({
   );
 }
 
+/** 回一束光的粒子闪光：金色光点自星位球面扩散，约 0.85s 消散。
+ *  必须挂在旋转的带 group 内——星在转，闪光也要跟着转坐标才对得上。 */
+function LightBurst({ pos, onDone }: { pos: [number, number, number]; onDone: () => void }) {
+  const N = 90;
+  const ptsRef = useRef<THREE.Points>(null);
+  const velocities = useMemo(() => {
+    const v = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      const sp = 4 + Math.random() * 8;
+      v[i * 3] = Math.sin(ph) * Math.cos(a) * sp;
+      v[i * 3 + 1] = Math.cos(ph) * sp;
+      v[i * 3 + 2] = Math.sin(ph) * Math.sin(a) * sp;
+    }
+    return v;
+  }, []);
+  const startRef = useRef<number | null>(null);
+  const doneRef = useRef(false);
+
+  useFrame((state) => {
+    const pts = ptsRef.current;
+    if (!pts || doneRef.current) return;
+    if (startRef.current == null) startRef.current = state.clock.elapsedTime;
+    const t = state.clock.elapsedTime - startRef.current;
+    const attr = pts.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    for (let i = 0; i < N; i++) {
+      arr[i * 3] += velocities[i * 3] * 0.05;
+      arr[i * 3 + 1] += velocities[i * 3 + 1] * 0.05;
+      arr[i * 3 + 2] += velocities[i * 3 + 2] * 0.05;
+      velocities[i * 3] *= 0.93;
+      velocities[i * 3 + 1] *= 0.93;
+      velocities[i * 3 + 2] *= 0.93;
+    }
+    attr.needsUpdate = true;
+    (pts.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - t / 0.8);
+    if (t > 0.85) {
+      doneRef.current = true;
+      onDone();
+    }
+  });
+
+  return (
+    <points ref={ptsRef} position={pos}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[new Float32Array(N * 3), 3]} />
+      </bufferGeometry>
+      <pointsMaterial color="#ffe9a8" size={2} transparent opacity={1} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </points>
+  );
+}
+
 function StarBelt({
   stars,
   highlight,
+  lightFx,
   onOpen,
 }: {
   stars: StarItem[];
   highlight: number;
+  /** 回一束光触发：在该星位置放一簇金色闪光 */
+  lightFx?: { starId: number; at: number } | null;
   onOpen: (s: StarItem) => void;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -285,6 +341,18 @@ function StarBelt({
   );
   const count = normal.length;
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const [lightBursts, setLightBursts] = useState<{ key: number; pos: [number, number, number] }[]>([]);
+
+  useEffect(() => {
+    if (!lightFx) return;
+    const star = stars.find((s) => s.id === lightFx.starId);
+    if (!star) return;
+    setLightBursts((b) => [...b, { key: lightFx.at, pos: starTransform(star).pos }]);
+    const timer = setTimeout(() => setLightBursts((b) => b.filter((x) => x.key !== lightFx.at)), 1300);
+    return () => clearTimeout(timer);
+    // 仅在 lightFx 变化时触发；stars 从闭包取（星位由 id 哈希决定，无需响应 stars 更新）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightFx]);
 
   useMemo(() => {
     if (!meshRef.current || !count) return;
@@ -336,6 +404,13 @@ function StarBelt({
           onOpen={onOpen}
         />
       ))}
+      {lightBursts.map((b) => (
+        <LightBurst
+          key={b.key}
+          pos={b.pos}
+          onDone={() => setLightBursts((arr) => arr.filter((x) => x.key !== b.key))}
+        />
+      ))}
     </group>
   );
 }
@@ -347,6 +422,8 @@ export default function LabScene({
   counts,
   highlight = 0,
   festivalTint,
+  onLightStar,
+  lightFx,
 }: {
   moments: MomentItem[];
   stars: StarItem[];
@@ -355,6 +432,9 @@ export default function LabScene({
   highlight?: number;
   /** 节日当天太阳的偏色（festivals.ts 的 festivalTintOf 算好传入），非节日 undefined */
   festivalTint?: string;
+  /** 回一束光：弹卡按钮点击回调（LabClient 发请求，成功后经 lightFx 触发场景闪光） */
+  onLightStar: (s: StarItem) => void;
+  lightFx?: { starId: number; at: number } | null;
 }) {
   const router = useRouter();
   const [bursts, setBursts] = useState<number[]>([]);
@@ -445,6 +525,7 @@ export default function LabScene({
       <StarBelt
         stars={stars}
         highlight={highlight}
+        lightFx={lightFx}
         onOpen={(s) => {
           setOpenStar(s);
           trackEvent("view_star");
@@ -453,32 +534,52 @@ export default function LabScene({
 
       {/* 场景内不放任何标题/说明（宇宙中只有宇宙），文字在页面 header 里 */}
 
-      {/* 留声星弹卡 */}
-      {openStar && (
-        <Html position={[0, 78, 0]} center distanceFactor={170}>
-          <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
-            <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
-              <span className="flex min-w-0 items-center gap-1.5">
-                {openStar.mine && (
-                  <span className="shrink-0 rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] text-sky-200">
-                    {t("lab.yourStar")}
+      {/* 留声星弹卡（从 stars 里取实时数据：回光后计数/按钮状态就地刷新） */}
+      {openStar &&
+        (() => {
+          const shown = stars.find((s) => s.id === openStar.id) ?? openStar;
+          return (
+            <Html position={[0, 78, 0]} center distanceFactor={170}>
+              <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
+                <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {shown.mine && (
+                      <span className="shrink-0 rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] text-sky-200">
+                        {t("lab.yourStar")}
+                      </span>
+                    )}
+                    {shown.featured && (
+                      <span className="shrink-0 rounded-full bg-amber-300/20 px-2 py-0.5 text-[10px] text-amber-200">
+                        ✦ {t("lab.featuredStar")}
+                      </span>
+                    )}
+                    <span className="truncate">{t("lab.memoryStar", { date: shown.date })}</span>
                   </span>
-                )}
-                {openStar.featured && (
-                  <span className="shrink-0 rounded-full bg-amber-300/20 px-2 py-0.5 text-[10px] text-amber-200">
-                    ✦ {t("lab.featuredStar")}
-                  </span>
-                )}
-                <span className="truncate">{t("lab.memoryStar", { date: openStar.date })}</span>
-              </span>
-              <button onClick={() => setOpenStar(null)} className="shrink-0 rounded-full px-2 hover:text-white">
-                ✕
-              </button>
-            </div>
-            <p className="text-sm leading-relaxed">{openStar.content}</p>
-          </div>
-        </Html>
-      )}
+                  <button onClick={() => setOpenStar(null)} className="shrink-0 rounded-full px-2 hover:text-white">
+                    ✕
+                  </button>
+                </div>
+                <p className="text-sm leading-relaxed">{shown.content}</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  {(shown.mine || (shown.lights ?? 0) > 0) && (
+                    <span className="text-[11px] text-amber-200/60">{t("lab.lightCount", { n: shown.lights ?? 0 })}</span>
+                  )}
+                  {!shown.mine &&
+                    (shown.litByMe ? (
+                      <span className="ml-auto text-[11px] text-amber-200/70">{t("lab.lightDone")}</span>
+                    ) : (
+                      <button
+                        onClick={() => onLightStar(shown)}
+                        className="ml-auto rounded-full bg-amber-300/20 px-3 py-1 text-[11px] text-amber-200 transition-colors hover:bg-amber-300/35"
+                      >
+                        ✨ {t("lab.lightStar")}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </Html>
+          );
+        })()}
 
       {/* 回忆行星弹卡（可翻阅） */}
       {moment && (

@@ -179,6 +179,9 @@ export const zh = {
     fwCount: "已放 {n} 发",
     fwAuto: "自动放",
     fwAutoOff: "停止自动",
+    lightStar: "回一束光",
+    lightDone: "已回过光 ✨",
+    lightCount: "有 {n} 人回过光",
   },
   ach: {
     unlocked: "成就解锁！",

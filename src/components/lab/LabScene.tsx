@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, OrbitControls, Html } from "@react-three/drei";
@@ -354,7 +354,12 @@ function StarBelt({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightFx]);
 
-  useMemo(() => {
+  /* 实例矩阵写入必须在 useLayoutEffect：渲染期的 useMemo 拿到的 ref 要么为空
+   * （mesh 未挂载），要么指向被 args 变化重建前的旧实例（mine/featured 标记
+   * 会让普通星数量变化 → InstancedMesh 重建）——两种情况矩阵都会写丢，
+   * 实例保持 three.js 初始的全零矩阵 = 不可见且点不中。
+   * useLayoutEffect 在挂载/重建完成后、绘制前执行，永远写当前活着的 mesh。 */
+  useLayoutEffect(() => {
     if (!meshRef.current || !count) return;
     normal.forEach((s, i) => {
       const { pos, scale, rot } = starTransform(s);
@@ -364,7 +369,11 @@ function StarBelt({
       dummy.updateMatrix();
       meshRef.current?.setMatrixAt(i, dummy.matrix);
     });
-    if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current) {
+      meshRef.current.instanceMatrix.needsUpdate = true;
+      // 用新矩阵重算包围球：射线拾取（点击）与视锥剔除都依赖它
+      meshRef.current.computeBoundingSphere();
+    }
   }, [normal, dummy, count]);
 
   useFrame((state) => {

@@ -15,6 +15,8 @@ export interface EffectFlags {
   selectionSparkle: boolean;
   mascot: boolean;
   heroTypewriter: boolean;
+  /** 瓶子音效（Web Audio 合成）：拿起/放下/摇晃/开瓶/风铃 */
+  sound: boolean;
 }
 
 /** 粒子主题模式：类型统一定义在 lib/particle-theme（auto/season 的展开逻辑也在那里） */
@@ -38,6 +40,7 @@ const DEFAULTS: EffectFlags = {
   selectionSparkle: true,
   mascot: true,
   heroTypewriter: true,
+  sound: true,
 };
 
 interface EffectCtx {
@@ -80,7 +83,7 @@ export function EffectProvider({ children }: { children: ReactNode }) {
       }
       // 尊重系统减少动态偏好
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        next = { particles: false, clickBurst: false, splash: false, selectionSparkle: false, mascot: false, heroTypewriter: false };
+        next = { particles: false, clickBurst: false, splash: false, selectionSparkle: false, mascot: false, heroTypewriter: false, sound: false };
       }
       setEffects(next);
     } catch {}

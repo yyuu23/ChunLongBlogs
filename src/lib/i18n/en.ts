@@ -30,6 +30,7 @@ export const en: Dictionary = {
   home: {
     today: "Today",
     festivalToday: "Today is {name}",
+    yearEndLine: "🕯️ Year-End Bottle Night · the shelf is glowing",
     heroSubtitle: "Slow down, and write something",
     heroTags: "Tech · Essays · Life",
     heroTitles: [
@@ -155,7 +156,7 @@ export const en: Dictionary = {
     featuredStar: "Featured",
     netError: "❌ Network error",
     shelfTitle: "Bottle Shelf",
-    shelfHint: "Leaving stars, unlocking achievements, visiting on solar terms or festivals — each seals a bottle with that day's scenery inside",
+    shelfHint: "Stars, achievements, festival visits — each seals a bottle with that day's scenery. Tap to inspect, hold to shake, long-press to drag (fling it, it bounces!), open it from the story card",
     shelfLoading: "A thin layer of dust settles on the shelf…",
     shelfEmpty: "The shelf is still empty… leave a star, unlock achievements, or come back on a festival day?",
     bottleStar: "Star Message",
@@ -183,6 +184,11 @@ export const en: Dictionary = {
     lightStar: "Send light",
     lightDone: "Light sent ✨",
     lightCount: "{n} people sent light",
+    bottleNewyear: "New Year Bottle",
+    openBottle: "Open",
+    bottleOpened: "Opened",
+    projectSky: "Project to the sky",
+    keeperNote: "A note from the keeper",
   },
   ach: {
     unlocked: "Achievement unlocked!",
@@ -337,6 +343,10 @@ export const en: Dictionary = {
         "Happy {name}! 🎋",
         "It's {name} — even the sun changed color today ✨",
       ],
+      yearEnd: [
+        "The bottles on the shelf glow during this last week of the year 🕯️",
+        "They say guests who come around New Year receive a special bottle…",
+      ],
       postRead: [
         "All done reading? Want to chat about any part of it~",
         "Making it all the way here — you're a careful reader (＾▽＾)",
@@ -455,6 +465,7 @@ export const en: Dictionary = {
     selectionSparkle: "Selection sparkle",
     splashScreen: "Splash screen",
     mascotToggle: "Mascot",
+    soundToggle: "Bottle sounds",
     heroTypewriter: "Hero typewriter",
     backToTop: "Back to top",
     effectsAria: "Effects settings",

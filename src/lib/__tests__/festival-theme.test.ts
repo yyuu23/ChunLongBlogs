@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { festivalOf, festivalParticleOf, festivalTintOf } from "@/lib/festivals";
+import { festivalOf, festivalParticleOf, festivalTintOf, isYearEndWindow } from "@/lib/festivals";
 import { resolveParticleTheme } from "@/lib/particle-theme";
 
 describe("festival 视觉联动映射", () => {
@@ -49,5 +49,15 @@ describe("resolveParticleTheme（auto/season 统一展开 + 节日优先）", ()
     expect(resolveParticleTheme("auto", false, plain)).toBe("sakura");
     expect(resolveParticleTheme("season", false, plain)).toBe("firefly");
     expect(resolveParticleTheme("season", false, new Date("2026-01-15T12:00:00"))).toBe("snow");
+  });
+});
+
+describe("isYearEndWindow（年末开瓶夜 12/25–12/31 七日窗口）", () => {
+  it("边界：12/24 假、12/25 真、12/31 真、次年 1/1 假", () => {
+    expect(isYearEndWindow(new Date("2026-12-24T12:00:00"))).toBe(false);
+    expect(isYearEndWindow(new Date("2026-12-25T00:30:00"))).toBe(true);
+    expect(isYearEndWindow(new Date("2026-12-31T23:00:00"))).toBe(true);
+    expect(isYearEndWindow(new Date("2027-01-01T00:30:00"))).toBe(false);
+    expect(isYearEndWindow(new Date("2026-11-30T12:00:00"))).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { FloatingTools } from "@/components/layout/FloatingTools";
 import { SplashScreen } from "@/components/layout/SplashScreen";
 import { ThemeParticles, ClickEffect } from "@/components/effects/Effects";
 import { SelectionSparkle } from "@/components/effects/SelectionSparkle";
+import { BottleProjection } from "@/components/effects/BottleProjection";
 import { AchievementToasts } from "@/components/effects/AchievementToasts";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
@@ -40,6 +41,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <div className="cl-night-overlay" aria-hidden />
       <ClickEffect />
       <SelectionSparkle />
+      {/* 瓶子投影仪：把漂流瓶里的季节释放在全站（cl-bottle-project 事件触发） */}
+      <BottleProjection />
       <ReadingProgress />
       <SplashScreen siteName={config.siteName} avatar={config.avatar} />
 

@@ -28,6 +28,7 @@ export const zh = {
   home: {
     today: "今日",
     festivalToday: "今日{name}",
+    yearEndLine: "🕯️ 年末开瓶夜 · 架上的瓶子亮了",
     heroSubtitle: "慢下来，写点东西",
     heroTags: "技术 · 随笔 · 日常",
     /* Hero 轮播文案（AI 流式打字机）：主标题与副标题按下标配对；第 0 套为首帧静态展示的品牌句 */
@@ -154,7 +155,7 @@ export const zh = {
     featuredStar: "站长精选",
     netError: "❌ 网络异常",
     shelfTitle: "漂流瓶架",
-    shelfHint: "留星、解锁成就、节气节日来访，都会封存一只瓶子——瓶里留着那一天的风景",
+    shelfHint: "留星、解锁成就、节气节日来访，都会封存一只瓶子——瓶里留着那一天的风景。轻点端详、按住摇晃、长按拖动（甩出去会弹跳哦）、双击…不对，故事卡里可以开瓶",
     shelfLoading: "架子上落了一层薄薄的灰……",
     shelfEmpty: "架子还空着…留颗星、解锁成就，或节日当天再来看看？",
     bottleStar: "留声星",
@@ -182,6 +183,11 @@ export const zh = {
     lightStar: "回一束光",
     lightDone: "已回过光 ✨",
     lightCount: "有 {n} 人回过光",
+    bottleNewyear: "跨年纪念瓶",
+    openBottle: "开瓶",
+    bottleOpened: "已开封",
+    projectSky: "投影到夜空",
+    keeperNote: "站长的信笺",
   },
   ach: {
     unlocked: "成就解锁！",
@@ -336,6 +342,10 @@ export const zh = {
         "今天是{name}哦，节日快乐！🎋",
         "{name}到了，太阳今天也换了颜色呢 ✨",
       ],
+      yearEnd: [
+        "年末的这一周，架子上的瓶子会亮着哦 🕯️",
+        "听说跨年前后来的客人，会收到一只特别的瓶子…",
+      ],
       postRead: [
         "读完啦？有没有哪段想聊聊的~",
         "能读到这里，你真的很认真呢 (＾▽＾)",
@@ -454,6 +464,7 @@ export const zh = {
     selectionSparkle: "选中星光",
     splashScreen: "启动屏",
     mascotToggle: "看板娘",
+    soundToggle: "瓶子音效",
     heroTypewriter: "首页打字机",
     backToTop: "返回顶部",
     effectsAria: "特效设置",

@@ -39,6 +39,7 @@ const EFFECT_TOGGLES = [
   ["splash", "tools.splashScreen"],
   ["heroTypewriter", "tools.heroTypewriter"],
   ["mascot", "tools.mascotToggle"],
+  ["sound", "tools.soundToggle"],
 ] as const;
 
 /**

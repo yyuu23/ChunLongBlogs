@@ -32,6 +32,7 @@ export const ja: Dictionary = {
   home: {
     today: "今日",
     festivalToday: "今日は{name}",
+    yearEndLine: "🕯️ 年末ボトルナイト · 棚の瓶が光っている",
     heroSubtitle: "ゆっくり、何かを書こう",
     heroTags: "技術 · エッセイ · 日常",
     heroTitles: [
@@ -157,7 +158,7 @@ export const ja: Dictionary = {
     featuredStar: "注目の星",
     netError: "❌ 通信エラー",
     shelfTitle: "漂流瓶の棚",
-    shelfHint: "星を残す、実績を解除、節句や祝日に訪れる——その日の風景を封じた瓶が増えていく",
+    shelfHint: "星を残す、実績解除、節句訪問——その日の風景を封じた瓶が増えていく。タップで観察、長押しでドラッグ（投げると弾むよ）、ストーリーカードから開封もできる",
     shelfLoading: "棚に薄く埃が積もっている…",
     shelfEmpty: "棚はまだ空いている…星を残したり、実績を解除したり、祝日にまた来てみる？",
     bottleStar: "スターメッセージ",
@@ -185,6 +186,11 @@ export const ja: Dictionary = {
     lightStar: "光を送る",
     lightDone: "光を送った ✨",
     lightCount: "{n} 人が光をくれた",
+    bottleNewyear: "年越りの記念ボトル",
+    openBottle: "開封",
+    bottleOpened: "開封済み",
+    projectSky: "夜空に投影",
+    keeperNote: "管理人の手紙",
   },
   ach: {
     unlocked: "実績解除！",
@@ -339,6 +345,10 @@ export const ja: Dictionary = {
         "今日は{name}だよ、おめでとう！🎋",
         "{name}が来たね。今日は太陽の色も変わってるよ ✨",
       ],
+      yearEnd: [
+        "年の最後の一週間、棚の瓶は光ってるよ 🕯️",
+        "年越りの頃に来るお客さんには、特別な瓶が届くらしい…",
+      ],
       postRead: [
         "読み終わった？何か話したいところある？～",
         "ここまで読んでくれて、本当に丁寧に読む人だね (＾▽＾)",
@@ -454,6 +464,7 @@ export const ja: Dictionary = {
     selectionSparkle: "選択キラキラ",
     splashScreen: "スプラッシュ",
     mascotToggle: "看板娘",
+    soundToggle: "ボトルの効果音",
     heroTypewriter: "トップのタイプ演出",
     backToTop: "トップへ戻る",
     effectsAria: "エフェクト設定",

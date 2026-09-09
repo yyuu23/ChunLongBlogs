@@ -30,6 +30,7 @@ export const ko: Dictionary = {
   home: {
     today: "오늘",
     festivalToday: "오늘은 {name}",
+    yearEndLine: "🕯️ 연말 병의 밤 · 선반의 병이 빛나요",
     heroSubtitle: "천천히, 무언가를 적어보기",
     heroTags: "기술 · 수필 · 일상",
     heroTitles: [
@@ -155,7 +156,7 @@ export const ko: Dictionary = {
     featuredStar: "선별된 별",
     netError: "❌ 네트워크 오류",
     shelfTitle: "표류병 선반",
-    shelfHint: "별 남기기, 업적 해금, 절기·명절 방문 — 그날의 풍경을 담은 병이 하나씩 늘어나요",
+    shelfHint: "별 남기기, 업적 해금, 절기 방문 — 그날의 풍경을 담은 병이 늘어나요. 눌러서 살펴보기, 길게 눌러 드래그(던지면 튀어올라요), 이야기 카드에서 개봉하기",
     shelfLoading: "선반에 먼지가 살포시 내려앉는 중…",
     shelfEmpty: "선반이 아직 비어 있어요… 별을 남기거나, 업적을 해금하거나, 명절에 다시 와 볼래요?",
     bottleStar: "별 메시지",
@@ -183,6 +184,11 @@ export const ko: Dictionary = {
     lightStar: "빛 보내기",
     lightDone: "빛을 보냈어요 ✨",
     lightCount: "{n}명이 빛을 보냈어요",
+    bottleNewyear: "연말 기녑 병",
+    openBottle: "개봉",
+    bottleOpened: "개봉됨",
+    projectSky: "밤하늘에 투영",
+    keeperNote: "지기의 편지",
   },
   ach: {
     unlocked: "업적 해제!",
@@ -337,6 +343,10 @@ export const ko: Dictionary = {
         "오늘은 {name}이에요, 축하해요! 🎋",
         "{name}이 왔네요. 오늘은 태양 색도 바뀌었어요 ✨",
       ],
+      yearEnd: [
+        "연말 이번 주 동안 선반의 병이 빛나요 🕯️",
+        "연말 무렵 오는 손님에겐 특별한 병이 도착한대요…",
+      ],
       postRead: [
         "다 읽었어? 이야기하고 싶은 부분 있어~?",
         "여기까지 읽다니, 정말 꼼꼼하네 (＾▽＾)",
@@ -452,6 +462,7 @@ export const ko: Dictionary = {
     selectionSparkle: "선택 반짝임",
     splashScreen: "스플래시",
     mascotToggle: "마스코트",
+    soundToggle: "병 소리",
     heroTypewriter: "메인 타이핑 효과",
     backToTop: "맨 위로",
     effectsAria: "효과 설정",

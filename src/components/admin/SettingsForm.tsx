@@ -2,9 +2,10 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles, Download, Upload } from "lucide-react";
+import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles, Download, Upload, Wine } from "lucide-react";
 import { saveSettings, rebuildEmbeddingsAction, backfillSummariesAction, backfillTagsAction } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
+import { parseFestivalQuotes, stringifyFestivalQuotes } from "@/lib/festival-quotes";
 import type { SiteConfig } from "@/lib/site";
 
 const label = "flex flex-col gap-1.5";
@@ -272,6 +273,26 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
             value={config.announcement.customText ?? ""}
             onChange={(e) => set("announcement", { ...config.announcement, customText: e.target.value })}
             className={input}
+          />
+        </label>
+      </section>
+
+      {/* 节气瓶中信 */}
+      <section className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:grid-cols-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
+          <Wine className="h-4 w-4 text-amber-400" />
+          节气瓶中信
+        </h2>
+        <label className={`${label} sm:col-span-2`}>
+          <span className="text-xs font-medium text-slate-500">
+            节气/节日当天来访的访客会封一只瓶——开瓶后能读到对应的一句话。每行一条：节气 key | 语录
+            （key 见 lib/festivals.ts，如 solar-dongzhi、lunar-moon-2026；留空即不写信）
+          </span>
+          <textarea
+            rows={4}
+            value={stringifyFestivalQuotes(config.festivalQuotes)}
+            onChange={(e) => set("festivalQuotes", parseFestivalQuotes(e.target.value))}
+            className={`resize-none font-mono text-xs ${input}`}
           />
         </label>
       </section>

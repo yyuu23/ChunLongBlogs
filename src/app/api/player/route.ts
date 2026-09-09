@@ -20,7 +20,7 @@ import { creditsCfg } from "@/lib/credits";
 import { ensureDailyCredits } from "@/lib/credits-server";
 import { logError } from "@/lib/logger";
 import { grantBottle, themeFromMeta } from "@/lib/bottles";
-import { festivalOf } from "@/lib/festivals";
+import { festivalOf, isYearEndWindow } from "@/lib/festivals";
 
 export const dynamic = "force-dynamic";
 
@@ -266,10 +266,14 @@ export async function POST(request: Request) {
   // ===== 漂流瓶（幂等，失败不阻断结算）=====
   const theme = themeFromMeta(body?.__meta);
   try {
-    // 当日首见撞上节气/农历节日 → 封一只节日限定瓶
     if (r.firstVisitToday) {
+      // 当日首见撞上节气/农历节日 → 封一只节日限定瓶
       const fest = festivalOf(new Date());
       if (fest) await grantBottle(visitorId, "festival", fest.key, theme);
+      // 年末开瓶夜（12/25–12/31）：窗口内任意一天首见 → 跨年纪念瓶（refKey=年份，一年一只）
+      if (isYearEndWindow()) {
+        await grantBottle(visitorId, "newyear", String(new Date().getFullYear()), theme);
+      }
     }
     // 本次新解锁的成就逐个封瓶（纪念瓶）
     for (const key of unlockedAchievements(r.stats)) {

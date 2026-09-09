@@ -29,12 +29,15 @@ export function LabClient({
   initialStars,
   counts,
   festivalTint,
+  festivalQuotes,
 }: {
   moments: MomentItem[];
   initialStars: StarItem[];
   counts: PlanetCounts;
   /** 节日当天太阳偏色（page 服务端算好传入） */
   festivalTint?: string;
+  /** 节气瓶中信（站点配置，透传给瓶子架） */
+  festivalQuotes?: Record<string, string>;
 }) {
   const { locale } = useLocale();
   const t = useT();
@@ -269,7 +272,7 @@ export function LabClient({
       <AchievementWall progress={progress} />
 
       {/* 漂流瓶架：留星 / 成就 / 节气来访的封存纪念 */}
-      <BottleShelf />
+      <BottleShelf quotes={festivalQuotes} />
     </div>
   );
 }

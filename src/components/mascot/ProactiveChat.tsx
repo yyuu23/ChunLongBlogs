@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useLocale } from "@/components/providers/LocaleProvider";
-import { festivalOf } from "@/lib/festivals";
+import { festivalOf, isYearEndWindow } from "@/lib/festivals";
 import { pick } from "@/lib/i18n/config";
 
 /**
@@ -92,7 +92,7 @@ export function ProactiveChat() {
     if (pathname === "/lab") timers.push(setTimeout(() => say("lab", "mascot.proactive.lab"), 4_000));
     if (pathname === "/music") timers.push(setTimeout(() => say("music", "mascot.proactive.music"), 4_000));
 
-    // ⑤ 节日问候：当天命中节气/农历节日，18s 后说一句（静默期之后；每会话一次）
+    // ⑤ 节日问候 / 年末开瓶夜预告：当天命中 18s 后说一句（静默期之后；每会话一次；节日优先）
     const fest = festivalOf(new Date());
     if (fest) {
       timers.push(
@@ -102,6 +102,8 @@ export function ProactiveChat() {
           sayRaw("festival", line.replace("{name}", pick(locale, fest.name)));
         }, 18_000),
       );
+    } else if (isYearEndWindow()) {
+      timers.push(setTimeout(() => say("yearEnd", "mascot.proactive.yearEnd"), 18_000));
     }
 
     return () => {

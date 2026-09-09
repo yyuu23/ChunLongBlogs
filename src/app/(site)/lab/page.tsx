@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { moments, posts, songs, stars } from "@/lib/db/schema";
 import { festivalOf, festivalTintOf } from "@/lib/festivals";
 import { formatDate } from "@/lib/utils";
+import { getSiteConfig } from "@/lib/site";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function LabPage() {
-  const [momentRows, starRows, notesCount, postsCount, soundCount, { t }] = await Promise.all([
+  const [config, momentRows, starRows, notesCount, postsCount, soundCount, { t }] = await Promise.all([
+    getSiteConfig(),
     db.select().from(moments).orderBy(desc(moments.createdAt)).limit(20),
     db.select().from(stars).where(isNull(stars.deletedAt)).orderBy(desc(stars.id)).limit(80),
     db.select({ n: sql<number>`count(*)` }).from(moments),
@@ -62,6 +64,7 @@ export default async function LabPage() {
           moments={momentItems}
           initialStars={starItems}
           festivalTint={fest ? festivalTintOf(fest) : undefined}
+          festivalQuotes={config.festivalQuotes ?? {}}
           counts={{
             notes: Number(notesCount[0]?.n ?? 0),
             posts: Number(postsCount[0]?.n ?? 0),

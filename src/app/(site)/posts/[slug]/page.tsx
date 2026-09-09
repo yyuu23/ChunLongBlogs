@@ -58,9 +58,51 @@ export default async function PostDetailPage({ params }: PageProps) {
   ]);
   const toc = extractToc(post.content);
 
+  // JSON-LD 结构化数据：搜索引擎富摘要（日期/作者/面包屑）吃这个——
+  // OG/Twitter 卡只影响社交分享预览，不影响搜索结果页展示
+  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const ogImage = post.cover || `${siteUrl}/api/og/${post.slug}`;
+  const published = post.publishedAt ?? post.createdAt;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        headline: post.title,
+        description: post.description,
+        image: [ogImage],
+        datePublished: published.toISOString(),
+        dateModified: (post.updatedAt ?? published).toISOString(),
+        author: { "@type": "Person", name: config.siteName },
+        publisher: { "@type": "Organization", name: config.siteName },
+        mainEntityOfPage: { "@type": "WebPage", "@id": `${siteUrl}/posts/${post.slug}` },
+        wordCount: post.wordCount,
+        ...(post.category ? { articleSection: post.category.name } : {}),
+        ...(post.tags.length ? { keywords: post.tags.map((tag) => tag.name).join(", ") } : {}),
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: t("nav.home"), item: siteUrl },
+          { "@type": "ListItem", position: 2, name: t("nav.posts"), item: `${siteUrl}/posts` },
+          ...(post.category
+            ? [{ "@type": "ListItem", position: 3, name: post.category.name, item: `${siteUrl}/posts?category=${post.category.slug}` }]
+            : []),
+          {
+            "@type": "ListItem",
+            position: post.category ? 4 : 3,
+            name: post.title,
+            item: `${siteUrl}/posts/${post.slug}`,
+          },
+        ],
+      },
+    ],
+  };
+
   return (
     <PageTransition>
       <article data-cl-article className="mx-auto w-[min(96%,72rem)] pb-8">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {/* 面包屑 */}
         <nav className="mb-5 flex items-center gap-1.5 text-xs text-muted">
           <Link href="/" className="inline-flex items-center gap-1 hover-text-accent">

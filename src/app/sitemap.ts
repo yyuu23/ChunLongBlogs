@@ -16,11 +16,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/albums",
     "/friends",
     "/about",
+    // 功能页：收录但降权（应用型页面，内容更新频率低）
+    "/music",
+    "/lab",
+    "/chat",
   ].map((path) => ({
     url: `${base}${path}`,
     lastModified: new Date(),
     changeFrequency: path === "" ? "daily" : "weekly",
-    priority: path === "" ? 1 : 0.7,
+    priority: path === "" ? 1 : ["/music", "/lab", "/chat"].includes(path) ? 0.5 : 0.7,
   }));
 
   let postPages: MetadataRoute.Sitemap = [];

@@ -35,6 +35,10 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s · ${config.siteName}`,
     },
     description: config.siteDescription,
+    // RSS 自动发现：浏览器/阅读器从任意页面找到订阅地址
+    alternates: {
+      types: { "application/rss+xml": [{ url: "/feed", title: config.siteName }] },
+    },
     openGraph: {
       title: config.siteName,
       description: config.siteDescription,
@@ -86,6 +90,15 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
+  // WebSite 级 JSON-LD（文章页另有 Article/BreadcrumbList，见 posts/[slug]/page.tsx）
+  const config = await getSiteConfig();
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: config.siteName,
+    description: config.siteDescription,
+    url: process.env.SITE_URL ?? "http://localhost:3000",
+  };
   return (
     <html
       lang={HTML_LANG[locale]}
@@ -94,6 +107,7 @@ export default async function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: initScript }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
         <noscript>
           <style>{`.splash-overlay{display:none !important}`}</style>
         </noscript>

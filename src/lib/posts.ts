@@ -171,7 +171,13 @@ export async function getPostBySlug(slug: string) {
     .where(eq(postsTable.id, row.id))
     .limit(1);
   const [item] = await attachTags([toItem(row)]);
-  return { ...item, content: full[0]?.content ?? "", status: full[0]?.status ?? "draft" };
+  // updatedAt 供文章页 JSON-LD 的 dateModified 用（schema 列一直有，只是此前没查出来）
+  return {
+    ...item,
+    content: full[0]?.content ?? "",
+    status: full[0]?.status ?? "draft",
+    updatedAt: full[0]?.updatedAt ?? null,
+  };
 }
 
 export async function getNeighborPosts(publishedAt: Date | null, id: number) {

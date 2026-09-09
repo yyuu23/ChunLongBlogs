@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useLocale } from "@/components/providers/LocaleProvider";
+import { festivalOf } from "@/lib/festivals";
+import { pick } from "@/lib/i18n/config";
 
 /**
  * 主动搭话时机检测：读完文章 / 深夜来访 / 页面久留 / 进入实验室与音乐馆。
@@ -17,7 +19,7 @@ import { useLocale } from "@/components/providers/LocaleProvider";
 export function ProactiveChat() {
   const pathname = usePathname();
   const { effects, hydrated, isNight } = useEffects();
-  const { tArr } = useLocale();
+  const { locale, tArr } = useLocale();
 
   useEffect(() => {
     if (hydrated && !effects.mascot) return;
@@ -37,6 +39,21 @@ export function ProactiveChat() {
         const lines = tArr(i18nKey);
         const text = lines[Math.floor(Math.random() * lines.length)];
         if (!text) return;
+        sessionStorage.setItem(`cl-said:${kind}`, "1");
+        sessionStorage.setItem("cl-proactive-at", String(Date.now()));
+        window.dispatchEvent(new CustomEvent("cl-mascot-say", { detail: { text } }));
+      } catch {}
+    };
+
+    /** 原始文本通道：节日问候要拼节日名（词典模板里的 {name} 占位符） */
+    const sayRaw = (kind: string, text: string) => {
+      if (disposed || !text) return;
+      try {
+        if (sessionStorage.getItem(`cl-said:${kind}`)) return;
+        const lastAt = Number(sessionStorage.getItem("cl-proactive-at")) || 0;
+        if (Date.now() - lastAt < 120_000) return;
+        if (Date.now() - mountedAt < 15_000) return;
+        if (!matchMedia("(min-width: 768px)").matches) return;
         sessionStorage.setItem(`cl-said:${kind}`, "1");
         sessionStorage.setItem("cl-proactive-at", String(Date.now()));
         window.dispatchEvent(new CustomEvent("cl-mascot-say", { detail: { text } }));
@@ -74,6 +91,18 @@ export function ProactiveChat() {
     // ④ 进入特定页：稍等 4s 再开口（刚切过来就说太急）
     if (pathname === "/lab") timers.push(setTimeout(() => say("lab", "mascot.proactive.lab"), 4_000));
     if (pathname === "/music") timers.push(setTimeout(() => say("music", "mascot.proactive.music"), 4_000));
+
+    // ⑤ 节日问候：当天命中节气/农历节日，18s 后说一句（静默期之后；每会话一次）
+    const fest = festivalOf(new Date());
+    if (fest) {
+      timers.push(
+        setTimeout(() => {
+          const lines = tArr("mascot.proactive.festival");
+          const line = lines[Math.floor(Math.random() * lines.length)] ?? "";
+          sayRaw("festival", line.replace("{name}", pick(locale, fest.name)));
+        }, 18_000),
+      );
+    }
 
     return () => {
       disposed = true;

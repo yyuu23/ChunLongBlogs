@@ -6,6 +6,7 @@ import { LabClient } from "@/components/lab/LabClient";
 import type { MomentItem, StarItem } from "@/components/lab/LabScene";
 import { db } from "@/lib/db";
 import { moments, posts, songs, stars } from "@/lib/db/schema";
+import { festivalOf, festivalTintOf } from "@/lib/festivals";
 import { formatDate } from "@/lib/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -42,6 +43,9 @@ export default async function LabPage() {
     date: formatDate(s.createdAt),
   }));
 
+  // 节日当天的太阳偏色（服务端判定一次，透传给场景；非节日 undefined = 本色）
+  const fest = festivalOf(new Date());
+
   return (
     <PageTransition>
       <div className="mx-auto w-[min(96%,72rem)] pb-8">
@@ -57,6 +61,7 @@ export default async function LabPage() {
         <LabClient
           moments={momentItems}
           initialStars={starItems}
+          festivalTint={fest ? festivalTintOf(fest) : undefined}
           counts={{
             notes: Number(notesCount[0]?.n ?? 0),
             posts: Number(postsCount[0]?.n ?? 0),

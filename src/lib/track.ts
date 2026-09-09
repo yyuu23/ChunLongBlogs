@@ -1,6 +1,7 @@
 "use client";
 
 import type { PlayerStats, XpEvent } from "@/lib/achievements";
+import { resolveParticleTheme, type ParticleTheme } from "@/lib/particle-theme";
 
 const VID_KEY = "cl-visitor-id";
 
@@ -31,21 +32,17 @@ export interface PlayerProgress {
 }
 
 /**
- * 解析当前"实际生效"的粒子主题：auto/season 在客户端展开成具体主题
- * （与 Effects.tsx 的判定口径一致），供服务端给瓶子记录获得时的季节。
+ * 解析当前"实际生效"的粒子主题：auto/season 展开成具体主题
+ * （统一走 lib/particle-theme 的 resolver，与 Effects.tsx 渲染同一口径，
+ * 含节日优先层），供服务端给瓶子记录获得时的季节。
  */
 export function currentParticleTheme(): string {
   try {
     const saved = localStorage.getItem("cl-particle-theme");
-    const theme = saved && saved !== "off" ? saved : "auto";
-    if (theme === "auto") {
-      return matchMedia("(prefers-color-scheme: dark)").matches ? "firefly" : "sakura";
-    }
-    if (theme === "season") {
-      const m = new Date().getMonth() + 1;
-      return m >= 3 && m <= 5 ? "sakura" : m >= 6 && m <= 8 ? "firefly" : m >= 9 && m <= 11 ? "leaf" : "snow";
-    }
-    return theme;
+    const mode = (saved && saved !== "off" ? saved : "auto") as ParticleTheme;
+    return (
+      resolveParticleTheme(mode, matchMedia("(prefers-color-scheme: dark)").matches) ?? "sakura"
+    );
   } catch {
     return "sakura";
   }

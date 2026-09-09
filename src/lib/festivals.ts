@@ -100,3 +100,58 @@ export function festivalOf(date: Date): FestivalDef | null {
 export function festivalByKey(key: string): FestivalDef | null {
   return BY_KEY.get(key) ?? null;
 }
+
+/* ==================== 节日视觉联动 ====================
+ * 当天命中节气/农历节日时，除发瓶外的三处联动数据源：
+ * 粒子主题（lib/particle-theme.ts 的节日优先层）与太阳色调（实验室 Sun tint）。
+ */
+
+/** 农历节日 → 粒子主题（春节/元宵飘雪的冬日语境、七夕萤火、中秋落叶） */
+const LUNAR_PARTICLE: Record<string, "sakura" | "firefly" | "leaf" | "snow"> = {
+  spring: "snow",
+  lantern: "snow",
+  dragonboat: "firefly",
+  qixi: "firefly",
+  moon: "leaf",
+  double9: "leaf",
+};
+
+/** 农历节日 → 太阳色调（乘在恒星本色上的偏移） */
+const LUNAR_TINT: Record<string, string> = {
+  spring: "#ff8f5e", // 暖金红
+  lantern: "#ffb45a", // 灯笼金
+  dragonboat: "#ffd27d", // 明金
+  qixi: "#ff9ec7", // 鹊桥粉
+  moon: "#cfe0ff", // 月华银白
+  double9: "#ffc48f", // 登高暖橙
+};
+
+/** 节气 → 粒子主题（按所属季节）与太阳色调 */
+const SEASON_PARTICLE_TINT: Record<"sakura" | "firefly" | "leaf" | "snow", string> = {
+  sakura: "#ffe9f2", // 春：樱粉
+  firefly: "#fff3c4", // 夏：盛夏金
+  leaf: "#ffcf9e", // 秋：秋橙
+  snow: "#cfe4ff", // 冬：冬蓝
+};
+
+function lunarStem(key: string): string {
+  return key.match(/^lunar-([a-z0-9]+)-\d{4}$/)?.[1] ?? "";
+}
+
+/** 节日当天的粒子主题（只覆盖 auto/season 模式，手动选定不受影响） */
+export function festivalParticleOf(f: FestivalDef): "sakura" | "firefly" | "leaf" | "snow" {
+  if (f.key.startsWith("solar-")) {
+    const month = Number(f.date.slice(0, 2));
+    if (month >= 2 && month <= 4) return "sakura";
+    if (month >= 5 && month <= 7) return "firefly";
+    if (month >= 8 && month <= 10) return "leaf";
+    return "snow";
+  }
+  return LUNAR_PARTICLE[lunarStem(f.key)] ?? "firefly";
+}
+
+/** 节日当天的太阳色调（hex；用于实验室恒星的 tint 偏移） */
+export function festivalTintOf(f: FestivalDef): string {
+  if (f.key.startsWith("solar-")) return SEASON_PARTICLE_TINT[festivalParticleOf(f)];
+  return LUNAR_TINT[lunarStem(f.key)] ?? SEASON_PARTICLE_TINT.firefly;
+}

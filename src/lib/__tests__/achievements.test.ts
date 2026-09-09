@@ -54,4 +54,13 @@ describe("unlockedAchievements", () => {
     // 差一步不解锁
     expect(unlockedAchievements(normalizeStats({ postsRead: 24 }))).not.toContain("reader_25");
   });
+
+  it("streak 连珠成就按连续天数判定（区别于累计 visitDays）", () => {
+    expect(unlockedAchievements(normalizeStats({ streak: 2 }))).not.toContain("streak_3");
+    expect(unlockedAchievements(normalizeStats({ streak: 3 }))).toContain("streak_3");
+    expect(unlockedAchievements(normalizeStats({ streak: 7 }))).toContain("streak_7");
+    expect(unlockedAchievements(normalizeStats({ streak: 30 }))).toContain("streak_30");
+    // 累计到访很多天但当前断签（streak=1）不解锁连珠——两个维度互补
+    expect(unlockedAchievements(normalizeStats({ visitDays: 30, streak: 1 }))).not.toContain("streak_3");
+  });
 });

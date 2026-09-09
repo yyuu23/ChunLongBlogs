@@ -29,6 +29,7 @@ export const ko: Dictionary = {
   },
   home: {
     today: "오늘",
+    festivalToday: "오늘은 {name}",
     heroSubtitle: "천천히, 무언가를 적어보기",
     heroTags: "기술 · 수필 · 일상",
     heroTitles: [
@@ -322,6 +323,10 @@ export const ko: Dictionary = {
       "이제 곧 쉬자, 내일 봐…",
     ],
     proactive: {
+      festival: [
+        "오늘은 {name}이에요, 축하해요! 🎋",
+        "{name}이 왔네요. 오늘은 태양 색도 바뀌었어요 ✨",
+      ],
       postRead: [
         "다 읽었어? 이야기하고 싶은 부분 있어~?",
         "여기까지 읽다니, 정말 꼼꼼하네 (＾▽＾)",

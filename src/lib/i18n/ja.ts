@@ -31,6 +31,7 @@ export const ja: Dictionary = {
   },
   home: {
     today: "今日",
+    festivalToday: "今日は{name}",
     heroSubtitle: "ゆっくり、何かを書こう",
     heroTags: "技術 · エッセイ · 日常",
     heroTitles: [
@@ -324,6 +325,10 @@ export const ja: Dictionary = {
       "もうすぐ休もうね、また明日…",
     ],
     proactive: {
+      festival: [
+        "今日は{name}だよ、おめでとう！🎋",
+        "{name}が来たね。今日は太陽の色も変わってるよ ✨",
+      ],
       postRead: [
         "読み終わった？何か話したいところある？～",
         "ここまで読んでくれて、本当に丁寧に読む人だね (＾▽＾)",

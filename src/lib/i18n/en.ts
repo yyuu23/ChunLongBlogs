@@ -29,6 +29,7 @@ export const en: Dictionary = {
   },
   home: {
     today: "Today",
+    festivalToday: "Today is {name}",
     heroSubtitle: "Slow down, and write something",
     heroTags: "Tech · Essays · Life",
     heroTitles: [
@@ -322,6 +323,10 @@ export const en: Dictionary = {
       "Get some rest soon, see you tomorrow...",
     ],
     proactive: {
+      festival: [
+        "Happy {name}! 🎋",
+        "It's {name} — even the sun changed color today ✨",
+      ],
       postRead: [
         "All done reading? Want to chat about any part of it~",
         "Making it all the way here — you're a careful reader (＾▽＾)",

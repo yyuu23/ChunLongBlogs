@@ -27,6 +27,7 @@ export const zh = {
   },
   home: {
     today: "今日",
+    festivalToday: "今日{name}",
     heroSubtitle: "慢下来，写点东西",
     heroTags: "技术 · 随笔 · 日常",
     /* Hero 轮播文案（AI 流式打字机）：主标题与副标题按下标配对；第 0 套为首帧静态展示的品牌句 */
@@ -321,6 +322,10 @@ export const zh = {
       "早点休息哦，明天见…",
     ],
     proactive: {
+      festival: [
+        "今天是{name}哦，节日快乐！🎋",
+        "{name}到了，太阳今天也换了颜色呢 ✨",
+      ],
       postRead: [
         "读完啦？有没有哪段想聊聊的~",
         "能读到这里，你真的很认真呢 (＾▽＾)",

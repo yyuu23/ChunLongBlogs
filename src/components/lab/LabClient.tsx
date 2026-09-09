@@ -25,10 +25,13 @@ export function LabClient({
   moments,
   initialStars,
   counts,
+  festivalTint,
 }: {
   moments: MomentItem[];
   initialStars: StarItem[];
   counts: PlanetCounts;
+  /** 节日当天太阳偏色（page 服务端算好传入） */
+  festivalTint?: string;
 }) {
   const { locale } = useLocale();
   const t = useT();
@@ -122,7 +125,7 @@ export function LabClient({
   return (
     <div className="flex flex-col gap-5">
       <div className="relative h-[min(78vh,46rem)] w-full overflow-hidden rounded-[2rem] bg-[radial-gradient(ellipse_at_center,#1e1b4b_0%,#0b1020_55%,#05070f_100%)] shadow-2xl">
-        <LabScene moments={moments} stars={stars} counts={counts} highlight={highlightToken} />
+        <LabScene moments={moments} stars={stars} counts={counts} highlight={highlightToken} festivalTint={festivalTint} />
 
         {/* 等级 HUD */}
         {progress && (

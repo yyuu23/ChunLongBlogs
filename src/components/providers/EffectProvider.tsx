@@ -17,15 +17,9 @@ export interface EffectFlags {
   heroTypewriter: boolean;
 }
 
-/** 粒子主题：auto = 亮色樱花/暗色萤火虫（默认），season = 按月份自动，其余为强制指定 */
-export type ParticleTheme =
-  | "auto"
-  | "season"
-  | "sakura"
-  | "firefly"
-  | "leaf"
-  | "snow"
-  | "off";
+/** 粒子主题模式：类型统一定义在 lib/particle-theme（auto/season 的展开逻辑也在那里） */
+export type { ParticleTheme } from "@/lib/particle-theme";
+import type { ParticleTheme } from "@/lib/particle-theme";
 
 export const PARTICLE_THEMES: { key: ParticleTheme; label: string; emoji: string }[] = [
   { key: "auto", label: "日夜自动", emoji: "🌗" },

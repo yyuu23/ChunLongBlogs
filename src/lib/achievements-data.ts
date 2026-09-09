@@ -60,6 +60,35 @@ export const BASIC: AchievementDef[] = [
     check: (s) => s.visitDays >= 30,
     progress: { stat: "visitDays", target: 30 },
   },
+  /* 连续到访（streak 由服务端 touchVisit 每日推算，断签归 1）——
+     与上面的累计天数互补：一个量总访，一个量不间断 */
+  {
+    key: "streak_3",
+    name: { zh: "三星连珠", en: "Three in a Row", ja: "三星連珠", ko: "삼성 연주" },
+    description: { zh: "连续 3 天到访", en: "Visit 3 days in a row", ja: "3 日連続で訪れる", ko: "3일 연속 방문하기" },
+    emoji: "🌟",
+    category: "basic",
+    check: (s) => s.streak >= 3,
+    progress: { stat: "streak", target: 3 },
+  },
+  {
+    key: "streak_7",
+    name: { zh: "七星连珠", en: "Seven in a Row", ja: "七星連珠", ko: "칠성 연주" },
+    description: { zh: "连续 7 天到访", en: "Visit 7 days in a row", ja: "7 日連続で訪れる", ko: "7일 연속 방문하기" },
+    emoji: "✨",
+    category: "basic",
+    check: (s) => s.streak >= 7,
+    progress: { stat: "streak", target: 7 },
+  },
+  {
+    key: "streak_30",
+    name: { zh: "三十连珠", en: "Thirty-Night Streak", ja: "三十連珠", ko: "삼십 연주" },
+    description: { zh: "连续 30 天到访", en: "Visit 30 days in a row", ja: "30 日連続で訪れる", ko: "30일 연속 방문하기" },
+    emoji: "🌠",
+    category: "basic",
+    check: (s) => s.streak >= 30,
+    progress: { stat: "streak", target: 30 },
+  },
   {
     key: "accent_2",
     name: { zh: "换装爱好者", en: "Style Switcher", ja: "着せ替え好き", ko: "코디 좋아" },

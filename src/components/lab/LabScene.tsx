@@ -100,7 +100,21 @@ function OrbitRing({
 }
 
 /* ============ 恒星 ============ */
-function Sun({ onClick }: { onClick: () => void }) {
+
+/** hex 通道相乘：把日冕基色向节日 tint 偏移（t=0 原色，1 全偏） */
+function tintHex(base: string, tint: string | undefined, t: number): string {
+  if (!tint || t <= 0) return base;
+  const ch = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const [br, bg, bb] = ch(base);
+  const [tr, tg, tb] = ch(tint);
+  const mix = (b: number, f: number) =>
+    Math.round(255 * (b * (1 - t) + b * f * t))
+    .toString(16)
+    .padStart(2, "0");
+  return `#${mix(br, tr)}${mix(bg, tg)}${mix(bb, tb)}`;
+}
+
+function Sun({ onClick, tint }: { onClick: () => void; tint?: string }) {
   const core = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
@@ -121,11 +135,12 @@ function Sun({ onClick }: { onClick: () => void }) {
         onPointerOut={() => (document.body.style.cursor = "auto")}
       >
         <sphereGeometry args={[18, 64, 48]} />
-        {/* 程序化米粒组织 + 边缘变暗 */}
-        <SunMaterial />
-        {/* 日冕：两层加性光晕。自带发光，不参与昼夜受光，所以 sunLit=false */}
-        <Atmosphere radius={18 * 1.38} color="#ffb45a" intensity={1.0} power={2.2} sunLit={false} />
-        <Atmosphere radius={18 * 2.6} color="#ff8a3d" intensity={0.34} power={3.0} sunLit={false} />
+        {/* 程序化米粒组织 + 边缘变暗；节日当天 tint 偏色 */}
+        <SunMaterial tint={tint} tintMix={0.55} />
+        {/* 日冕：两层加性光晕。自带发光，不参与昼夜受光，所以 sunLit=false；
+            颜色随节日 tint 同步偏移，与核心一致 */}
+        <Atmosphere radius={18 * 1.38} color={tintHex("#ffb45a", tint, 0.5)} intensity={1.0} power={2.2} sunLit={false} />
+        <Atmosphere radius={18 * 2.6} color={tintHex("#ff8a3d", tint, 0.5)} intensity={0.34} power={3.0} sunLit={false} />
       </mesh>
     </Float>
   );
@@ -331,12 +346,15 @@ export default function LabScene({
   stars,
   counts,
   highlight = 0,
+  festivalTint,
 }: {
   moments: MomentItem[];
   stars: StarItem[];
   counts: PlanetCounts;
   /** 毫秒时间戳：留星成功 / 点「找到我的星」时更新，自己的星强高亮 6 秒 */
   highlight?: number;
+  /** 节日当天太阳的偏色（festivals.ts 的 festivalTintOf 算好传入），非节日 undefined */
+  festivalTint?: string;
 }) {
   const router = useRouter();
   const [bursts, setBursts] = useState<number[]>([]);
@@ -398,12 +416,13 @@ export default function LabScene({
           给太高会把晨昏线冲平 —— 昼夜就白做了 */}
       <ambientLight intensity={0.05} color="#93a9ff" />
 
-      {/* 恒星 + 点击爆发 */}
+      {/* 恒星 + 点击爆发（节日当天 tint 偏色） */}
       <Sun
         onClick={() => {
           pokeSun();
           setBursts((b) => [...b, Date.now()]);
         }}
+        tint={festivalTint}
       />
       {bursts.map((id) => (
         <Burst key={id} onDone={() => setBursts((b) => b.filter((x) => x !== id))} />

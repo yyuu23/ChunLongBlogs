@@ -530,21 +530,37 @@ const sunFrag = /* glsl */ `
     vec3 col = mix(vec3(0.78, 0.24, 0.04), vec3(1.00, 0.80, 0.34), cell);
     col = mix(col, vec3(1.00, 0.97, 0.86), pow(cell, 3.0));
     col *= 0.5 + 0.8 * limb;
+    // 节日 tint：当天命中节气/农历节日时整体偏色（如中秋月华银白、春节暖金红）
+    col = mix(col, col * uTint, uTintMix);
 
     gl_FragColor = vec4(col, 1.0);
   }
 `;
 
-export function SunMaterial() {
+/**
+ * 恒星材质（程序化 fbm）。tint/tintMix 为节日视觉联动：
+ * 服务端算好 festivalOf 传入（如 "#cfe0ff"），非节日传 undefined 即本色。
+ */
+export function SunMaterial({ tint, tintMix = 0 }: { tint?: string; tintMix?: number }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { uTime: { value: 0 } },
+        uniforms: {
+          uTime: { value: 0 },
+          uTint: { value: new THREE.Color(tint ?? "#ffffff") },
+          uTintMix: { value: tint ? tintMix : 0 },
+        },
         vertexShader: sunVert,
         fragmentShader: sunFrag,
       }),
+    // 材质只建一次；tint 变化走下面的 useEffect 同步 uniform，不重建
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+  useEffect(() => {
+    mat.uniforms.uTint.value.set(tint ?? "#ffffff");
+    mat.uniforms.uTintMix.value = tint ? tintMix : 0;
+  }, [mat, tint, tintMix]);
   useEffect(() => () => mat.dispose(), [mat]);
   useFrame((state) => {
     mat.uniforms.uTime.value = state.clock.elapsedTime;

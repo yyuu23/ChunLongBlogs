@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -24,6 +25,7 @@ import { saveSiteConfig, getSiteConfig, type SiteConfig, type AiChatConfig } fro
 import { resolveProviderModel } from "@/lib/llm";
 import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
+import { rateLimit, dailyCount } from "@/lib/rateLimit";
 
 async function guard() {
   const session = await getSession();
@@ -41,6 +43,14 @@ export async function loginAction(_prev: string | null, formData: FormData): Pro
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!username || !password) return "请输入账号和密码";
+
+  /* 登录限流（按 IP）：server action 拿不到 Request，从 headers 取 IP——
+   * nginx 透传 XFF 的假设与 chat 路由的 clientIp 一致。
+   * 必须用 return 而非 throw：LoginForm 的 useActionState 只显示返回的字符串。 */
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  if (!rateLimit(`login:${ip}`, 5, 60_000).ok) return "尝试过于频繁，请 1 分钟后再试";
+  if (!dailyCount(`login-day:${ip}`, 30).ok) return "今日尝试次数过多，请明天再试";
 
   const rows = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
   const user = rows[0];
@@ -941,15 +951,5 @@ export async function deletePostsByIds(ids: number[]) {
     await db.delete(postTags).where(inArray(postTags.postId, ids));
     await db.delete(posts).where(inArray(posts.id, ids));
     revalidateAll();
-  }
-}
-
-export async function ensureAdminExists(username: string, password: string) {
-  const existing = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
-  if (!existing.length) {
-    await db.insert(adminUsers).values({
-      username,
-      passwordHash: await bcrypt.hash(password, 10),
-    });
   }
 }

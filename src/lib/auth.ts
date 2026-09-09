@@ -6,9 +6,14 @@ const COOKIE_NAME = "cl_admin";
 const encoder = new TextEncoder();
 
 function secret() {
-  return encoder.encode(
-    process.env.AUTH_SECRET ?? "dev-secret-do-not-use-in-production",
-  );
+  const s = process.env.AUTH_SECRET;
+  /* 生产环境必须显式配置：兜底默认值与 .env.example 的示例值相同（公开仓库可见），
+   * 漏配时任何人都能用它伪造 admin JWT。宁可响亮地失败，也不静默落到已知密钥。
+   * 放在函数内而非模块顶层抛——避免 next build 静态分析期误伤，只在真正签发/校验会话时检查。 */
+  if (!s && process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET is not set — refusing to sign/verify admin sessions in production");
+  }
+  return encoder.encode(s ?? "dev-secret-do-not-use-in-production");
 }
 
 /**

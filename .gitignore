@@ -41,10 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 # database (runtime data, re-create with db:push + db:seed)
-/data/*.sqlite
-/data/*.sqlite-journal
-/data/*.sqlite-wal
-/data/*.sqlite-shm
+# 默认拒绝整个目录：此前的列举式规则（*.sqlite 等）盖不住 db.sqlite.bak-<时间戳>-wal
+# 这类备份命名，导致含密码哈希的备份文件进了公开仓库
+/data/*
+!/data/.gitkeep
 
 # runtime uploads (server content, sync separately or re-upload)
 /public/uploads/*

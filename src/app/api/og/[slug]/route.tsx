@@ -12,12 +12,13 @@ export const dynamic = "force-dynamic";
  * 无封面文章的社交分享图（og:image）：用 next/og 渲染 1200×630 PNG，
  * 视觉与前台 AutoCover 渐变一致（共用 pickAutoCoverStyle）。
  *
- * Satori 的内置字体不含中文字形，这里加载 public/fonts/ 下的黑体（仅 400
+ * Satori 的内置字体不含中文字形，这里加载 assets-src/fonts/ 下的黑体（仅 400
  * 字重——Satori 不做 faux bold，靠字号与深色 ink 保证可读性）。字体分两份：
  * 子集 simhei-subset.ttf（2MB，GB2312+ASCII+常用符号，由
  * scripts/subset-simhei.py 生成，码位清单即 og-subset-glyphs.json）与全量
  * simhei.ttf（9.3MB 兜底）。标题全部命中子集用子集，含生僻/繁体字回退全量。
- * 字体读取失败时降级为无文字纯渐变，仍比分享卡无图强。
+ * （字体只在本路由服务端 readFile 使用，放在 public 会被 nginx 当静态资源
+ * 对外暴露 9.3MB 下载，故移至 assets-src。）字体读取失败时降级为无文字纯渐变。
  *
  * 有真实封面的文章 metadata 直接指向封面地址，不会走到这里；
  * 本路由对有封面文章 302 到封面，只是手敲 URL 时的兜底。
@@ -29,7 +30,7 @@ let subsetFontPromise: Promise<Buffer | null> | null = null;
 let fullFontPromise: Promise<Buffer | null> | null = null;
 
 function readFont(file: string): Promise<Buffer | null> {
-  return readFile(join(process.cwd(), "public", "fonts", file)).catch(() => null);
+  return readFile(join(process.cwd(), "assets-src", "fonts", file)).catch(() => null);
 }
 
 function loadFontForTitle(title: string): Promise<Buffer | null> {

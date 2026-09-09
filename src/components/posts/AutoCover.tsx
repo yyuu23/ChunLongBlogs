@@ -4,7 +4,7 @@
  * 为什么是 DOM/CSS 而不是 next/og 生成 PNG：Satori 内置字体不含中文字形，
  * 仓库里也没有 .ttf/.otf 可用（Google Fonts 在国内还拉不通），生成的 PNG
  * 中文会变成豆腐块。改成纯 DOM 后由浏览器用系统字体渲染，中文正常。
- * （后续已在 public/fonts/simhei.ttf 放入黑体，/api/og/[slug] 用它为
+ * （后续已在 assets-src/fonts/simhei.ttf 放入黑体，/api/og/[slug] 用它为
  * 无封面文章出分享卡 PNG；线上封面仍是本组件渲染，二者共用 pickAutoCoverStyle。）
  *
  * 无 hook、无 "use client"：服务端组件与客户端组件都能直接用；

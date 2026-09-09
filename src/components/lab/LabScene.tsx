@@ -179,26 +179,110 @@ function Burst({ onDone }: { onDone: () => void }) {
 }
 
 /* ============ 小行星带 = 访客留声星（火星与木星之间） ============ */
-function StarBelt({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) => void }) {
+
+/** 星星在带内的确定性位姿（由 id 哈希）：InstancedMesh 与特殊星共用同一公式，
+ *  保证自己的星无论用哪种形态渲染都待在同一个位置 */
+function starTransform(s: Pick<StarItem, "id">) {
+  const a = hash01(s.id, 1) * Math.PI * 2;
+  const r = BELT.inner + hash01(s.id, 3) * (BELT.outer - BELT.inner);
+  const y = (hash01(s.id, 2) - 0.5) * BELT.spread;
+  return {
+    pos: [Math.cos(a) * r, y, Math.sin(a) * r] as [number, number, number],
+    scale: 1.3 + hash01(s.id, 4) * 1.1,
+    rot: [hash01(s.id, 5) * Math.PI, hash01(s.id, 6) * Math.PI, 0] as [number, number, number],
+  };
+}
+
+/** 自己的星 / 站长精选星：独立 mesh（数量极少，无性能顾虑）。
+ *  mine = 青蓝快脉冲 + 悬浮标签；featured = 白金慢脉冲、更大。
+ *  highlight 为毫秒时间戳：6 秒内强高亮（留星成功 / 点「找到我的星」时）。 */
+function SpecialStar({
+  star,
+  highlight,
+  labeled,
+  onOpen,
+}: {
+  star: StarItem;
+  highlight: number;
+  labeled: boolean;
+  onOpen: (s: StarItem) => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { pos, rot } = starTransform(star);
+  const mine = !!star.mine;
+  const base = mine ? 1.8 : 2.4;
+  const color = mine ? "#9be7ff" : "#fff6dc";
+  const emissive = mine ? "#38bdf8" : "#ffe9a8";
+  const speed = mine ? 3.2 : 1.4;
+  const t = useT();
+
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    const boost = Date.now() - highlight < 6000 ? 1 : 0;
+    const pulse = 0.5 + 0.5 * Math.sin(state.clock.elapsedTime * speed * (1 + boost));
+    meshRef.current.scale.setScalar(base * (0.92 + 0.14 * pulse + 0.4 * boost * pulse));
+    const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = (mine ? 1.6 : 1.2) + 1.2 * pulse + 2.4 * boost * pulse;
+  });
+
+  return (
+    <group position={pos} rotation={rot}>
+      <mesh
+        ref={meshRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen(star);
+        }}
+        onPointerOver={() => (document.body.style.cursor = "pointer")}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={1.6} />
+      </mesh>
+      {/* 最新一颗自己的星常驻小标签（多了会满屏都是，只标最新） */}
+      {mine && labeled && (
+        <Html position={[0, 6.5, 0]} center distanceFactor={210}>
+          <span className="pointer-events-none whitespace-nowrap rounded-full border border-sky-300/30 bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium tracking-wide text-sky-200 backdrop-blur">
+            ✦ {t("lab.yourStar")}
+          </span>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function StarBelt({
+  stars,
+  highlight,
+  onOpen,
+}: {
+  stars: StarItem[];
+  highlight: number;
+  onOpen: (s: StarItem) => void;
+}) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const count = stars.length;
+  const normal = useMemo(() => stars.filter((s) => !s.mine && !s.featured), [stars]);
+  const special = useMemo(() => stars.filter((s) => s.mine || s.featured), [stars]);
+  const newestMineId = useMemo(
+    () => special.reduce((m, s) => (s.mine && s.id > m ? s.id : m), 0),
+    [special],
+  );
+  const count = normal.length;
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useMemo(() => {
     if (!meshRef.current || !count) return;
-    stars.forEach((s, i) => {
-      const a = hash01(s.id, 1) * Math.PI * 2;
-      const r = BELT.inner + hash01(s.id, 3) * (BELT.outer - BELT.inner);
-      const y = (hash01(s.id, 2) - 0.5) * BELT.spread;
-      dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
-      dummy.scale.setScalar(1.3 + hash01(s.id, 4) * 1.1);
-      dummy.rotation.set(hash01(s.id, 5) * Math.PI, hash01(s.id, 6) * Math.PI, 0);
+    normal.forEach((s, i) => {
+      const { pos, scale, rot } = starTransform(s);
+      dummy.position.set(...pos);
+      dummy.scale.setScalar(scale);
+      dummy.rotation.set(...rot);
       dummy.updateMatrix();
       meshRef.current?.setMatrixAt(i, dummy.matrix);
     });
     if (meshRef.current) meshRef.current.instanceMatrix.needsUpdate = true;
-  }, [stars, dummy, count]);
+  }, [normal, dummy, count]);
 
   useFrame((state) => {
     if (groupRef.current) groupRef.current.rotation.y = state.clock.elapsedTime * 0.02;
@@ -208,26 +292,35 @@ function StarBelt({ stars, onOpen }: { stars: StarItem[]; onOpen: (s: StarItem) 
     }
   });
 
-  if (!count) return null;
-
   return (
     <group ref={groupRef}>
-      <instancedMesh
-        ref={meshRef}
-        args={[undefined, undefined, count]}
-        onClick={(e) => {
-          const id = e.instanceId;
-          if (id != null && stars[id]) {
-            e.stopPropagation();
-            onOpen(stars[id]);
-          }
-        }}
-        onPointerOver={() => (document.body.style.cursor = "pointer")}
-        onPointerOut={() => (document.body.style.cursor = "auto")}
-      >
-        <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial color="#ffe9a8" emissive="#ffc95e" emissiveIntensity={1.4} />
-      </instancedMesh>
+      {count > 0 && (
+        <instancedMesh
+          ref={meshRef}
+          args={[undefined, undefined, count]}
+          onClick={(e) => {
+            const id = e.instanceId;
+            if (id != null && normal[id]) {
+              e.stopPropagation();
+              onOpen(normal[id]);
+            }
+          }}
+          onPointerOver={() => (document.body.style.cursor = "pointer")}
+          onPointerOut={() => (document.body.style.cursor = "auto")}
+        >
+          <octahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial color="#ffe9a8" emissive="#ffc95e" emissiveIntensity={1.4} />
+        </instancedMesh>
+      )}
+      {special.map((s) => (
+        <SpecialStar
+          key={s.id}
+          star={s}
+          highlight={highlight}
+          labeled={s.id === newestMineId}
+          onOpen={onOpen}
+        />
+      ))}
     </group>
   );
 }
@@ -237,10 +330,13 @@ export default function LabScene({
   moments,
   stars,
   counts,
+  highlight = 0,
 }: {
   moments: MomentItem[];
   stars: StarItem[];
   counts: PlanetCounts;
+  /** 毫秒时间戳：留星成功 / 点「找到我的星」时更新，自己的星强高亮 6 秒 */
+  highlight?: number;
 }) {
   const router = useRouter();
   const [bursts, setBursts] = useState<number[]>([]);
@@ -329,6 +425,7 @@ export default function LabScene({
       {/* 小行星带：留声星 */}
       <StarBelt
         stars={stars}
+        highlight={highlight}
         onOpen={(s) => {
           setOpenStar(s);
           trackEvent("view_star");
@@ -342,8 +439,20 @@ export default function LabScene({
         <Html position={[0, 78, 0]} center distanceFactor={170}>
           <div className="w-64 rounded-2xl border border-amber-200/30 bg-slate-900/85 p-4 text-white shadow-2xl backdrop-blur">
             <div className="mb-1 flex items-center justify-between text-xs text-amber-200/70">
-              <span>{t("lab.memoryStar", { date: openStar.date })}</span>
-              <button onClick={() => setOpenStar(null)} className="rounded-full px-2 hover:text-white">
+              <span className="flex min-w-0 items-center gap-1.5">
+                {openStar.mine && (
+                  <span className="shrink-0 rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] text-sky-200">
+                    {t("lab.yourStar")}
+                  </span>
+                )}
+                {openStar.featured && (
+                  <span className="shrink-0 rounded-full bg-amber-300/20 px-2 py-0.5 text-[10px] text-amber-200">
+                    ✦ {t("lab.featuredStar")}
+                  </span>
+                )}
+                <span className="truncate">{t("lab.memoryStar", { date: openStar.date })}</span>
+              </span>
+              <button onClick={() => setOpenStar(null)} className="shrink-0 rounded-full px-2 hover:text-white">
                 ✕
               </button>
             </div>

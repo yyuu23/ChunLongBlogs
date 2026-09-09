@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import { requireAdminApi } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { albums, friendLinks, moments, photos, playlists, posts, songs, stars } from "@/lib/db/schema";
@@ -67,7 +67,8 @@ async function buildPayload(range: number) {
     db.select({ n: sql<number>`count(*)` }).from(playlists),
     db.select({ n: sql<number>`count(*)` }).from(songs),
     db.select({ n: sql<number>`count(*)` }).from(friendLinks),
-    db.select({ n: sql<number>`count(*)` }).from(stars),
+    // 留声星按未删除口径统计（软删的不算内容资产）
+    db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
   ]);
   const todayUV = traffic.find((t) => t.day === today)?.uv ?? 0;
   const yesterdayUV = traffic.find((t) => t.day === yesterday)?.uv ?? 0;

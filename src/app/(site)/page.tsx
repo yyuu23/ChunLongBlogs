@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { BookOpenText, FileText, Eye, PenLine, Images } from "lucide-react";
 import { TextHero } from "@/components/home/TextHero";
 import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
@@ -8,11 +8,12 @@ import { WeatherCard } from "@/components/home/WeatherCard";
 import { HouseWindow } from "@/components/home/HouseWindow";
 import { HitokotoCard } from "@/components/home/HitokotoCard";
 import { DailyCheckinCard } from "@/components/home/DailyCheckinCard";
+import { LabTeaserBar } from "@/components/home/LabTeaserBar";
 import { PostCard } from "@/components/posts/PostCard";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { db } from "@/lib/db";
-import { albums, photos } from "@/lib/db/schema";
+import { albums, photos, stars } from "@/lib/db/schema";
 import { getSiteConfig } from "@/lib/site";
 import { getPublishedPosts, getSiteStats } from "@/lib/posts";
 import { getT } from "@/lib/i18n/server";
@@ -20,14 +21,17 @@ import { getT } from "@/lib/i18n/server";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [config, { items: latest }, stats, albumRows, { t }] = await Promise.all([
+  const [config, { items: latest }, stats, albumRows, starCountRows, latestStarRows, { t }] = await Promise.all([
     getSiteConfig(),
     getPublishedPosts({ perPage: 6 }),
     getSiteStats(),
     db.select().from(albums).orderBy(desc(albums.createdAt)).limit(1),
+    db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
+    db.select().from(stars).where(isNull(stars.deletedAt)).orderBy(desc(stars.id)).limit(1),
     getT(),
   ]);
   const latestAlbum = albumRows[0] ?? null;
+  const latestStar = latestStarRows[0] ?? null;
   const photoCount = latestAlbum
     ? (
         await db
@@ -75,6 +79,14 @@ export default async function HomePage() {
             </div>
           </FadeIn>
         </div>
+
+        {/* 实验室速览：不占两栏网格位，横条形态（右栏的天气/小屋保持原有空间） */}
+        <FadeIn delay={0.12}>
+          <LabTeaserBar
+            starCount={Number(starCountRows[0]?.n ?? 0)}
+            latest={latestStar ? { content: latestStar.content, createdAt: latestStar.createdAt } : null}
+          />
+        </FadeIn>
 
         <FadeIn delay={0.1}>
           <DailyCheckinCard />

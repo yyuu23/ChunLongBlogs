@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { FlaskConical } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { LabClient } from "@/components/lab/LabClient";
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LabPage() {
   const [momentRows, starRows, notesCount, postsCount, soundCount, { t }] = await Promise.all([
     db.select().from(moments).orderBy(desc(moments.createdAt)).limit(20),
-    db.select().from(stars).orderBy(desc(stars.id)).limit(80),
+    db.select().from(stars).where(isNull(stars.deletedAt)).orderBy(desc(stars.id)).limit(80),
     db.select({ n: sql<number>`count(*)` }).from(moments),
     db
       .select({ n: sql<number>`count(*)` })

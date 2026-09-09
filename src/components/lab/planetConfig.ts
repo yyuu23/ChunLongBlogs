@@ -30,6 +30,10 @@ export interface StarItem {
   id: number;
   content: string;
   date: string;
+  /** 当前访客自己留的星（/api/stars?visitorId= 标记）：独立发光形态 + 悬浮标签 */
+  mine?: boolean;
+  /** 站长精选：更大的白金亮星 */
+  featured?: boolean;
 }
 
 export interface PlanetCounts {

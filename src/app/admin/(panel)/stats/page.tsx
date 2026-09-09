@@ -1,5 +1,5 @@
 import { aiCalls, metricSum, metricTop, totalUniqueVisitors, trafficSeries, localDay } from "@/lib/stats";
-import { sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { albums, friendLinks, moments, photos, playlists, posts, songs, stars } from "@/lib/db/schema";
 import { StatsDashboard, type StatsPayload } from "@/components/admin/StatsDashboard";
@@ -62,7 +62,8 @@ export default async function StatsAdminPage() {
     db.select({ n: sql<number>`count(*)` }).from(playlists),
     db.select({ n: sql<number>`count(*)` }).from(songs),
     db.select({ n: sql<number>`count(*)` }).from(friendLinks),
-    db.select({ n: sql<number>`count(*)` }).from(stars),
+    // 留声星按未删除口径统计（软删的不算内容资产）
+    db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
   ]);
 
   const initial: StatsPayload = {

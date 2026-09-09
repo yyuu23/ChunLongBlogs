@@ -17,6 +17,7 @@ import {
   postTags,
   posts,
   songs,
+  stars,
   tags,
 } from "@/lib/db/schema";
 import { createSession, destroySession, getSession } from "@/lib/auth";
@@ -298,6 +299,25 @@ export async function saveFriend(input: {
 export async function deleteFriend(id: number) {
   await guard();
   await db.delete(friendLinks).where(eq(friendLinks.id, id));
+  revalidateAll();
+}
+
+/* ============ 留声星（公开 UGC 的内容管理） ============ */
+
+/** 精选/取消精选：精选星在前台渲染为更大的白金亮星 */
+export async function setStarFeatured(id: number, featured: boolean) {
+  await guard();
+  await db.update(stars).set({ featured: featured ? 1 : 0 }).where(eq(stars.id, id));
+  revalidateAll();
+}
+
+/** 软删除/恢复：删除后公开 API 与前台不可见，数据保留可追溯 */
+export async function setStarDeleted(id: number, deleted: boolean) {
+  await guard();
+  await db
+    .update(stars)
+    .set({ deletedAt: deleted ? new Date() : null })
+    .where(eq(stars.id, id));
   revalidateAll();
 }
 

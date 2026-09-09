@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useProgress } from "@react-three/drei";
-import { Loader2, SendHorizonal, Sparkles } from "lucide-react";
+import { Loader2, SendHorizonal, Sparkles, Telescope } from "lucide-react";
 import { fetchProgress, getVisitorId, trackEvent, currentParticleTheme, type PlayerProgress } from "@/lib/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { DATE_LOCALE } from "@/lib/i18n/config";
@@ -37,6 +37,8 @@ export function LabClient({
   const [starInput, setStarInput] = useState("");
   const [starBusy, setStarBusy] = useState(false);
   const [starMsg, setStarMsg] = useState("");
+  /** 毫秒时间戳：留星成功 / 点「找到我的星」时更新，场景里自己的星强高亮 6 秒 */
+  const [highlightToken, setHighlightToken] = useState(0);
 
   /** 真实贴图约 1.2MB，加载期间给个进度，别让人以为卡住了 */
   const { active: texLoading, progress: texProgress } = useProgress();
@@ -53,6 +55,37 @@ export function LabClient({
     return () => window.removeEventListener("cl-player-update", onUpdate);
   }, []);
 
+  /* 服务端首屏不知道 visitorId（localStorage），挂载后带参重拉一次，
+   * 拿到「哪颗是我的星」标记——否则自己的星混在 80 颗同形态星里根本找不到 */
+  useEffect(() => {
+    const vid = getVisitorId();
+    if (!vid) return;
+    fetch(`/api/stars?visitorId=${encodeURIComponent(vid)}`)
+      .then((r) => r.json())
+      .then((d: { stars?: { id: number; content: string; createdAt: number; mine?: boolean; featured?: boolean }[] }) => {
+        if (d.stars?.length) {
+          setStars(
+            d.stars.map((s) => ({
+              ...s,
+              date: new Date(s.createdAt).toLocaleDateString(DATE_LOCALE[locale]),
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 找到我的星：没有留过就引导去留一颗 */
+  const findMyStar = () => {
+    if (stars.some((s) => s.mine)) {
+      setHighlightToken(Date.now());
+      setStarMsg(t("lab.starFoundHint"));
+    } else {
+      setStarMsg(t("lab.noOwnStarHint"));
+    }
+  };
+
   const leaveStar = async () => {
     const content = starInput.trim();
     if (!content || starBusy) return;
@@ -66,9 +99,13 @@ export function LabClient({
       });
       const data = (await res.json()) as { star?: StarItem; error?: string };
       if (data.star) {
-        setStars((s) => [{ ...data.star!, date: new Date().toLocaleDateString(DATE_LOCALE[locale]) }, ...s].slice(0, 80));
+        setStars((s) =>
+          [{ ...data.star!, mine: true, date: new Date().toLocaleDateString(DATE_LOCALE[locale]) }, ...s].slice(0, 90),
+        );
         setStarInput("");
         setStarMsg(t("lab.starOk"));
+        // 刚留下的星立即高亮，用户不用找——它就是带里发蓝光的那颗
+        setHighlightToken(Date.now());
         trackEvent("leave_star");
         // 通知瓶子架重拉（留星会封存一只新瓶子）
         window.dispatchEvent(new Event("cl-bottle-refresh"));
@@ -85,7 +122,7 @@ export function LabClient({
   return (
     <div className="flex flex-col gap-5">
       <div className="relative h-[min(78vh,46rem)] w-full overflow-hidden rounded-[2rem] bg-[radial-gradient(ellipse_at_center,#1e1b4b_0%,#0b1020_55%,#05070f_100%)] shadow-2xl">
-        <LabScene moments={moments} stars={stars} counts={counts} />
+        <LabScene moments={moments} stars={stars} counts={counts} highlight={highlightToken} />
 
         {/* 等级 HUD */}
         {progress && (
@@ -119,6 +156,14 @@ export function LabClient({
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
             />
             <span className="shrink-0 text-[10px] tabular-nums text-white/35">{starInput.length}/50</span>
+            <button
+              onClick={findMyStar}
+              aria-label={t("lab.findMyStar")}
+              title={t("lab.findMyStar")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition-colors hover:text-white"
+            >
+              <Telescope className="h-3.5 w-3.5" />
+            </button>
             <button
               onClick={leaveStar}
               disabled={starBusy || !starInput.trim()}

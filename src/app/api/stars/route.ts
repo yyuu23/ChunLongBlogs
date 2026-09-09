@@ -1,19 +1,48 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stars } from "@/lib/db/schema";
 import { grantBottle } from "@/lib/bottles";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/stars —— 留声星列表（最新 80 颗） */
-export async function GET() {
-  const rows = await db.select().from(stars).orderBy(desc(stars.id)).limit(80);
+/**
+ * GET /api/stars —— 留声星列表（最新 80 颗 ∪ 该访客自己的星）。
+ * ?visitorId= 时自己的星带 mine 标记——即使被 80 颗窗口顶出去也照常返回，
+ * 否则访客会"找不到自己留的星"（位置由 id 哈希、形态与普通星无异，
+ * 归属信息只能靠接口给出）。软删除的一律不可见。
+ */
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const visitorId = (searchParams.get("visitorId") ?? "").trim().slice(0, 64);
+
+  const rows = await db
+    .select()
+    .from(stars)
+    .where(isNull(stars.deletedAt))
+    .orderBy(desc(stars.id))
+    .limit(80);
+
+  // 自己的星（最新 10 颗）：窗口外的补进列表，窗口内的由 rows 覆盖
+  const own =
+    visitorId
+      ? await db
+          .select()
+          .from(stars)
+          .where(and(eq(stars.visitorId, visitorId), isNull(stars.deletedAt)))
+          .orderBy(desc(stars.id))
+          .limit(10)
+      : [];
+  const inWindow = new Set(rows.map((s) => s.id));
+  const merged = [...rows, ...own.filter((s) => !inWindow.has(s.id))];
+
   return NextResponse.json({
-    stars: rows.map((s) => ({
+    stars: merged.map((s) => ({
       id: s.id,
       content: s.content,
       createdAt: s.createdAt,
+      ...(visitorId && s.visitorId === visitorId ? { mine: true } : {}),
+      ...(s.featured ? { featured: true } : {}),
     })),
   });
 }
@@ -46,5 +75,5 @@ export async function POST(request: Request) {
   const [row] = await db.insert(stars).values({ content, visitorId }).returning();
   // 留星封瓶：瓶里永远留着今天留下的这句话
   await grantBottle(visitorId, "star", row.id, body?.theme, content).catch(() => {});
-  return NextResponse.json({ star: { id: row.id, content: row.content, createdAt: row.createdAt } });
+  return NextResponse.json({ star: { id: row.id, content: row.content, createdAt: row.createdAt, mine: true } });
 }

@@ -153,6 +153,10 @@ export const stars = sqliteTable("stars", {
   content: text("content").notNull(),
   visitorId: text("visitor_id").notNull().default(""),
   createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  /* 站长精选：前台小行星带渲染为更大的白金亮星 */
+  featured: integer("featured").notNull().default(0),
+  /* 软删除时间戳：公开 API 与前台过滤，admin 可恢复 */
+  deletedAt: integer("deleted_at", ts),
 });
 
 /**

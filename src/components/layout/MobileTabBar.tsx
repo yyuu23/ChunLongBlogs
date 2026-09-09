@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, BookOpen, MessageCircleHeart, Info, Monitor, Moon, Sun } from "lucide-react";
+import { Home, BookOpen, MessageCircleHeart, Info, Monitor, Moon, Sun, Orbit } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useT } from "@/components/providers/LocaleProvider";
 
@@ -11,6 +11,7 @@ const TABS = [
   { href: "/", key: "nav.home", icon: Home },
   { href: "/posts", key: "nav.posts", icon: BookOpen },
   { href: "/moments", key: "nav.moments", icon: MessageCircleHeart },
+  { href: "/lab", key: "nav.lab", icon: Orbit },
   { href: "/about", key: "nav.about", icon: Info },
 ];
 
@@ -64,7 +65,7 @@ function TabItem({
   const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
   const Icon = tab.icon;
   return (
-    <Link href={tab.href} className="relative flex flex-col items-center gap-0.5 px-4 py-2">
+    <Link href={tab.href} className="relative flex flex-col items-center gap-0.5 px-3 py-2">
       {active && (
         <motion.span
           layoutId="tab-indicator"

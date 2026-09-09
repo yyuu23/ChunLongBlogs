@@ -17,6 +17,7 @@ import {
   type XpEvent,
 } from "@/lib/achievements";
 import { creditsCfg } from "@/lib/credits";
+import { ensureDailyCredits } from "@/lib/credits-server";
 import { grantBottle, themeFromMeta } from "@/lib/bottles";
 import { festivalOf } from "@/lib/festivals";
 
@@ -196,25 +197,32 @@ export async function POST(request: Request) {
   const gained = applyEvent(stats, daily, event, body?.payload);
   const xp = (existing?.xp ?? 0) + gained;
 
-  /* ===== AI 积分（✦）发放 =====
-   * 每日首见 + dailyGrant + 等级加成；当日首次签到 + checkinBonus。
-   * 去重复用 __visit / DAILY_CAPS.checkin 的当日去重机制；
-   * 发放走 credits 增量（SQL 端 +=）而非整包改写，与 xp 一起 UPSERT。 */
+  /* ===== AI 积分（✦）每日重置 =====
+   * 新的一天首次触达（chat / player 路由谁先到谁触发）：余额「重置」为
+   * dailyGrant + 等级加成——昨天的剩余不结转，不能每天 +500 累上去；
+   * 当日首次签到另 +checkinBonus（这部分是加成，仍走累加）。
+   * 重置去重靠 stats.__credits.date 标记（ensureDailyCredits 里 SQL 原子判定），
+   * 与 __visit 的访问记账解耦；签到去重仍走 DAILY_CAPS.checkin。 */
   const siteCfg = await getSiteConfig();
   const creditCfg = creditsCfg(siteCfg.aiChat);
   let creditsGain = 0;
+  let creditsBase = existing?.credits ?? 0;
   if (creditCfg.enabled) {
-    if (firstVisitToday) {
-      creditsGain += creditCfg.dailyGrant + levelOf(existing?.xp ?? 0).level * creditCfg.levelBonusPerLevel;
-    }
+    creditsBase = (await ensureDailyCredits(visitorId, creditCfg.dailyGrant, creditCfg.levelBonusPerLevel)).balance;
     if (event === "daily_checkin" && gained > 0) {
       creditsGain += creditCfg.checkinBonus;
     }
   }
-  const creditsBalance = (existing?.credits ?? 0) + creditsGain;
+  const creditsBalance = creditsBase + creditsGain;
 
-  // stats 里捎带当日计数（简单起见存同列）
-  const statsWithDaily = { ...stats, __daily: daily } as unknown as PlayerStats & { __daily: DayCounter };
+  // stats 里捎带当日计数与积分重置标记（简单起见存同列）；
+  // __credits 标记必须写回，否则下方整包 UPSERT 会把 ensureDailyCredits
+  // 刚打上的标记抹掉，导致同日第二次触达被再重置一次
+  const statsWithDaily = {
+    ...stats,
+    __daily: daily,
+    ...(creditCfg.enabled ? { __credits: { date: today() } } : {}),
+  } as unknown as PlayerStats & { __daily: DayCounter; __credits?: { date: string } };
 
   await db
     .insert(visitors)
@@ -280,8 +288,9 @@ export async function GET(request: Request) {
     });
   }
   // 老访客的 stats 里没有新字段，normalizeStats 补齐默认值，否则 check() 会读到 undefined
-  const raw = JSON.parse(row.stats) as Partial<PlayerStats> & { __daily?: unknown };
+  const raw = JSON.parse(row.stats) as Partial<PlayerStats> & { __daily?: unknown; __credits?: unknown };
   delete raw.__daily;
+  delete raw.__credits;
   const stats = normalizeStats(raw);
   const lvl = levelOf(row.xp);
   return NextResponse.json({

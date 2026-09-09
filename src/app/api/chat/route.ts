@@ -13,7 +13,7 @@ import { incrStat } from "@/lib/stats";
 import { stripMood } from "@/lib/moodStream";
 import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
 import { creditsCfg, isPeakApplied, messageCost } from "@/lib/credits";
-import { spendCredits, refundCredits, ensureVisitorWithGrant } from "@/lib/credits-server";
+import { spendCredits, refundCredits, ensureDailyCredits } from "@/lib/credits-server";
 
 export const dynamic = "force-dynamic";
 
@@ -299,9 +299,11 @@ export async function POST(request: Request) {
   const peakNow = choice ? isPeakApplied(choice) : false;
   const creditCost = creditCfg.enabled && vidValid && choice ? messageCost(config.aiChat, choice, llm.level, peakNow) : 0;
   if (creditCost > 0) {
-    // 新访客行不存在时先落一行并预发当日额度（500+Lv1 加成，与 player 路由首见发放同公式；
-    // 种子 stats 带今日已访问标记，player 同日不会重复发放）
-    await ensureVisitorWithGrant(vid, creditCfg.dailyGrant + creditCfg.levelBonusPerLevel);
+    // 每日重置：新访客直接落一行带当日额度；老访客新的一天首次发消息也在这里
+    // 把余额重置为当日额度（dailyGrant+等级加成，与 player 路由同公式同标记，
+    // 谁先到谁重置，后到的幂等跳过）——直奔 /chat 的访客不经过页面埋点，
+    // 否则昨天花光的 0 余额会被积分扣减直接拒掉
+    await ensureDailyCredits(vid, creditCfg.dailyGrant, creditCfg.levelBonusPerLevel);
     const spend = await spendCredits(vid, creditCost);
     if (!spend.ok) {
       return NextResponse.json(

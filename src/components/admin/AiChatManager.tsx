@@ -645,14 +645,14 @@ export function AiChatManager({
             )}
           </div>
           <p className="mt-1.5 text-[11px] text-slate-400">
-            结果就近取整到 50（≥1000 时取整到 100）的倍数；「填入」只改每日首访发放，
+            结果就近取整到 50（≥1000 时取整到 100）的倍数；「填入」只改每日重置额度，
             随时可「还原」到填入前的值。
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className={label}>每日首访发放</p>
+            <p className={label}>每日重置额度</p>
             <input
               type="number"
               min={0}

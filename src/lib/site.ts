@@ -62,10 +62,10 @@ export interface AiCustomTool {
   endpoint: string;
 }
 
-/** AI 积分（✦）体系配置：每日发放 + 对话按量扣减；enabled=false 整体回退旧的每日次数限制 */
+/** AI 积分（✦）体系配置：每日重置 + 对话按量扣减；enabled=false 整体回退旧的每日次数限制 */
 export interface AiCreditsConfig {
   enabled: boolean;
-  /** 每日首访发放 */
+  /** 每日额度（每天重置为该值+等级加成，昨日余额不结转累加） */
   dailyGrant: number;
   /** 每日签到加成 */
   checkinBonus: number;

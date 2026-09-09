@@ -27,7 +27,7 @@ export const CHOICE_COST_DEFAULTS: Record<AiChatChoice["provider"], number> = {
 export interface CreditsConfig {
   /** false = 积分体系整体关闭，回退到旧的每日次数限制 */
   enabled: boolean;
-  /** 每日首访发放 */
+  /** 每日额度（每天重置为该值+等级加成，昨日余额不结转累加） */
   dailyGrant: number;
   /** 每日签到加成 */
   checkinBonus: number;

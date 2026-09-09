@@ -173,6 +173,13 @@ export const ko: Dictionary = {
     prevMemory: "‹ 이전",
     nextMemory: "다음 ›",
     level: "Lv. {n}",
+    benchTitle: "실험대",
+    benchHint: "독립 실행 미니 실험——카드를 눌러 시작",
+    backToLab: "태양계로 돌아가기",
+    fwHint: "밤하늘을 눌러 불꽃을 쏘아올리세요",
+    fwCount: "{n}발 발사",
+    fwAuto: "자동",
+    fwAutoOff: "자동 끄기",
   },
   ach: {
     unlocked: "업적 해제!",

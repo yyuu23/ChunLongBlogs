@@ -114,6 +114,15 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
     case "visit_lab":
       stats.labVisits += 1;
       break;
+    case "visit_lab_demo": {
+      stats.labDemos += 1;
+      // 玩过的实验 slug 去重留最近 10 个（demo_all 判定用，仿 readPostIds）
+      const demoId = String(payload?.demoId ?? "").slice(0, 32);
+      if (demoId && !(stats.labDemoIds ?? []).includes(demoId)) {
+        stats.labDemoIds = [...(stats.labDemoIds ?? []), demoId].slice(-10);
+      }
+      break;
+    }
     case "use_chat":
       stats.chatUsed += 1;
       if (gained > 0) stats.affinityPoints += 2; // 好感随聊天累积（受 use_chat 单日上限防刷）

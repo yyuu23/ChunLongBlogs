@@ -40,6 +40,10 @@ export interface PlayerStats {
   mascotPats: number;
   /** 累计签到天数（每日上限 1 次） */
   checkinDays: number;
+  /** 实验台：玩过的实验总次数（XP 事件 visit_lab_demo 计数） */
+  labDemos: number;
+  /** 实验台：玩过的实验 slug（留最近 10 个，demo_all 成就判定用，仿 readPostIds） */
+  labDemoIds?: string[];
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -67,6 +71,8 @@ export const EMPTY_STATS: PlayerStats = {
   affinityPoints: 0,
   mascotPats: 0,
   checkinDays: 0,
+  labDemos: 0,
+  labDemoIds: [],
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -90,6 +96,7 @@ export const XP_RULES = {
   set_theme_mode: 2,
   set_custom_hue: 2,
   pick_wallpaper: 2,
+  visit_lab_demo: 3,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -114,6 +121,7 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   set_theme_mode: 3,
   set_custom_hue: 3,
   pick_wallpaper: 5,
+  visit_lab_demo: 5,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

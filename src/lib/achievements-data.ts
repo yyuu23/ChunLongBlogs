@@ -13,6 +13,7 @@
  *   3. 名字优先取有意象的中文短语，emoji 跟名字呼应，不用清一色的奖杯
  */
 import type { AchievementDef } from "@/lib/achievements";
+import { LAB_DEMO_COUNT } from "@/lib/lab-demos";
 
 /* ============================ 起步 ============================ */
 export const BASIC: AchievementDef[] = [
@@ -32,6 +33,24 @@ export const BASIC: AchievementDef[] = [
     category: "basic",
     check: (s) => s.labVisits >= 1,
     progress: { stat: "labVisits", target: 1 },
+  },
+  {
+    key: "demo_1",
+    name: { zh: "上手实验台", en: "Bench Warmer", ja: "実験台デビュー", ko: "실험대 첫 사용" },
+    description: { zh: "在实验台玩一个小实验", en: "Play a demo on the lab bench", ja: "実験台でデモを遊ぶ", ko: "실험대에서 데모 하나 해보기" },
+    emoji: "🧪",
+    category: "basic",
+    check: (s) => (s.labDemos ?? 0) >= 1,
+    progress: { stat: "labDemos", target: 1 },
+  },
+  {
+    key: "demo_all",
+    name: { zh: "实验常客", en: "Bench Regular", ja: "実験の常連", ko: "실험 단골" },
+    description: { zh: `玩遍实验台的全部 ${LAB_DEMO_COUNT} 个实验`, en: `Try all ${LAB_DEMO_COUNT} demos on the bench`, ja: `実験台の全 ${LAB_DEMO_COUNT} デモを遊ぶ`, ko: `실험대의 데모 ${LAB_DEMO_COUNT}개 모두 해보기` },
+    emoji: "🥼",
+    category: "basic",
+    check: (s) => (s.labDemoIds ?? []).length >= LAB_DEMO_COUNT,
+    progress: { stat: "labDemoIds", target: LAB_DEMO_COUNT },
   },
   {
     key: "day_2",

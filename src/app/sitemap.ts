@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { posts } from "@/lib/db/schema";
+import { LAB_DEMOS } from "@/lib/lab-demos";
 
 export const dynamic = "force-dynamic";
 
@@ -44,5 +45,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // 数据库不可用时至少返回静态页
   }
 
-  return [...staticPages, ...postPages];
+  // 实验台 demo 页：可分享的独立小实验（注册表单一事实来源）
+  const demoPages: MetadataRoute.Sitemap = LAB_DEMOS.map((d) => ({
+    url: `${base}/lab/${d.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 0.4,
+  }));
+
+  return [...staticPages, ...postPages, ...demoPages];
 }

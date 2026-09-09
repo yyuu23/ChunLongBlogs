@@ -172,6 +172,13 @@ export const zh = {
     prevMemory: "‹ 上一段",
     nextMemory: "下一段 ›",
     level: "{n} 级",
+    benchTitle: "实验台",
+    benchHint: "独立小实验，点卡片开始",
+    backToLab: "回太阳系",
+    fwHint: "点一下夜空，放一朵烟花",
+    fwCount: "已放 {n} 发",
+    fwAuto: "自动放",
+    fwAutoOff: "停止自动",
   },
   ach: {
     unlocked: "成就解锁！",

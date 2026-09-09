@@ -173,6 +173,13 @@ export const en: Dictionary = {
     prevMemory: "‹ Previous",
     nextMemory: "Next ›",
     level: "Lv. {n}",
+    benchTitle: "Lab Bench",
+    benchHint: "Self-contained mini demos — tap a card to start",
+    backToLab: "Back to the solar system",
+    fwHint: "Tap the night sky to launch a firework",
+    fwCount: "{n} launched",
+    fwAuto: "Auto",
+    fwAutoOff: "Stop auto",
   },
   ach: {
     unlocked: "Achievement unlocked!",

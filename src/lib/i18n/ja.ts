@@ -175,6 +175,13 @@ export const ja: Dictionary = {
     prevMemory: "‹ 前へ",
     nextMemory: "次へ ›",
     level: "Lv. {n}",
+    benchTitle: "実験台",
+    benchHint: "独立したミニ実験——カードをタップして開始",
+    backToLab: "太陽系へ戻る",
+    fwHint: "夜空をタップして花火を打ち上げよう",
+    fwCount: "{n} 発打ち上げ",
+    fwAuto: "自動",
+    fwAutoOff: "自動を止める",
   },
   ach: {
     unlocked: "実績解除！",

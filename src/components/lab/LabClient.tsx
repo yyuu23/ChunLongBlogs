@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useProgress } from "@react-three/drei";
 import { Loader2, SendHorizonal, Sparkles, Telescope } from "lucide-react";
 import { fetchProgress, getVisitorId, trackEvent, currentParticleTheme, type PlayerProgress } from "@/lib/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
+import { pick } from "@/lib/i18n/config";
+import { LAB_DEMOS } from "@/lib/lab-demos";
 import { DATE_LOCALE } from "@/lib/i18n/config";
 import { AchievementWall } from "@/components/lab/AchievementWall";
 import { BottleShelf } from "@/components/lab/BottleShelf";
@@ -189,6 +192,34 @@ export function LabClient({
           <p className="text-[11px] tracking-widest text-white/35">{t("lab.dragHint")}</p>
         </div>
       </div>
+
+      {/* 实验台：独立页的小实验入口（卡片数据来自 lib/lab-demos 注册表） */}
+      <section>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 className="font-serif text-lg font-bold">{t("lab.benchTitle")}</h2>
+          <p className="text-xs text-muted">{t("lab.benchHint")}</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {LAB_DEMOS.map((d) => (
+            <Link
+              key={d.slug}
+              href={`/lab/${d.slug}`}
+              className="glass-card glass-hover group flex items-center gap-3 p-4"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-xl">
+                {d.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">{pick(locale, d.name)}</p>
+                <p className="truncate text-xs text-muted">{pick(locale, d.desc)}</p>
+              </div>
+              <span className="shrink-0 text-sm text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent">
+                →
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* 成就徽章墙（按分类分组折叠） */}
       <AchievementWall progress={progress} />

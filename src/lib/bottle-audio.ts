@@ -25,9 +25,9 @@ function ac(): AudioContext | null {
 }
 
 /** 音高微随机（±6%）：同一动作每次响得略不同，避免"电子复读机"感 */
-const jitter = (f: number, r = 0.06) => f * (1 + (Math.random() * 2 - 1) * r);
+export const jitter = (f: number, r = 0.06) => f * (1 + (Math.random() * 2 - 1) * r);
 
-function tone(freq: number, dur: number, peak: number, type: OscillatorType = "sine", freqEnd?: number) {
+export function tone(freq: number, dur: number, peak: number, type: OscillatorType = "sine", freqEnd?: number) {
   const c = ac();
   if (!c) return;
   const t0 = c.currentTime;
@@ -44,8 +44,8 @@ function tone(freq: number, dur: number, peak: number, type: OscillatorType = "s
   o.stop(t0 + dur + 0.02);
 }
 
-/** 滤波白噪声：扫频低通，做水声/撞击闷响 */
-function noise(dur: number, from: number, to: number, peak: number) {
+/** 滤波白噪声：扫频低通，做水声/撞击闷响（烟花音效也复用） */
+export function noise(dur: number, from: number, to: number, peak: number) {
   const c = ac();
   if (!c) return;
   const t0 = c.currentTime;

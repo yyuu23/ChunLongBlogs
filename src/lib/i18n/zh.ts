@@ -464,7 +464,7 @@ export const zh = {
     selectionSparkle: "选中星光",
     splashScreen: "启动屏",
     mascotToggle: "看板娘",
-    soundToggle: "瓶子音效",
+    soundToggle: "音效",
     heroTypewriter: "首页打字机",
     backToTop: "返回顶部",
     effectsAria: "特效设置",

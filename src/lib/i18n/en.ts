@@ -465,7 +465,7 @@ export const en: Dictionary = {
     selectionSparkle: "Selection sparkle",
     splashScreen: "Splash screen",
     mascotToggle: "Mascot",
-    soundToggle: "Bottle sounds",
+    soundToggle: "Sounds",
     heroTypewriter: "Hero typewriter",
     backToTop: "Back to top",
     effectsAria: "Effects settings",

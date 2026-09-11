@@ -464,7 +464,7 @@ export const ja: Dictionary = {
     selectionSparkle: "選択キラキラ",
     splashScreen: "スプラッシュ",
     mascotToggle: "看板娘",
-    soundToggle: "ボトルの効果音",
+    soundToggle: "効果音",
     heroTypewriter: "トップのタイプ演出",
     backToTop: "トップへ戻る",
     effectsAria: "エフェクト設定",

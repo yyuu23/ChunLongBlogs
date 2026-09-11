@@ -462,7 +462,7 @@ export const ko: Dictionary = {
     selectionSparkle: "선택 반짝임",
     splashScreen: "스플래시",
     mascotToggle: "마스코트",
-    soundToggle: "병 소리",
+    soundToggle: "효과음",
     heroTypewriter: "메인 타이핑 효과",
     backToTop: "맨 위로",
     effectsAria: "효과 설정",

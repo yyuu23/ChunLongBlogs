@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
+import { useEffects } from "@/components/providers/EffectProvider";
+import { fwBoom, fwCrackle, fwLaunch } from "@/lib/fireworks-audio";
 
 /**
  * 烟花实验（/lab/fireworks）：全屏夜空画布，点击/触摸发射烟花——
@@ -14,7 +16,8 @@ import { useT } from "@/components/providers/LocaleProvider";
  * - DPR 钳制 ≤2；粒子总量封顶 1200（超出丢最旧）；
  * - prefers-reduced-motion：粒子数减半、不开自动模式；
  * - canvas touch-action:none——移动端触控放烟花不触发滚动/下拉刷新；
- * - 配色从站点主题色取（text-accent 探针读计算色）——换主题色 = 换烟花色调。
+ * - 配色从站点主题色取（text-accent 探针读计算色）——换主题色 = 换烟花色调；
+ * - 音效走全局 EffectFlags.sound 开关（Web Audio 合成，见 lib/fireworks-audio）。
  */
 
 interface Rocket {
@@ -59,6 +62,10 @@ export default function Fireworks() {
   const [auto, setAuto] = useState(false);
   const [fired, setFired] = useState(false);
   const t = useT();
+  const { effects } = useEffects();
+  // 音效开关是会变的 state，而画布 effect 只挂载一次——用 ref 桥接最新值
+  const soundRef = useRef(effects.sound);
+  soundRef.current = effects.sound;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -127,6 +134,8 @@ export default function Fireworks() {
       const pattern = Math.floor(rand(0, 4)); // 球形 / 环形 / 双层菊 / 柳垂
       const n = Math.round(reduced ? rand(40, 80) : rand(120, 240));
       const willow = pattern === 3;
+      fwBoom(soundRef.current, willow);
+      if (willow) fwCrackle(soundRef.current);
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2;
         let speed: number;
@@ -151,6 +160,7 @@ export default function Fireworks() {
     };
 
     const launch = (x: number, y: number) => {
+      fwLaunch(soundRef.current);
       rockets.push({
         x: x + rand(-30, 30),
         y: h + 12,

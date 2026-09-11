@@ -15,7 +15,7 @@ export interface EffectFlags {
   selectionSparkle: boolean;
   mascot: boolean;
   heroTypewriter: boolean;
-  /** 瓶子音效（Web Audio 合成）：拿起/放下/摇晃/开瓶/风铃 */
+  /** 音效（Web Audio 合成）：瓶艺拿起/放下/摇晃/开瓶/风铃、实验室烟花 */
   sound: boolean;
 }
 

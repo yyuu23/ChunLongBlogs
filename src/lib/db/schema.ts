@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 const ts = { withTimezone: false, mode: "timestamp_ms" } as const;
@@ -37,6 +37,8 @@ export const posts = sqliteTable("posts", {
   status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
   views: integer("views").notNull().default(0),
+  /* 反范式点赞计数（同 views）：like/unlike 事务内原子增减，列表页免 join post_likes */
+  likes: integer("likes").notNull().default(0),
   wordCount: integer("word_count").notNull().default(0),
   readingTime: integer("reading_time").notNull().default(1),
   createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
@@ -225,4 +227,60 @@ export const visitorDays = sqliteTable(
     visitorId: text("visitor_id").notNull(),
   },
   (t) => [uniqueIndex("visitor_days_day_vid_idx").on(t.day, t.visitorId)],
+);
+
+/**
+ * GitHub 访客身份（OAuth 登录后 upsert）：只存公开资料，不存 access_token。
+ * login/avatarUrl 每次登录刷新，评论与点赞的头像列表都从这里取。
+ */
+export const githubUsers = sqliteTable("github_users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  githubId: integer("github_id").notNull().unique(),
+  login: text("login").notNull(),
+  avatarUrl: text("avatar_url").notNull().default(""),
+  bio: text("bio").notNull().default(""),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+/**
+ * 原生评论（文章/说说共用）：必须 GitHub 登录，githubUserId 非空。
+ * refType+refId 多态挂载（同 embeddings/bottles 模式）；parentId 自引用 = 一层回复。
+ * deletedAt 软删除（同 stars）——被删顶层若有子回复，前台显示"已删除"占位保住回复线。
+ */
+export const comments = sqliteTable(
+  "comments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    refType: text("ref_type").notNull(), // post | moment
+    refId: integer("ref_id").notNull(),
+    githubUserId: integer("github_user_id")
+      .notNull()
+      .references(() => githubUsers.id, { onDelete: "cascade" }),
+    parentId: integer("parent_id"),
+    content: text("content").notNull(),
+    ip: text("ip").notNull().default(""),
+    deletedAt: integer("deleted_at", ts),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [index("comments_ref_idx").on(t.refType, t.refId, t.createdAt), index("comments_parent_idx").on(t.parentId)],
+);
+
+/**
+ * 文章点赞：unique(postId, visitorId) —— 同一浏览器（匿名 visitorId）只能赞一次，
+ * 游客与登录用户都可点赞；githubUserId 为空 = 游客点赞，只计数不进头像列表。
+ */
+export const postLikes = sqliteTable(
+  "post_likes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    visitorId: text("visitor_id").notNull(),
+    githubUserId: integer("github_user_id").references(() => githubUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("post_likes_post_visitor_idx").on(t.postId, t.visitorId)],
 );

@@ -53,7 +53,7 @@ vim .env
 ADMIN_USERNAME=你的管理员账号
 ADMIN_PASSWORD=一个强密码
 AUTH_SECRET=<node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))">
-SITE_URL=https://你的域名
+SITE_URL=https://chunlongblog.cn
 ```
 
 ## 3. 初始化数据库并启动
@@ -74,7 +74,7 @@ pm2 save
 ```nginx
 server {
     listen 80;
-    server_name chunlong.me;   # 换成你的域名
+    server_name chunlongblog.cn www.chunlongblog.cn;
 
     client_max_body_size 10m;  # 允许后台上传图片
 
@@ -105,7 +105,7 @@ HTTPS 证书（Let's Encrypt）：
 
 ```bash
 apt install -y certbot python3-certbot-nginx
-certbot --nginx -d chunlong.me
+certbot --nginx -d chunlongblog.cn -d www.chunlongblog.cn
 ```
 
 ## 5. 备份

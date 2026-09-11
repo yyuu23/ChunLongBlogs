@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // gzip 压缩由 nginx 接管（见 deploy/nginx/chunlongblog.top.conf），
+  // gzip 压缩由 nginx 接管（见 deploy/nginx/chunlongblog.cn.conf），
   // Node 不再对每个 HTML/RSC 响应逐次压缩，省下 2 核小机器的 CPU
   // （官方文档：服务器已配置压缩时推荐关闭）
   compress: false,

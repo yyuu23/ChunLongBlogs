@@ -40,11 +40,11 @@ rsync 显式排除这三者（见后文"部署边界"）。
 
 当前生产站点约定：
 
-- 域名：`chunlongblog.top`
+- 域名：`chunlongblog.cn`（ICP 备案已于 2026-09 通过；备案期的 `chunlongblog.top` 未列入备案，已弃用）
 - 服务器：`8.159.154.125`
 - 系统：Ubuntu 24.04 LTS
 - Next.js 监听端口：`3002`（可通过 `APP_PORT` 覆盖）
-- Nginx 模板：`deploy/nginx/chunlongblog.top.conf`
+- Nginx 模板：`deploy/nginx/chunlongblog.cn.conf`
 
 ## 1. 创建专用部署用户
 
@@ -258,13 +258,18 @@ GitHub Actions 只负责发布，不负责让网站持续运行。
 `--checksum` 按内容判断增量——因为 CI 每次全新构建，所有文件 mtime 都是"现在"，
 默认按时间戳判断会退化为每次全量传输。
 
-## 8. 当前访问方式：ICP 备案办理中
+## 8. 访问方式：ICP 备案与域名切换
 
-站点已正常运行，但**域名暂不可用**，访问地址是：
+**2026-09 更新：ICP 备案已通过（域名 `chunlongblog.cn`）**。按
+`deploy/nginx/chunlongblog.cn.conf` 顶部注释的步骤切回 80/443 + HTTPS
+（DNS → 安全组 → 换配置 → certbot → 固定 X-Forwarded-Proto）；
+切换完成前的临时访问地址仍是：
 
 ```
 http://8.159.154.125:8080
 ```
+
+以下为备案期间的经验记录（拦截原理与排查思路仍有参考价值）：
 
 原因：服务器在阿里云大陆地域，域名未完成 ICP 备案时，阿里云按 **Host 头**拦截
 未备案域名的请求，返回 403（页面标题 `Non-compliance ICP Filing`，响应头 `Server: Beaver`）。
@@ -280,7 +285,7 @@ http://8.159.154.125:8080
 回源时同样携带域名 Host，因此 Origin Rules 改端口也无效。唯一合规解法是完成备案
 （或把服务器换到不需要备案的境外地域）。
 
-备案通过后的切换步骤写在 `deploy/nginx/chunlongblog.top.conf` 顶部注释里
+备案通过后的切换步骤写在 `deploy/nginx/chunlongblog.cn.conf` 顶部注释里
 （切回 80 → certbot 签证书 → Cloudflare SSL 模式升 Full）。
 
 备案期间 workflow 的 `Smoke test (public URL)` 步骤会失败，但它带

@@ -17,7 +17,7 @@
 | git 了就会自动部署吗？ | **push 到 `main` 分支才会**。本地 commit 不 push 没有任何效果；push 到其他分支也不触发 |
 | 部署一次多久？ | 约 2~3 分钟。依赖安装 15s 左右（有缓存）、构建数秒到几分钟（视缓存）、传输 40s 到几分钟（视变更量） |
 | 服务器有压力吗？ | 没有。`npm ci` 和 `next build` 全部在 GitHub 的免费云端机器上跑，服务器只接收文件、建表、重启进程 |
-| 现在用什么地址访问？ | `http://8.159.154.125:8080`（ICP 备案办理期间，域名被阿里云拦截，见 §3） |
+| 现在用什么地址访问？ | `http://8.159.154.125:8080`（域名切换完成前的临时地址；ICP 备案已通过，切换见 §3.4） |
 | 哪里看部署状态？ | 仓库 **Actions** 标签页 → 左侧 **Deploy production**（不要点 Management 下的 Runners，那是自建机器管理页，与本方案无关） |
 | 部署失败会怎样？ | 失败即中止，**不会重启服务**，线上站点继续用上一个版本运行 |
 
@@ -35,7 +35,7 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 阿里云服务器 8.159.154.125（Ubuntu 24.04，用户 deploy）
   备份 data/ + public/uploads/ → 接收文件 → db:push 建表 → pm2 restart
   应用：pm2 常驻 next start，监听 127.0.0.1:3002
-  入口：nginx 监听 8080 反代到 3002
+  入口：nginx 反代到 3002（备案期监听 8080，切域名后 80/443，见 §3.4）
 ```
 
 | 环节 | 在哪 | 说明 |
@@ -88,12 +88,11 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 
 ## 3. 域名与访问：现状及注意点
 
-### 3.1 现状（截至 2026-09）
+### 3.1 现状（截至 2026-09-11）
 
-- 域名 `chunlongblog.top` 已购买，DNS 托管在 Cloudflare，A 记录已指向服务器并**开启了橙色云代理**
-- 服务器在**阿里云中国大陆地域**，ICP 备案**办理中、尚未通过**
-- 因此：**域名访问被阿里云拦截**，返回 403，页面标题 `Non-compliance ICP Filing`，响应头 `Server: Beaver`
-- 当前唯一访问方式：`http://8.159.154.125:8080`
+- **ICP 备案已通过**（2026-09，备案域名 `chunlongblog.cn`），阿里云按 Host 头的 403 拦截随之解除
+- 原域名 `chunlongblog.top` 未列入本次备案，弃用；仓库 nginx 模板与文档已全部切换到 `.cn`
+- 正按 3.4 的清单切回标准 80/443 + HTTPS；切换完成前的访问方式仍是 `http://8.159.154.125:8080`
 
 ### 3.2 关键认知：拦截按 Host 头，与端口无关
 
@@ -121,18 +120,25 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
   `Smoke test (app)` 为准
 - 后台、写作、评论等一切功能用 IP:8080 都正常
 
-### 3.4 备案通过后要做的事（清单）
+### 3.4 备案通过后的切换清单（域名 chunlongblog.cn）
 
-完整步骤写在 [deploy/nginx/chunlongblog.top.conf](../deploy/nginx/chunlongblog.top.conf) 顶部注释，概要：
+完整步骤写在 [deploy/nginx/chunlongblog.cn.conf](../deploy/nginx/chunlongblog.cn.conf) 顶部注释，概要：
 
-1. nginx `listen 8080` 改回 `listen 80`
-2. `certbot --nginx -d chunlongblog.top -d www.chunlongblog.top` 签 HTTPS 证书
-3. Cloudflare SSL/TLS 模式从 Flexible 升为 **Full (strict)**
-4. `nginx -t && systemctl reload nginx`
+1. DNS：`chunlongblog.cn` / `www.chunlongblog.cn` 的 A 记录指向服务器，建议先灰云（DNS only）方便 certbot 验证
+2. 阿里云安全组放行 80/443 入方向（备案期只开了 8080）
+3. 服务器 nginx 换用 `chunlongblog.cn.conf`（`listen 80`），reload 后验证 `http://chunlongblog.cn` 返回 200（备案数据同步到阿里云有分钟到小时级延迟，仍 403 先等同步）
+4. `certbot --nginx -d chunlongblog.cn -d www.chunlongblog.cn` 签 HTTPS 证书（自动补 443 与跳转）
+5. nginx `X-Forwarded-Proto` 由 `$scheme` 改回固定 `https` 后再 reload——**必须先 certbot 后固定**，顺序反了会在纯 HTTP 下发 Secure cookie 导致无法登录
+6. 若开 Cloudflare 橙云代理：SSL/TLS 模式从 Flexible 升为 **Full (strict)**
+7. SITE_URL 双路径同步（见下）→ `pm2 restart chunlong-blog` → 触发一次部署 workflow
+8. 后台「站点设置」填 ICP 备案号（页脚自动渲染并链接 beian.miit.gov.cn）
+9. 上线 30 天内到 beian.gov.cn 完成公安备案
+10. 收尾：安全组关 8080；`Smoke test (public URL)` 转绿
 
 **SITE_URL 是双路径的，改域名时两处同步**：
 GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metadata）
-+ 服务器 `/opt/chunlong-blog/.env` 的 `SITE_URL`（运行期，供 sitemap.xml / feed 读取）。
++ 服务器 `/opt/chunlong-blog/.env` 的 `SITE_URL`（运行期，供 sitemap.xml / feed 读取），
+都改为 `https://chunlongblog.cn`。
 
 ---
 
@@ -245,7 +251,7 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | 构建期 SITE_URL | 同上页的 Environment variables → `SITE_URL` |
 | 运行期密钥（管理员账号、AUTH_SECRET、SITE_URL 等） | 服务器 `/opt/chunlong-blog/.env`（600 权限，仅 deploy 用户） |
 | 部署密钥对（本机留档） | `~/.ssh/chunlong_blog_deploy`（私钥）/ `.pub`（公钥，已装在服务器 deploy 用户的 authorized_keys） |
-| nginx 配置 | 服务器 `/etc/nginx/sites-available/chunlongblog.top.conf`；仓库模板 `deploy/nginx/chunlongblog.top.conf`（两者保持同步） |
+| nginx 配置 | 服务器 `/etc/nginx/sites-available/chunlongblog.cn.conf`；仓库模板 `deploy/nginx/chunlongblog.cn.conf`（两者保持同步） |
 | 数据库 | 服务器 `/opt/chunlong-blog/data/db.sqlite`（单文件） |
 | 上传文件 | 服务器 `/opt/chunlong-blog/public/uploads/` |
 | 自动备份 | 服务器 `/opt/chunlong-backups/`（保留 30 份；每次部署自动执行一次，每日 crontab 见 [DEPLOY.md §5](../DEPLOY.md)） |
@@ -258,4 +264,4 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 
 - [GITHUB_ACTIONS_DEPLOY.md](./GITHUB_ACTIONS_DEPLOY.md) —— 从零搭建这套部署的完整参考（服务器初始化、密钥生成、GitHub 配置、安全边界）
 - [DEPLOY.md](../DEPLOY.md) —— 纯手工部署路径（仅应急）
-- [deploy/nginx/chunlongblog.top.conf](../deploy/nginx/chunlongblog.top.conf) —— nginx 模板，顶部注释含备案通过后的切换步骤
+- [deploy/nginx/chunlongblog.cn.conf](../deploy/nginx/chunlongblog.cn.conf) —— nginx 模板，顶部注释含域名切换的操作顺序

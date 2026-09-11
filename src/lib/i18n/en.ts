@@ -181,6 +181,7 @@ export const en: Dictionary = {
     fwCount: "{n} launched",
     fwAuto: "Auto",
     fwAutoOff: "Stop auto",
+    fwVolume: "Volume",
     lightStar: "Send light",
     lightDone: "Light sent ✨",
     lightCount: "{n} people sent light",

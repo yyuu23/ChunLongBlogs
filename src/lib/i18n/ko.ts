@@ -181,6 +181,7 @@ export const ko: Dictionary = {
     fwCount: "{n}발 발사",
     fwAuto: "자동",
     fwAutoOff: "자동 끄기",
+    fwVolume: "음량",
     lightStar: "빛 보내기",
     lightDone: "빛을 보냈어요 ✨",
     lightCount: "{n}명이 빛을 보냈어요",

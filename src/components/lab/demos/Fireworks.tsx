@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { fwBoom, fwCrackle, fwLaunch } from "@/lib/fireworks-audio";
+import { fwBoom, fwCrackle, fwLaunch, fwSetVolume } from "@/lib/fireworks-audio";
 
 /**
  * 烟花实验（/lab/fireworks）：全屏夜空画布，点击/触摸发射烟花——
@@ -17,7 +17,8 @@ import { fwBoom, fwCrackle, fwLaunch } from "@/lib/fireworks-audio";
  * - prefers-reduced-motion：粒子数减半、不开自动模式；
  * - canvas touch-action:none——移动端触控放烟花不触发滚动/下拉刷新；
  * - 配色从站点主题色取（text-accent 探针读计算色）——换主题色 = 换烟花色调；
- * - 音效走全局 EffectFlags.sound 开关（Web Audio 合成，见 lib/fireworks-audio）。
+ * - 音效走全局 EffectFlags.sound 开关，四形态各有声部、按弹体大小调响度，
+ *   页面右下角带音量滑条（localStorage 记忆），见 lib/fireworks-audio。
  */
 
 interface Rocket {
@@ -66,6 +67,28 @@ export default function Fireworks() {
   // 音效开关是会变的 state，而画布 effect 只挂载一次——用 ref 桥接最新值
   const soundRef = useRef(effects.sound);
   soundRef.current = effects.sound;
+
+  /* 音量滑条：state 驱动 UI，fwSetVolume 同步进音效模块（调用点即时生效）；
+     localStorage 记忆，静音记住最后一个非零值便于点图标恢复 */
+  const [volume, setVolume] = useState(0.8);
+  const lastVolRef = useRef(0.8);
+  useEffect(() => {
+    const saved = Number(localStorage.getItem("cl-fw-volume"));
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 1) {
+      setVolume(saved);
+      fwSetVolume(saved);
+      if (saved > 0) lastVolRef.current = saved;
+    }
+  }, []);
+  const changeVolume = (v: number) => {
+    setVolume(v);
+    fwSetVolume(v);
+    if (v > 0) lastVolRef.current = v;
+    try {
+      localStorage.setItem("cl-fw-volume", String(v));
+    } catch {}
+  };
+  const toggleMute = () => changeVolume(volume > 0 ? 0 : lastVolRef.current);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -134,7 +157,8 @@ export default function Fireworks() {
       const pattern = Math.floor(rand(0, 4)); // 球形 / 环形 / 双层菊 / 柳垂
       const n = Math.round(reduced ? rand(40, 80) : rand(120, 240));
       const willow = pattern === 3;
-      fwBoom(soundRef.current, willow);
+      // 形态决定声部，粒子数（40~240 → 0~1）决定响度
+      fwBoom(soundRef.current, pattern, (n - 40) / 200);
       if (willow) fwCrackle(soundRef.current);
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2;
@@ -160,13 +184,14 @@ export default function Fireworks() {
     };
 
     const launch = (x: number, y: number) => {
-      fwLaunch(soundRef.current);
+      const riseF = rand(55, 75); // 升空帧数（约 0.9~1.25s）：哨音时长与初速共用
+      fwLaunch(soundRef.current, riseF / 60);
       rockets.push({
         x: x + rand(-30, 30),
         y: h + 12,
         vx: rand(-0.7, 0.7),
         // 按距离定初速：约 0.9~1.3 秒升到点击高度
-        vy: -Math.max(6, (h + 12 - y) / rand(55, 75)),
+        vy: -Math.max(6, (h + 12 - y) / riseF),
         targetY: y,
         color: PALETTE[Math.floor(Math.random() * PALETTE.length)] ?? accent,
       });
@@ -330,6 +355,26 @@ export default function Fireworks() {
         <span className="rounded-full border border-white/15 bg-slate-950/55 px-3 py-1 text-[11px] tabular-nums text-white/70 backdrop-blur">
           {t("lab.fwCount", { n: count })}
         </span>
+        {effects.sound && (
+          <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/55 px-2.5 py-1 backdrop-blur">
+            <button
+              onClick={toggleMute}
+              aria-label={t("lab.fwVolume")}
+              className="text-white/70 transition-colors hover:text-white"
+            >
+              {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              onChange={(e) => changeVolume(Number(e.target.value) / 100)}
+              aria-label={t("lab.fwVolume")}
+              className="h-1 w-16 cursor-pointer accent-amber-300"
+            />
+          </div>
+        )}
         <button
           onClick={toggleAuto}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] backdrop-blur transition-colors ${

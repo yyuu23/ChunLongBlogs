@@ -1,6 +1,6 @@
-import { and, desc, gte, sql } from "drizzle-orm";
+import { and, desc, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { statsDaily, visitorDays } from "@/lib/db/schema";
+import { moments, posts, statsDaily, visitorDays } from "@/lib/db/schema";
 
 /**
  * 站点行为统计（按天聚合，无原始流水）：
@@ -129,4 +129,74 @@ export async function totalUniqueVisitors(): Promise<number> {
     .select({ n: sql<number>`count(distinct ${visitorDays.visitorId})` })
     .from(visitorDays);
   return Number(row?.n) || 0;
+}
+
+export interface InteractionStats {
+  likeTop: KeyCount[];
+  commentTop: KeyCount[];
+  likeTotal: number;
+  commentTotal: number;
+}
+
+/**
+ * 互动指标（点赞/评论）：TOP 榜把 stats_daily 的原始 key 翻译成可读标题——
+ * like 的 key=文章 slug，comment 的 key=refType:refId（文章/说说）。
+ * 供 admin 统计页直取与 /api/admin/stats 共用。
+ */
+export async function interactionStats(range: number, limit = 10): Promise<InteractionStats> {
+  const [likeTopRaw, commentTopRaw, likeTotal, commentTotal] = await Promise.all([
+    metricTop("like", range, limit),
+    metricTop("comment", range, limit),
+    metricSum("like", "all"),
+    metricSum("comment", "all"),
+  ]);
+
+  const slugs = likeTopRaw.map((r) => r.key).filter(Boolean);
+  const commentPostIds = [
+    ...new Set(
+      commentTopRaw
+        .filter((r) => r.key.startsWith("post:"))
+        .map((r) => Number(r.key.split(":")[1]))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ];
+  const commentMomentIds = [
+    ...new Set(
+      commentTopRaw
+        .filter((r) => r.key.startsWith("moment:"))
+        .map((r) => Number(r.key.split(":")[1]))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ];
+  const [likeTitleRows, commentPostRows, commentMomentRows] = await Promise.all([
+    slugs.length
+      ? db.select({ slug: posts.slug, title: posts.title }).from(posts).where(inArray(posts.slug, slugs))
+      : Promise.resolve([] as { slug: string; title: string }[]),
+    commentPostIds.length
+      ? db.select({ id: posts.id, title: posts.title }).from(posts).where(inArray(posts.id, commentPostIds))
+      : Promise.resolve([] as { id: number; title: string }[]),
+    commentMomentIds.length
+      ? db.select({ id: moments.id, content: moments.content }).from(moments).where(inArray(moments.id, commentMomentIds))
+      : Promise.resolve([] as { id: number; content: string }[]),
+  ]);
+  const titleBySlug = new Map(likeTitleRows.map((r) => [r.slug, r.title]));
+  const titleByPostId = new Map(commentPostRows.map((r) => [r.id, r.title]));
+  const textByMomentId = new Map(commentMomentRows.map((r) => [r.id, r.content.slice(0, 24)]));
+
+  return {
+    likeTop: likeTopRaw.map((r) => ({ key: titleBySlug.get(r.key) ?? r.key, count: r.count })),
+    commentTop: commentTopRaw.map((r) => {
+      const [kind, idStr] = r.key.split(":");
+      const id = Number(idStr);
+      const label =
+        kind === "post" && titleByPostId.has(id)
+          ? `文章 · ${titleByPostId.get(id)}`
+          : kind === "moment" && textByMomentId.has(id)
+            ? `说说 · ${textByMomentId.get(id)}`
+            : r.key;
+      return { key: label, count: r.count };
+    }),
+    likeTotal,
+    commentTotal,
+  };
 }

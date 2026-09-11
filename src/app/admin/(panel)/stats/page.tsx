@@ -1,4 +1,4 @@
-import { aiCalls, metricSum, metricTop, totalUniqueVisitors, trafficSeries, localDay } from "@/lib/stats";
+import { aiCalls, interactionStats, metricSum, metricTop, totalUniqueVisitors, trafficSeries, localDay } from "@/lib/stats";
 import { isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { albums, friendLinks, moments, photos, playlists, posts, songs, stars } from "@/lib/db/schema";
@@ -66,6 +66,8 @@ export default async function StatsAdminPage() {
     db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
   ]);
 
+  const { likeTop, commentTop, likeTotal, commentTotal } = await interactionStats(range);
+
   const initial: StatsPayload = {
     generatedAt: new Date().toISOString(),
     range,
@@ -79,12 +81,16 @@ export default async function StatsAdminPage() {
       aiTotal,
       musicTotal,
       imgTotal,
+      likeTotal,
+      commentTotal,
     },
     traffic,
     aiCalls: aiCallRows,
     aiTools,
     topPages: topPages.filter((p) => p.key && p.key !== "/"),
     musicTop,
+    likeTop,
+    commentTop,
     content: {
       postsPublished: Number(postStats?.published) || 0,
       postsDrafts: Number(postStats?.drafts) || 0,

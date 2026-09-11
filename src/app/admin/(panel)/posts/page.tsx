@@ -14,6 +14,7 @@ export default async function AdminPostsPage() {
       status: posts.status,
       isPinned: posts.isPinned,
       views: posts.views,
+      likes: posts.likes,
       wordCount: posts.wordCount,
       updatedAt: posts.updatedAt,
       categoryName: categories.name,

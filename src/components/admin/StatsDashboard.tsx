@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Loader2, Music2 } from "lucide-react";
+import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Heart, Loader2, MessageSquareText, Music2 } from "lucide-react";
 
 /**
  * Admin 数据统计面板：概览卡 + 流量趋势（PV 柱 / UV 线）+ AI 使用（环形/条形/工具）
@@ -21,12 +21,16 @@ export interface StatsPayload {
     aiTotal: number;
     musicTotal: number;
     imgTotal: number;
+    likeTotal: number;
+    commentTotal: number;
   };
   traffic: { day: string; pv: number; uv: number }[];
   aiCalls: { key: string; provider: string; model: string; effort: string; count: number }[];
   aiTools: { key: string; count: number }[];
   topPages: { key: string; count: number }[];
   musicTop: { key: string; count: number }[];
+  likeTop: { key: string; count: number }[];
+  commentTop: { key: string; count: number }[];
   content: {
     postsPublished: number;
     postsDrafts: number;
@@ -322,13 +326,14 @@ export function StatsDashboard({ initial }: { initial: StatsPayload }) {
       </div>
 
       {/* 概览卡 */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
         {[
           { label: "今日访客 UV", value: o.todayUV, sub: `昨日 ${nf(o.yesterdayUV)}` },
           { label: "今日浏览 PV", value: o.todayPV, sub: `昨日 ${nf(o.yesterdayPV)}` },
           { label: "累计独立访客", value: o.uvTotal, sub: "按匿名 ID 去重" },
           { label: "AI 调用（今日）", value: o.aiToday, sub: `累计 ${nf(o.aiTotal)} · 带图 ${nf(o.imgTotal)}` },
           { label: "音乐播放（累计）", value: o.musicTotal, sub: "全站播放器" },
+          { label: "互动（累计）", value: o.likeTotal + o.commentTotal, sub: `点赞 ${nf(o.likeTotal)} · 评论 ${nf(o.commentTotal)}` },
         ].map((k) => (
           <div key={k.label} className={card}>
             <p className="text-[0.6875rem] text-slate-400">{k.label}</p>
@@ -379,6 +384,23 @@ export function StatsDashboard({ initial }: { initial: StatsPayload }) {
             音乐播放 TOP
           </h2>
           <HBars items={data.musicTop} empty="暂无播放记录" unit=" 次" />
+        </section>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className={card}>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Heart className="h-4 w-4 text-rose-400" />
+            点赞 TOP 文章
+          </h2>
+          <HBars items={data.likeTop} empty="暂无点赞数据（读者点赞后开始累计）" unit=" 赞" />
+        </section>
+        <section className={card}>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <MessageSquareText className="h-4 w-4 text-amber-500" />
+            评论 TOP 内容
+          </h2>
+          <HBars items={data.commentTop} empty="暂无评论数据（访客登录 GitHub 评论后开始累计）" unit=" 条" />
         </section>
       </div>
 

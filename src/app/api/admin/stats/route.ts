@@ -6,6 +6,7 @@ import { albums, friendLinks, moments, photos, playlists, posts, songs, stars } 
 import { ZipBuilder } from "@/lib/zipStore";
 import {
   aiCalls,
+  interactionStats,
   localDay,
   metricSum,
   metricTop,
@@ -74,6 +75,10 @@ async function buildPayload(range: number) {
   const yesterdayUV = traffic.find((t) => t.day === yesterday)?.uv ?? 0;
   // metricSum(pv, 2) 含今昨两日，昨日 = 2 日和 − 今日
   const pvYesterday = Math.max(0, yesterdayPV - todayPV);
+
+  // 互动指标：like（key=slug）/ comment（key=refType:refId）TOP 榜 + 累计
+  const { likeTop, commentTop, likeTotal, commentTotal } = await interactionStats(range);
+
   return {
     generatedAt: new Date().toISOString(),
     range,
@@ -87,12 +92,16 @@ async function buildPayload(range: number) {
       aiTotal,
       musicTotal,
       imgTotal,
+      likeTotal,
+      commentTotal,
     },
     traffic,
     aiCalls: aiCallRows,
     aiTools,
     topPages: topPages.filter((p) => p.key && p.key !== "/"),
     musicTop,
+    likeTop,
+    commentTop,
     content: {
       postsPublished: Number(postStats?.published) || 0,
       postsDrafts: Number(postStats?.drafts) || 0,
@@ -134,6 +143,14 @@ function toCsv(p: Payload): string {
   lines.push("## 热门页面 TOP");
   lines.push("page,pv");
   for (const t of p.topPages) lines.push(`"${t.key}",${t.count}`);
+  lines.push("");
+  lines.push("## 点赞 TOP");
+  lines.push("post,likes");
+  for (const l of p.likeTop) lines.push(`"${l.key.replace(/"/g, '""')}",${l.count}`);
+  lines.push("");
+  lines.push("## 评论 TOP");
+  lines.push("target,comments");
+  for (const c of p.commentTop) lines.push(`"${c.key.replace(/"/g, '""')}",${c.count}`);
   return lines.join("\n");
 }
 
@@ -153,6 +170,8 @@ function toMarkdown(p: Payload): string {
   md.push(`| 浏览量 PV | ${n(p.overview.todayPV)} | ${n(p.overview.yesterdayPV)} | — |`);
   md.push(`| AI 调用 | ${n(p.overview.aiToday)} | — | ${n(p.overview.aiTotal)} |`);
   md.push(`| 音乐播放 | — | — | ${n(p.overview.musicTotal)} |`);
+  md.push(`| 点赞 | — | — | ${n(p.overview.likeTotal)} |`);
+  md.push(`| 评论 | — | — | ${n(p.overview.commentTotal)} |`);
   md.push("");
   md.push(`## 📈 逐日流量（UV / PV）`);
   md.push("");

@@ -13,6 +13,7 @@ export interface AdminPostRow {
   status: "draft" | "published";
   isPinned: boolean;
   views: number;
+  likes: number;
   wordCount: number;
   updatedAt: Date;
   categoryName: string | null;
@@ -52,7 +53,7 @@ export function PostsTable({ rows }: { rows: AdminPostRow[] }) {
               )}
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.title}</span>
               <span className="hidden shrink-0 text-xs text-slate-400 md:inline">
-                {p.categoryName ?? "未分类"} · {p.wordCount} 字 · {p.views} 阅读
+                {p.categoryName ?? "未分类"} · {p.wordCount} 字 · {p.views} 阅读 · {p.likes} 赞
               </span>
               <span className="hidden shrink-0 text-xs text-slate-400 lg:inline">
                 {formatDateTime(p.updatedAt)}

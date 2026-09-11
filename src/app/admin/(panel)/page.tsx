@@ -1,17 +1,19 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import {
   FileText,
   Eye,
   PenLine,
   FileEdit,
   MessageCircleHeart,
+  MessageSquareText,
+  Heart,
   Users,
   Images,
   Plus,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { albums, friendLinks, moments, photos, posts } from "@/lib/db/schema";
+import { albums, comments, friendLinks, githubUsers, moments, photos, posts } from "@/lib/db/schema";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,29 @@ export default async function AdminDashboard() {
   const [friendCount] = await db.select({ n: sql<number>`count(*)` }).from(friendLinks);
   const [albumCount] = await db.select({ n: sql<number>`count(*)` }).from(albums);
   const [photoCount] = await db.select({ n: sql<number>`count(*)` }).from(photos);
+  /* 互动统计：点赞总数（反范式计数合计）、评论（有效/已删分开数）、GitHub 登录用户 */
+  const [likeTotal] = await db.select({ n: sql<number>`coalesce(sum(likes), 0)` }).from(posts);
+  const [commentStats] = await db
+    .select({
+      total: sql<number>`count(*)`,
+      active: sql<number>`count(*) FILTER (WHERE deleted_at IS NULL)`,
+    })
+    .from(comments);
+  const [githubUserCount] = await db.select({ n: sql<number>`count(*)` }).from(githubUsers);
+  const recentComments = await db
+    .select({
+      id: comments.id,
+      content: comments.content,
+      refType: comments.refType,
+      createdAt: comments.createdAt,
+      deletedAt: comments.deletedAt,
+      login: githubUsers.login,
+    })
+    .from(comments)
+    .innerJoin(githubUsers, eq(comments.githubUserId, githubUsers.id))
+    .where(isNull(comments.deletedAt))
+    .orderBy(desc(comments.id))
+    .limit(5);
   const recent = await db
     .select({
       id: posts.id,
@@ -44,7 +69,10 @@ export default async function AdminDashboard() {
   const cards = [
     { label: "已发布", value: postStats.published, sub: `草稿 ${postStats.drafts}`, icon: FileText, color: "from-indigo-500 to-purple-500" },
     { label: "总阅读", value: postStats.views, sub: "次", icon: Eye, color: "from-sky-500 to-cyan-400" },
+    { label: "总点赞", value: Number(likeTotal?.n ?? 0), sub: "次", icon: Heart, color: "from-rose-500 to-pink-400" },
     { label: "总字数", value: postStats.words, sub: "字", icon: PenLine, color: "from-emerald-500 to-teal-400" },
+    { label: "评论", value: Number(commentStats?.total ?? 0), sub: `有效 ${Number(commentStats?.active ?? 0)} · 已删 ${Number(commentStats?.total ?? 0) - Number(commentStats?.active ?? 0)}`, icon: MessageSquareText, color: "from-amber-500 to-orange-400" },
+    { label: "GitHub 用户", value: Number(githubUserCount?.n ?? 0), sub: "位登录访客", icon: Users, color: "from-violet-500 to-fuchsia-400" },
     { label: "内容数", value: momentCount.n + friendCount.n + albumCount.n, sub: `说说 ${momentCount.n} · 友链 ${friendCount.n} · 相册 ${albumCount.n}（${photoCount.n} 图）`, icon: Images, color: "from-pink-500 to-rose-400" },
   ];
 
@@ -115,6 +143,43 @@ export default async function AdminDashboard() {
           </ul>
         ) : (
           <p className="px-5 py-8 text-center text-sm text-slate-400">还没有文章，点击右上角「写文章」开始创作</p>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <MessageSquareText className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold">最近评论</h2>
+          </div>
+          <Link href="/admin/comments" className="text-xs text-indigo-500 hover:underline">
+            全部评论 →
+          </Link>
+        </div>
+        {recentComments.length ? (
+          <ul className="divide-y divide-slate-100">
+            {recentComments.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href="/admin/comments"
+                  className="flex items-center gap-3 px-5 py-3.5 text-sm transition-colors hover:bg-slate-50"
+                >
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
+                    {c.login}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{c.content}</span>
+                  <span className="hidden shrink-0 text-[11px] text-slate-400 sm:inline">
+                    {c.refType === "post" ? "文章" : "说说"}
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-400">{formatDateTime(c.createdAt)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-5 py-8 text-center text-sm text-slate-400">
+            还没有评论——配置 GitHub OAuth（见 .env.example）后，访客登录即可评论
+          </p>
         )}
       </section>
     </div>

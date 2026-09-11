@@ -10,6 +10,7 @@ import {
   adminUsers,
   albums,
   categories,
+  comments,
   friendLinks,
   moments,
   photos,
@@ -318,6 +319,18 @@ export async function setStarDeleted(id: number, deleted: boolean) {
     .update(stars)
     .set({ deletedAt: deleted ? new Date() : null })
     .where(eq(stars.id, id));
+  revalidateAll();
+}
+
+/* ============ 评论（GitHub 登录访客的 UGC 管理） ============ */
+
+/** 软删除/恢复评论：删除后前台显示"已删除"占位（若挂有回复），可恢复 */
+export async function setCommentDeleted(id: number, deleted: boolean) {
+  await guard();
+  await db
+    .update(comments)
+    .set({ deletedAt: deleted ? new Date() : null })
+    .where(eq(comments.id, id));
   revalidateAll();
 }
 

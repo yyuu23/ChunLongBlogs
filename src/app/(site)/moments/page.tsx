@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { MomentComments } from "@/components/comments/MomentComments";
 import { db } from "@/lib/db";
 import { moments as momentsTable } from "@/lib/db/schema";
 import { relativeTime, formatDateTime } from "@/lib/utils";
@@ -72,6 +73,7 @@ export default async function MomentsPage() {
                         ))}
                       </div>
                     )}
+                    <MomentComments momentId={m.id} />
                   </div>
                 </article>
               </FadeIn>

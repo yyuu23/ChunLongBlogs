@@ -15,13 +15,6 @@ export interface Banner {
   subtitle: string;
 }
 
-export interface GiscusConfig {
-  repo: string;
-  repoId: string;
-  category: string;
-  categoryId: string;
-}
-
 /** 支持的 LLM 供应商（key 都放 .env，这里只决定路由） */
 export type AiProvider = "deepseek" | "glm" | "qwen";
 
@@ -120,7 +113,6 @@ export interface SiteConfig {
   bgMaskBlur: number;
   banners: Banner[];
   gradientPalette: string[];
-  giscus: GiscusConfig | null;
   aboutMarkdown: string;
   icp: string;
   footerText: string;
@@ -174,7 +166,6 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     },
   ],
   gradientPalette: ["#a18cd1", "#fbc2eb", "#a1c4fd", "#c2e9fb"],
-  giscus: null,
   aboutMarkdown: `## 关于我
 
 你好，我是 **ChunLong**。

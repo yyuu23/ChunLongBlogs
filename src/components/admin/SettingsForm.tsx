@@ -380,30 +380,16 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
         </label>
       </section>
 
-      {/* giscus 评论 */}
-      <section className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:grid-cols-2">
-        <h2 className="text-sm font-semibold sm:col-span-2">
-          giscus 评论（在 giscus.app 获取配置，留空关闭评论）
-        </h2>
-        {(
-          [
-            ["repo", "仓库（owner/repo）"],
-            ["repoId", "repoId"],
-            ["category", "分类名"],
-            ["categoryId", "categoryId"],
-          ] as const
-        ).map(([key, title]) => (
-          <label key={key} className={label}>
-            <span className="text-xs font-medium text-slate-500">{title}</span>
-            <input
-              value={config.giscus?.[key] ?? ""}
-              onChange={(e) =>
-                set("giscus", { repo: "", repoId: "", category: "", categoryId: "", ...(config.giscus ?? {}), [key]: e.target.value })
-              }
-              className={input}
-            />
-          </label>
-        ))}
+      {/* 评论说明：原生评论由 GitHub OAuth 驱动，在 .env 配 GITHUB_CLIENT_ID/SECRET 即开启 */}
+      <section className="grid gap-2 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold">评论与点赞</h2>
+        <p className="text-xs leading-relaxed text-slate-500">
+          评论与点赞为原生功能：访客通过 GitHub 登录后即可评论，任何人都可点赞。
+          在服务器 <code className="rounded bg-slate-100 px-1">.env</code> 配置{" "}
+          <code className="rounded bg-slate-100 px-1">GITHUB_CLIENT_ID</code> /{" "}
+          <code className="rounded bg-slate-100 px-1">GITHUB_CLIENT_SECRET</code> 后开启（见 .env.example 注释）。
+          评论内容在「评论管理」页审核。
+        </p>
       </section>
 
       {/* 页脚与关于 */}

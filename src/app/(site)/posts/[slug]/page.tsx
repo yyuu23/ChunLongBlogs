@@ -6,7 +6,9 @@ import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { AutoCover } from "@/components/posts/AutoCover";
 import { Toc } from "@/components/posts/Toc";
-import { ViewCounter, GiscusComments } from "@/components/posts/PostExtras";
+import { ViewCounter } from "@/components/posts/PostExtras";
+import { PostLike } from "@/components/comments/PostLike";
+import { Comments } from "@/components/comments/Comments";
 import { CodeBlockTools } from "@/components/posts/CodeBlockTools";
 import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
@@ -215,11 +217,19 @@ export default async function PostDetailPage({ params }: PageProps) {
               </FadeIn>
             )}
 
+            {/* 点赞（读完后、评论区前） */}
+            <FadeIn delay={0.12}>
+              <div className="mt-8">
+                <PostLike slug={post.slug} postId={post.id} initialLikes={post.likes} />
+              </div>
+            </FadeIn>
+
             {/* 评论 */}
             <FadeIn delay={0.15}>
-              <section className="mt-8">
-                <h2 className="mb-4 font-serif text-lg font-bold">{t("posts.comments")}</h2>
-                <GiscusComments config={config.giscus} />
+              <section className="mt-6">
+                <div className="glass-card p-5">
+                  <Comments refType="post" refId={post.id} />
+                </div>
               </section>
             </FadeIn>
           </div>

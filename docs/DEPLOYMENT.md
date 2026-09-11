@@ -229,6 +229,7 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | --- | --- |
 | 发布新版本 | `git push origin main`（merge/直接提交到 main 均触发） |
 | 手动重新部署 | Actions → Deploy production → Run workflow（分支 main，不勾 dry_run） |
+| 开启访客登录/评论 | 见下方「5.1 GitHub OAuth 配置」——创建 OAuth App + 服务器 .env 加两个变量 + 重启 |
 | 预检传输内容 | 同上，但勾选 `dry_run`（只列 rsync 清单，不动服务器） |
 | 看部署日志 | Actions → 点具体某次运行 → 点 Build & deploy → 展开各步骤 |
 | 看应用日志 | 服务器上 `pm2 logs chunlong-blog --lines 50` |
@@ -240,6 +241,24 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | 安装每日备份 crontab | 服务器上 `crontab -e` 添加：`10 4 * * * /bin/bash /opt/chunlong-blog/scripts/server-backup.sh >> /var/log/chunlong-backup.log 2>&1`（详见 [DEPLOY.md §5](../DEPLOY.md)） |
 
 应急（Actions 整体不可用时的手工路径）见 [DEPLOY.md](../DEPLOY.md)。
+
+### 5.1 GitHub OAuth 配置（访客登录 / 评论 / 头像点赞列表）
+
+原生评论与点赞依赖 GitHub 访客登录，不配置也能跑（登录入口自动隐藏，游客点赞仍可用）：
+
+1. GitHub → Settings → Developer settings → **OAuth Apps → New OAuth App**：
+   - Application name 随意（如 `chunlongblog-评论`）；
+   - Homepage URL：`https://chunlongblog.cn`；
+   - **Authorization callback URL：`https://chunlongblog.cn/api/auth/github/callback`**（一个 App 只认一个回调域名，本地开发另建一个 App 填 `http://localhost:3000/api/auth/github/callback`）。
+2. 创建后拿到 **Client ID**，再点 Generate a new client secret 拿 **Client Secret**。
+3. 服务器 `/opt/chunlong-blog/.env` 追加（保持 600 权限）：
+   ```
+   GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx
+   GITHUB_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxx
+   ```
+4. `pm2 restart chunlong-blog` 生效（`.env` 不进 rsync，secret 只在服务端）。
+
+首次上线本功能时数据库有新表（github_users / comments / post_likes）：部署流水线本来就含 `db:push`，正常发版即可，无需手工操作。
 
 ---
 

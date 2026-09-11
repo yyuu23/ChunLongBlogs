@@ -342,7 +342,7 @@ export async function POST(request: Request) {
   const facts = [
     `本站名：${config.siteName}，站长：${config.authorName}。`,
     "本站技术栈：Next.js 16（App Router）+ React 19 + TypeScript + Tailwind CSS v4 + framer-motion + SQLite（Drizzle ORM），是站长自研的全栈博客（不是 Hugo/Hexo/WordPress）。",
-    "本站主要功能：文章博客（Markdown/代码高亮/评论 giscus）、说说、相册（拍立得照片墙）、友链、音乐馆（跨页不断播的全局播放器）、three.js 实验室（/lab）、Live2D 看板娘（就是我）、五套主题色换装、樱花/萤火虫/落叶/落雪粒子主题、天气卡、导航日历、AI 问答（/chat）。",
+    "本站主要功能：文章博客（Markdown/代码高亮/GitHub 登录评论/点赞头像列表）、说说（可评论）、相册（拍立得照片墙）、友链、音乐馆（跨页不断播的全局播放器）、three.js 实验室（/lab）、Live2D 看板娘（就是我）、五套主题色换装、樱花/萤火虫/落叶/落雪粒子主题、天气卡、导航日历、AI 问答（/chat）。",
     "管理后台在 /admin；本项目开源于 GitHub（yyuu23/ChunLongBlogs）。",
   ].join("\n");
 

@@ -46,6 +46,8 @@ export interface PlayerStats {
   labDemoIds?: string[];
   /** 给别人的留声星「回一束光」的次数（传灯人成就用） */
   lightsGiven: number;
+  /** 给文章点赞的次数（游客也算，点赞 API 幂等去重） */
+  postLikesGiven: number;
 }
 
 export const EMPTY_STATS: PlayerStats = {
@@ -76,6 +78,7 @@ export const EMPTY_STATS: PlayerStats = {
   labDemos: 0,
   labDemoIds: [],
   lightsGiven: 0,
+  postLikesGiven: 0,
 };
 
 /** 各行为经验值（客户端即时展示与服务端结算共用） */
@@ -101,6 +104,7 @@ export const XP_RULES = {
   pick_wallpaper: 2,
   visit_lab_demo: 3,
   light_star: 2,
+  like_post: 2,
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
@@ -127,6 +131,7 @@ export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {
   pick_wallpaper: 5,
   visit_lab_demo: 5,
   light_star: 10,
+  like_post: 10,
 };
 
 /** 旧库里没有新字段，读出来要补默认值，否则 check() 里访问 undefined 会炸 */

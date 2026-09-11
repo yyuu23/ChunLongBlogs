@@ -17,6 +17,7 @@ export interface PostListItem {
   tags: { id: number; name: string; slug: string }[];
   isPinned: boolean;
   views: number;
+  likes: number;
   wordCount: number;
   readingTime: number;
   createdAt: Date;
@@ -41,6 +42,7 @@ function baseSelect() {
       cover: postsTable.cover,
       isPinned: postsTable.isPinned,
       views: postsTable.views,
+      likes: postsTable.likes,
       wordCount: postsTable.wordCount,
       readingTime: postsTable.readingTime,
       createdAt: postsTable.createdAt,
@@ -75,6 +77,7 @@ function toItem(row: Row): PostListItem & { categoryId: number | null } {
     tags: [],
     isPinned: row.isPinned,
     views: row.views,
+    likes: row.likes,
     wordCount: row.wordCount,
     readingTime: row.readingTime,
     createdAt: row.createdAt,

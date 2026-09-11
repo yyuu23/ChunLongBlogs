@@ -127,6 +127,10 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       // 回一束光：去重在 star_lights 表（API 层），这里只累计次数
       stats.lightsGiven += 1;
       break;
+    case "like_post":
+      // 文章点赞：去重在 post_likes 表（API 层），这里只累计次数
+      stats.postLikesGiven += 1;
+      break;
     case "use_chat":
       stats.chatUsed += 1;
       if (gained > 0) stats.affinityPoints += 2; // 好感随聊天累积（受 use_chat 单日上限防刷）

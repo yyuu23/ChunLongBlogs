@@ -4,7 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { fwBoom, fwCrackle, fwLaunch, fwSetVolume } from "@/lib/fireworks-audio";
+import {
+  fwBoom,
+  fwCrackle,
+  fwLaunch,
+  fwOnSampleStatus,
+  fwPreloadSamples,
+  fwSetTimbre,
+  fwSetVolume,
+  type FwTimbre,
+} from "@/lib/fireworks-audio";
 
 /**
  * 烟花实验（/lab/fireworks）：全屏夜空画布，点击/触摸发射烟花——
@@ -89,6 +98,37 @@ export default function Fireworks() {
     } catch {}
   };
   const toggleMute = () => changeVolume(volume > 0 ? 0 : lastVolRef.current);
+
+  /* 音色切换（真实采样 / 合成）：localStorage 记忆；真实档顺手预热采样，
+     加载失败 → 引擎自动用合成顶上，这里提示一次（4s 淡出） */
+  const [timbre, setTimbre] = useState<FwTimbre>("sample");
+  const [sampleNotice, setSampleNotice] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem("cl-fw-timbre");
+    const initial: FwTimbre = saved === "synth" ? "synth" : "sample";
+    setTimbre(initial);
+    fwSetTimbre(initial);
+    if (initial === "sample") fwPreloadSamples();
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+    const off = fwOnSampleStatus((s) => {
+      if (s === "failed") {
+        setSampleNotice(true);
+        if (noticeTimer) clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => setSampleNotice(false), 4000);
+      }
+    });
+    return () => {
+      off();
+      if (noticeTimer) clearTimeout(noticeTimer);
+    };
+  }, []);
+  const changeTimbre = (m: FwTimbre) => {
+    setTimbre(m);
+    fwSetTimbre(m);
+    try {
+      localStorage.setItem("cl-fw-timbre", m);
+    } catch {}
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -351,29 +391,55 @@ export default function Fireworks() {
           {t("lab.fwHint")}
         </p>
       )}
+      {sampleNotice && (
+        <p className="pointer-events-none absolute bottom-14 right-4 rounded-xl border border-amber-300/30 bg-slate-950/80 px-3 py-1.5 text-[11px] text-amber-200/90 backdrop-blur">
+          {t("lab.fwSampleFallback")}
+        </p>
+      )}
       <div className="absolute bottom-4 right-4 flex items-center gap-2">
         <span className="rounded-full border border-white/15 bg-slate-950/55 px-3 py-1 text-[11px] tabular-nums text-white/70 backdrop-blur">
           {t("lab.fwCount", { n: count })}
         </span>
         {effects.sound && (
-          <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/55 px-2.5 py-1 backdrop-blur">
-            <button
-              onClick={toggleMute}
-              aria-label={t("lab.fwVolume")}
-              className="text-white/70 transition-colors hover:text-white"
+          <>
+            <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/55 px-2.5 py-1 backdrop-blur">
+              <button
+                onClick={toggleMute}
+                aria-label={t("lab.fwVolume")}
+                className="text-white/70 transition-colors hover:text-white"
+              >
+                {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(volume * 100)}
+                onChange={(e) => changeVolume(Number(e.target.value) / 100)}
+                aria-label={t("lab.fwVolume")}
+                className="h-1 w-16 cursor-pointer accent-amber-300"
+              />
+            </div>
+            {/* 音色切换：真实采样 / 实时合成 */}
+            <div
+              className="flex items-center rounded-full border border-white/15 bg-slate-950/55 p-0.5 text-[11px] backdrop-blur"
+              role="group"
+              aria-label={t("lab.fwTimbre")}
             >
-              {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(volume * 100)}
-              onChange={(e) => changeVolume(Number(e.target.value) / 100)}
-              aria-label={t("lab.fwVolume")}
-              className="h-1 w-16 cursor-pointer accent-amber-300"
-            />
-          </div>
+              {(["sample", "synth"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => changeTimbre(m)}
+                  aria-pressed={timbre === m}
+                  className={`rounded-full px-2.5 py-0.5 transition-colors ${
+                    timbre === m ? "bg-accent-gradient text-white" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {m === "sample" ? t("lab.fwTimbreSample") : t("lab.fwTimbreSynth")}
+                </button>
+              ))}
+            </div>
+          </>
         )}
         <button
           onClick={toggleAuto}

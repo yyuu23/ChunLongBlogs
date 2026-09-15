@@ -8,7 +8,8 @@
 
 let ctx: AudioContext | null = null;
 
-function ac(): AudioContext | null {
+/** 共享 AudioContext（烟花双音色引擎也从这里取——单例，全站一个 ctx） */
+export function ac(): AudioContext | null {
   try {
     if (!ctx) {
       const AC =

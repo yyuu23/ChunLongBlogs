@@ -68,6 +68,17 @@ export const LAB_DEMOS: LabDemoDef[] = [
       ko: "매트릭스풍 문자 비, 누르면 물결이 번져요",
     },
   },
+  {
+    slug: "noise",
+    emoji: "🎧",
+    name: { zh: "白噪音机", en: "Noise Mixer", ja: "ノイズミキサー", ko: "노이즈 믹서" },
+    desc: {
+      zh: "雨声、篝火、海浪……叠加出你的专注背景音",
+      en: "Rain, campfire, ocean waves — mix your focus ambience",
+      ja: "雨、焚き火、波音……自分だけの集中BGMをミックス",
+      ko: "빗소리, 모닥불, 파도… 나만의 집중 배경음을 믹스해요",
+    },
+  },
 ];
 
 export const LAB_DEMO_COUNT = LAB_DEMOS.length;

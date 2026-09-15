@@ -116,10 +116,11 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       break;
     case "visit_lab_demo": {
       stats.labDemos += 1;
-      // 玩过的实验 slug 去重留最近 10 个（demo_all 判定用，仿 readPostIds）
+      // 玩过的实验 slug 去重留最近 20 个（demo_all 判定用，仿 readPostIds；
+      // 上限需 ≥ LAB_DEMOS 总数，否则玩全也无法解锁成就）
       const demoId = String(payload?.demoId ?? "").slice(0, 32);
       if (demoId && !(stats.labDemoIds ?? []).includes(demoId)) {
-        stats.labDemoIds = [...(stats.labDemoIds ?? []), demoId].slice(-10);
+        stats.labDemoIds = [...(stats.labDemoIds ?? []), demoId].slice(-20);
       }
       break;
     }

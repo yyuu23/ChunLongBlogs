@@ -20,6 +20,38 @@ const DEMO_COMPONENTS: Record<string, React.ComponentType> = {
       </div>
     ),
   }),
+  lanterns: dynamic(() => import("./Lanterns"), {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      </div>
+    ),
+  }),
+  "text-spark": dynamic(() => import("./TextSpark"), {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      </div>
+    ),
+  }),
+  fluid: dynamic(() => import("./FluidSim"), {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      </div>
+    ),
+  }),
+  matrix: dynamic(() => import("./MatrixRain"), {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      </div>
+    ),
+  }),
 };
 
 /** demo 页外壳：返回链接 + 标题简介 + 画布区 + 进页埋点（计 XP/成就） */

@@ -6,7 +6,10 @@
 本文回答三类问题：**现在怎么部署**（§1–§2）、**域名与访问为什么是这样**（§3）、
 **这次上线踩过什么坑、以后怎么排错**（§4）。日常操作看 §5 速查表。
 
-从零搭建同一套部署的完整步骤见 [GITHUB_ACTIONS_DEPLOY.md](./GITHUB_ACTIONS_DEPLOY.md)。
+> **部署文档分工**（三篇各管一件事，别找错地方）：
+> - 本文 `docs/DEPLOYMENT.md` —— **本站生产环境运维手册**：现状架构、排错经验、日常操作
+> - [GITHUB_ACTIONS_DEPLOY.md](./GITHUB_ACTIONS_DEPLOY.md) —— **从零搭建通用教程**：想给自己的服务器搭一套同样的自动部署，照它做
+> - [README「部署」](../README.md#部署) —— 入口索引：按"我只是想本地跑 / 我要部署到生产"分流
 
 ---
 
@@ -17,7 +20,7 @@
 | git 了就会自动部署吗？ | **push 到 `main` 分支才会**。本地 commit 不 push 没有任何效果；push 到其他分支也不触发 |
 | 部署一次多久？ | 约 2~3 分钟。依赖安装 15s 左右（有缓存）、构建数秒到几分钟（视缓存）、传输 40s 到几分钟（视变更量） |
 | 服务器有压力吗？ | 没有。`npm ci` 和 `next build` 全部在 GitHub 的免费云端机器上跑，服务器只接收文件、建表、重启进程 |
-| 现在用什么地址访问？ | `http://8.159.154.125:8080`（域名切换完成前的临时地址；ICP 备案已通过，切换见 §3.4） |
+| 现在用什么地址访问？ | `http://<SERVER_IP>:8080`（域名切换完成前的临时地址；ICP 备案已通过，切换见 §3.4。实际 IP = GitHub secrets 的 `SERVER_HOST`） |
 | 哪里看部署状态？ | 仓库 **Actions** 标签页 → 左侧 **Deploy production**（不要点 Management 下的 Runners，那是自建机器管理页，与本方案无关） |
 | 部署失败会怎样？ | 失败即中止，**不会重启服务**，线上站点继续用上一个版本运行 |
 
@@ -32,7 +35,7 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
         │ rsync 增量传输（--checksum 按内容判断）
         │ 首次全量 ~870MB，日常增量通常仅几 MB
         ▼
-阿里云服务器 8.159.154.125（Ubuntu 24.04，用户 deploy）
+阿里云服务器 <SERVER_IP>（Ubuntu 24.04，用户 deploy；实际值存 GitHub secrets 的 SERVER_HOST）
   备份 data/ + public/uploads/ → 接收文件 → db:push 建表 → pm2 restart
   应用：pm2 常驻 next start，监听 127.0.0.1:3002
   入口：nginx 反代到 3002（备案期监听 8080，切域名后 80/443，见 §3.4）
@@ -55,7 +58,9 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 | `/opt/chunlong-blog/.git/` | 保留仓库历史用于回退（当前服务器是全新初始化，暂无此目录） |
 
 每次部署前会自动把 `data/` + `public/uploads/` 打包备份到
-`/opt/chunlong-backups/`（只保留最近 10 份）。
+`/opt/chunlong-backups/`（只保留最近 30 份）。备份脚本用 SQLite Online Backup API
+先生成一致性快照再打包——直接 tar 一个正在被写入的 SQLite 文件可能拿到"撕裂"的
+坏快照，这个 API 保证快照时刻的库是完整一致的。
 
 ---
 
@@ -75,7 +80,7 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 | 7 | Configure SSH | 组装部署密钥（支持 PEM 原文/base64 单行，自动剥 CRLF）并自检私钥有效性 | 0s |
 | 8 | Verify SSH connectivity | 单独测一次 SSH 连通，把"连不上"和"服务器检查不过"区分开 | 3s |
 | 9 | Server preflight | 服务器侧体检：x86_64 架构 / rsync 已装 / .env 存在 / **Node ABI 一致** / 磁盘 ≥2GB | 4s |
-| 10 | Backup server runtime data | tar 备份数据库 + 上传目录，清理只留 10 份 | 3s |
+| 10 | Backup server runtime data | tar 备份数据库 + 上传目录，清理只留 30 份 | 3s |
 | 11 | Rsync build artifacts | 增量传输全部产物（`--delete-after`：删旧文件在传输完成后） | 37s（增量） |
 | 12 | Finalize | 校验产物完整 → `db:push` 同步表结构 → `pm2 restart`（首次自动 `pm2 start`） | 9s |
 | 13 | Smoke test (app) | 在服务器本地 curl `127.0.0.1:3002`，并验证 robots.txt 里烘入了正式域名 | 4s |
@@ -92,7 +97,7 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 
 - **ICP 备案已通过**（2026-09，备案域名 `chunlongblog.cn`），阿里云按 Host 头的 403 拦截随之解除
 - 原域名 `chunlongblog.top` 未列入本次备案，弃用；仓库 nginx 模板与文档已全部切换到 `.cn`
-- 正按 3.4 的清单切回标准 80/443 + HTTPS；切换完成前的访问方式仍是 `http://8.159.154.125:8080`
+- 正按 3.4 的清单切回标准 80/443 + HTTPS；切换完成前的访问方式仍是 `http://<SERVER_IP>:8080`
 
 ### 3.2 关键认知：拦截按 Host 头，与端口无关
 
@@ -100,8 +105,8 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 
 | 请求 | 结果 |
 | --- | --- |
-| `curl http://8.159.154.125:8080/` | **200**，正常返回博客页面 |
-| `curl -H "Host: chunlongblog.top" http://8.159.154.125:8080/` | **403 拦截** |
+| `curl http://<SERVER_IP>:8080/` | **200**，正常返回博客页面 |
+| `curl -H "Host: chunlongblog.top" http://<SERVER_IP>:8080/` | **403 拦截** |
 
 由此得出两个重要结论（当时走过弯路）：
 
@@ -238,9 +243,10 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | 回滚到上一版 | `git revert <坏提交> && git push origin main`，走同一条流水线重新部署（服务器无 .git，不能用 git 方式回退） |
 | 恢复数据 | `/opt/chunlong-backups/` 里取最近的 tar.gz 解压覆盖后 `pm2 restart` |
 | 暂停自动部署 | Actions → Deploy production → `...` → Disable workflow |
-| 安装每日备份 crontab | 服务器上 `crontab -e` 添加：`10 4 * * * /bin/bash /opt/chunlong-blog/scripts/server-backup.sh >> /var/log/chunlong-backup.log 2>&1`（详见 [DEPLOY.md §5](../DEPLOY.md)） |
+| 安装每日备份 crontab | 服务器上 `crontab -e` 添加：`10 4 * * * /bin/bash /opt/chunlong-blog/scripts/server-backup.sh >> /var/log/chunlong-backup.log 2>&1`（不装也有保底：每次部署自动备份一次，但两次部署之间的写入不在覆盖内） |
+| 忘记管理员密码 | 见 §5.3，一行命令直接重置数据库里的哈希 |
 
-应急（Actions 整体不可用时的手工路径）见 [DEPLOY.md](../DEPLOY.md)。
+应急（Actions 整体不可用时的手工部署路径）见 §5.2。
 
 ### 5.1 GitHub OAuth 配置（访客登录 / 评论 / 头像点赞列表）
 
@@ -260,6 +266,47 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 
 首次上线本功能时数据库有新表（github_users / comments / post_likes）：部署流水线本来就含 `db:push`，正常发版即可，无需手工操作。
 
+### 5.2 应急：Actions 不可用时的手工部署
+
+GitHub Actions 整体故障时的替代路径：在自己电脑上（Git Bash / WSL，需有 rsync 和
+`~/.ssh/chunlong_blog_deploy` 私钥）执行与 workflow 等价的三步——构建、传输、收尾。
+排除项一条都不能少，否则会覆盖服务器上的数据库/密钥/上传文件：
+
+```bash
+# 1. 本地构建（SITE_URL 用生产域名）
+npm ci && SITE_URL=https://chunlongblog.cn npm run build
+
+# 2. 先备份服务器数据（管道执行，永远用本次版本的脚本）
+ssh -i ~/.ssh/chunlong_blog_deploy deploy@<SERVER_IP> 'bash -s' < scripts/server-backup.sh
+
+# 3. 传输产物（排除项 = 安全红线，与 deploy.yml 保持一致）
+rsync -azc --delete-after \
+  --exclude='/.git/' --exclude='/.env' --exclude='/data/' \
+  --exclude='/public/uploads/' --exclude='/node_modules/.cache/' \
+  --exclude='/.next/cache/' --exclude='*.log' --exclude='*.tsbuildinfo' \
+  -e "ssh -i ~/.ssh/chunlong_blog_deploy" \
+  ./ deploy@<SERVER_IP>:/opt/chunlong-blog/
+
+# 4. 建表 + 重启（同样管道执行）
+ssh -i ~/.ssh/chunlong_blog_deploy deploy@<SERVER_IP> 'bash -s' < scripts/server-finalize.sh
+```
+
+注意本地构建的平台需与服务器同为 Linux x86_64（better-sqlite3 原生二进制按平台编译；
+Windows 上请用 WSL 执行以上命令）。
+
+### 5.3 忘记管理员密码
+
+改 `.env` 里的 `ADMIN_PASSWORD` **不会生效**——登录校验的是数据库里的哈希，
+`.env` 只在账号首次创建时用到。在服务器上直接更新哈希（立即生效，无需重启，
+不影响其他数据）。整段复制粘贴，**只需把 `NEWPWD` 换成新密码**（别含单引号字符）：
+
+```bash
+ssh deploy@<SERVER_IP>
+cd /opt/chunlong-blog && node -e 'const b=require("bcryptjs");const db=require("better-sqlite3")("data/db.sqlite");db.prepare("INSERT INTO admin_users (username,password_hash) VALUES (?,?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash").run("admin",b.hashSync("NEWPWD",10));console.log("done");'
+```
+
+**不要**用 `npm run db:seed` 修密码——它会先清空全部内容表（文章/说说/相册）再写演示数据。
+
 ---
 
 ## 6. 关键信息都存在哪（改配置时查这张表）
@@ -273,7 +320,7 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 | nginx 配置 | 服务器 `/etc/nginx/sites-available/chunlongblog.cn.conf`；仓库模板 `deploy/nginx/chunlongblog.cn.conf`（两者保持同步） |
 | 数据库 | 服务器 `/opt/chunlong-blog/data/db.sqlite`（单文件） |
 | 上传文件 | 服务器 `/opt/chunlong-blog/public/uploads/` |
-| 自动备份 | 服务器 `/opt/chunlong-backups/`（保留 30 份；每次部署自动执行一次，每日 crontab 见 [DEPLOY.md §5](../DEPLOY.md)） |
+| 自动备份 | 服务器 `/opt/chunlong-backups/`（保留 30 份；每次部署自动执行一次，每日 crontab 见 §5 速查表） |
 | workflow 本体 | `.github/workflows/deploy.yml` |
 | 服务器端脚本 | `scripts/server-backup.sh`、`scripts/server-finalize.sh`（经 ssh 管道执行，永远运行本次版本） |
 
@@ -282,5 +329,5 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 ## 7. 相关文档
 
 - [GITHUB_ACTIONS_DEPLOY.md](./GITHUB_ACTIONS_DEPLOY.md) —— 从零搭建这套部署的完整参考（服务器初始化、密钥生成、GitHub 配置、安全边界）
-- [DEPLOY.md](../DEPLOY.md) —— 纯手工部署路径（仅应急）
 - [deploy/nginx/chunlongblog.cn.conf](../deploy/nginx/chunlongblog.cn.conf) —— nginx 模板，顶部注释含域名切换的操作顺序
+- [ROADMAP.md](./ROADMAP.md) —— 功能差距清单与后续开发方向

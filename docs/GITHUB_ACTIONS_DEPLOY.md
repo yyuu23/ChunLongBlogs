@@ -41,7 +41,7 @@ rsync 显式排除这三者（见后文"部署边界"）。
 当前生产站点约定：
 
 - 域名：`chunlongblog.cn`（ICP 备案已于 2026-09 通过；备案期的 `chunlongblog.top` 未列入备案，已弃用）
-- 服务器：`8.159.154.125`
+- 服务器：`<SERVER_IP>`（实际 IP 存于 GitHub secrets 的 `SERVER_HOST`，文档不硬编码）
 - 系统：Ubuntu 24.04 LTS
 - Next.js 监听端口：`3002`（可通过 `APP_PORT` 覆盖）
 - Nginx 模板：`deploy/nginx/chunlongblog.cn.conf`
@@ -266,7 +266,7 @@ GitHub Actions 只负责发布，不负责让网站持续运行。
 切换完成前的临时访问地址仍是：
 
 ```
-http://8.159.154.125:8080
+http://<SERVER_IP>:8080
 ```
 
 以下为备案期间的经验记录（拦截原理与排查思路仍有参考价值）：
@@ -278,8 +278,8 @@ http://8.159.154.125:8080
 
 | 请求 | 结果 |
 | --- | --- |
-| `curl http://8.159.154.125:8080/` | 200，正常返回博客页面 |
-| `curl -H "Host: chunlongblog.top" http://8.159.154.125:8080/` | 403 拦截 |
+| `curl http://<SERVER_IP>:8080/` | 200，正常返回博客页面 |
+| `curl -H "Host: chunlongblog.top" http://<SERVER_IP>:8080/` | 403 拦截 |
 
 **注意：该拦截与端口无关**，换非标端口（8080 等）不能让域名可用；Cloudflare
 回源时同样携带域名 Host，因此 Origin Rules 改端口也无效。唯一合规解法是完成备案

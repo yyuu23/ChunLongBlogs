@@ -1,0 +1,43 @@
+name: CI
+
+# 轻量质量闸门：类型检查 + 单元/集成测试。
+# 不做 next build（构建由 Deploy production 在发布时完成），
+# 测试自带临时 SQLite（src/lib/__tests__ 各文件自设 DATABASE_PATH），无需 .env。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Node 大版本与 deploy.yml 保持一致（22）：better-sqlite3 按 Node ABI 下发二进制
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test

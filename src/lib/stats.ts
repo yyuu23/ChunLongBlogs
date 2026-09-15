@@ -1,6 +1,6 @@
-import { and, desc, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { moments, posts, statsDaily, visitorDays } from "@/lib/db/schema";
+import { moments, posts, songs, statsDaily, visitorDays } from "@/lib/db/schema";
 
 /**
  * 站点行为统计（按天聚合，无原始流水）：
@@ -59,6 +59,30 @@ export async function markVisit(visitorId: string): Promise<VisitMilestone | nul
     return { n: Number(row?.n) || 1 };
   } catch {
     return null;
+  }
+}
+
+/**
+ * "最近在听"卡数据：全站任何访客的播放都更新对应歌曲的 lastPlayedAt。
+ * songId 优先（PlayerSong.id 即 songs.id）；未命中回退按 title 匹配最新一条
+ * （救网易云重导入 = delete + 重插导致 id 换新的场景）。失败静默。
+ */
+export async function touchSongPlayed(songId: number, title: string): Promise<void> {
+  try {
+    const now = Date.now();
+    if (Number.isInteger(songId) && songId > 0) {
+      const byId = await db
+        .update(songs)
+        .set({ lastPlayedAt: now })
+        .where(eq(songs.id, songId))
+        .returning({ id: songs.id });
+      if (byId.length) return;
+    }
+    if (!title) return;
+    const [row] = await db.select({ id: songs.id }).from(songs).where(eq(songs.title, title)).limit(1);
+    if (row) await db.update(songs).set({ lastPlayedAt: now }).where(eq(songs.id, row.id));
+  } catch {
+    // 打点失败不影响播放
   }
 }
 

@@ -72,6 +72,7 @@ export const zh = {
     fortuneDoItems: "写代码, 重构, 摸鱼, 喝奶茶, 早点睡, 逛友链, 听歌, 发呆",
     fortuneDontItems: "改需求, 删库, 熬夜, 手滑 rm -rf, 争论编辑器, 空指针",
     checkin: "签到 +{n} XP",
+    listeningTitle: "最近在听",
     checkedIn: "已签到 +{n} XP",
   },
   posts: {

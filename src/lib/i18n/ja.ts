@@ -75,6 +75,7 @@ export const ja: Dictionary = {
     fortuneDoItems: "コードを書く, リファクタ, さぼる, タピオカ, 早く寝る, 友達のブログ巡り, 音楽, ぼんやり",
     fortuneDontItems: "要件変更, DB削除, 夜更かし, rm -rf, エディタ戦争, ヌルポ",
     checkin: "チェックイン +{n} XP",
+    listeningTitle: "最近聴いている",
     checkedIn: "チェックイン済み +{n} XP",
   },
   posts: {

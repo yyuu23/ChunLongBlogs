@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
-import { incrStat } from "@/lib/stats";
+import { incrStat, touchSongPlayed } from "@/lib/stats";
 import { getLocale } from "@/lib/i18n/server";
 import { getSiteConfig } from "@/lib/site";
 import {
@@ -99,6 +99,8 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
       stats.songsPlayed += 1;
       // 统计面板：按歌名记一次播放（聚合存储，见 lib/stats.ts）
       void incrStat("music_play", String(payload?.title ?? "").slice(0, 80));
+      // "最近在听"首页卡：全站最近一次播放（id 优先、title 回退，见 lib/stats.ts）
+      void touchSongPlayed(Number(payload?.songId ?? 0) || 0, String(payload?.title ?? "").slice(0, 80));
       break;
     case "switch_accent": {
       const a = String(payload?.accent ?? "");

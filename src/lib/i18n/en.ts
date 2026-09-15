@@ -73,6 +73,7 @@ export const en: Dictionary = {
     fortuneDoItems: "write code, refactor, slack off, bubble tea, sleep early, visit friends, music, daydream",
     fortuneDontItems: "change requirements, drop database, stay up late, rm -rf, editor wars, null pointers",
     checkin: "Check in +{n} XP",
+    listeningTitle: "Recently played",
     checkedIn: "Checked in +{n} XP",
   },
   posts: {

@@ -125,6 +125,8 @@ export const songs = sqliteTable("songs", {
   lrc: text("lrc").notNull().default(""),
   duration: integer("duration").notNull().default(0), // 秒
   sort: integer("sort").notNull().default(0),
+  /** 全站最近一次播放时间戳（"最近在听"首页卡；任何访客播放都更新，null=从未播过） */
+  lastPlayedAt: integer("last_played_at"),
 });
 
 /** RAG 向量索引（文章切块的嵌入，JSON 存 SQLite，无需独立向量库） */

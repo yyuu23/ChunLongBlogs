@@ -73,6 +73,7 @@ export const ko: Dictionary = {
     fortuneDoItems: "코딩, 리팩터링, 놀기, 버블티, 일찍 자기, 친구 블로그 구경, 음악, 멍때리기",
     fortuneDontItems: "요구사항 변경, DB 삭제, 밤샘, rm -rf, 에디터 논쟁, 널 포인터",
     checkin: "출석 +{n} XP",
+    listeningTitle: "최근 재생",
     checkedIn: "출석 완료 +{n} XP",
   },
   posts: {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, isNull, sql } from "drizzle-orm";
+import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { BookOpenText, FileText, Eye, PenLine, Images } from "lucide-react";
 import { TextHero } from "@/components/home/TextHero";
 import { ProfileCard, StatsRow } from "@/components/home/ProfileCard";
@@ -9,27 +9,43 @@ import { HouseWindow } from "@/components/home/HouseWindow";
 import { HitokotoCard } from "@/components/home/HitokotoCard";
 import { DailyCheckinCard } from "@/components/home/DailyCheckinCard";
 import { LabTeaserBar } from "@/components/home/LabTeaserBar";
+import { ListeningCard } from "@/components/home/ListeningCard";
 import { PostCard } from "@/components/posts/PostCard";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { db } from "@/lib/db";
-import { albums, photos, stars } from "@/lib/db/schema";
+import { albums, photos, songs, stars } from "@/lib/db/schema";
 import { getSiteConfig } from "@/lib/site";
 import { getPublishedPosts, getSiteStats } from "@/lib/posts";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
+/** "最近在听"卡的显示窗口：48h 内有播放才渲染 */
+const LISTENING_WINDOW_MS = 48 * 3_600_000;
+
 export default async function HomePage() {
-  const [config, { items: latest }, stats, albumRows, starCountRows, latestStarRows, { t }] = await Promise.all([
-    getSiteConfig(),
-    getPublishedPosts({ perPage: 6 }),
-    getSiteStats(),
-    db.select().from(albums).orderBy(desc(albums.createdAt)).limit(1),
-    db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
-    db.select().from(stars).where(isNull(stars.deletedAt)).orderBy(desc(stars.id)).limit(1),
-    getT(),
-  ]);
+  const [config, { items: latest }, stats, albumRows, starCountRows, latestStarRows, listeningRows, { t, locale }] =
+    await Promise.all([
+      getSiteConfig(),
+      getPublishedPosts({ perPage: 6 }),
+      getSiteStats(),
+      db.select().from(albums).orderBy(desc(albums.createdAt)).limit(1),
+      db.select({ n: sql<number>`count(*)` }).from(stars).where(isNull(stars.deletedAt)),
+      db.select().from(stars).where(isNull(stars.deletedAt)).orderBy(desc(stars.id)).limit(1),
+      db
+        .select({ title: songs.title, artist: songs.artist, cover: songs.cover, lastPlayedAt: songs.lastPlayedAt })
+        .from(songs)
+        .where(isNotNull(songs.lastPlayedAt))
+        .orderBy(desc(songs.lastPlayedAt))
+        .limit(1),
+      getT(),
+    ]);
+  const listeningSong = listeningRows[0];
+  const listening =
+    listeningSong && listeningSong.lastPlayedAt != null && Date.now() - listeningSong.lastPlayedAt < LISTENING_WINDOW_MS
+      ? { ...listeningSong, lastPlayedAt: listeningSong.lastPlayedAt }
+      : null;
   const latestAlbum = albumRows[0] ?? null;
   const latestStar = latestStarRows[0] ?? null;
   const photoCount = latestAlbum
@@ -74,6 +90,7 @@ export default async function HomePage() {
           </FadeIn>
           <FadeIn delay={0.22}>
             <div className="flex flex-col gap-6">
+              {listening && <ListeningCard song={listening} t={t} locale={locale} />}
               <WeatherCard />
               <HouseWindow />
             </div>

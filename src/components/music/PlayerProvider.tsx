@@ -141,7 +141,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.src = song.url;
     void audio.play().catch(() => setFailed(true));
     recordRecent(song);
-    trackEvent("play_music", { title: song.title });
+    trackEvent("play_music", { title: song.title, songId: song.id });
   }, []);
 
   const play = useCallback(

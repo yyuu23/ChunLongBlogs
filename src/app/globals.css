@@ -744,9 +744,32 @@ body {
 .bottle-item.is-dragging {
   z-index: 30;
   cursor: grabbing !important;
+  /* 关键：跟手。拖影 transform 由 rAF 逐帧直写，任何 transition 缓动都会让它
+     以百毫秒级滞后追指针（橡皮筋感）——拖拽期间必须关闭 */
+  transition: none;
 }
 .bottle-item.is-dragging .bottle {
   filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.35));
+}
+/* 举起预备态：按住不动 220ms，先给"拿起来了"的反馈（上浮 + 轻响），移动即转拖拽 */
+.bottle-item.is-lifted {
+  transform: translateY(-3px) scale(1.06);
+  z-index: 5;
+}
+/* 落地：squash & stretch 一小下（animation 覆盖残留 inline transform，结束时回计算值） */
+.bottle-item.is-landing {
+  animation: bottle-land 0.16s ease-out;
+}
+@keyframes bottle-land {
+  0% {
+    transform: translateY(-5px) scaleY(1.05) scaleX(0.97);
+  }
+  45% {
+    transform: scaleY(0.92) scaleX(1.06);
+  }
+  100% {
+    transform: none;
+  }
 }
 .bottle-item.is-nudged .bottle {
   animation: bottle-jiggle 0.55s ease-in-out 2;

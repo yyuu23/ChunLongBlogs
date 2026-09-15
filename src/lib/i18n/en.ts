@@ -175,7 +175,7 @@ export const en: Dictionary = {
     featuredStar: "Featured",
     netError: "❌ Network error",
     shelfTitle: "Bottle Shelf",
-    shelfHint: "Stars, achievements, festival visits — each seals a bottle with that day's scenery. Tap to inspect, hold to shake, long-press to drag (fling it, it bounces!), open it from the story card",
+    shelfHint: "Stars, achievements, festival visits — each seals a bottle with that day's scenery. Tap to inspect, hold and drag to rearrange (fling it, it bounces!), wiggle while dragging to slosh — open it from the story card",
     shelfLoading: "A thin layer of dust settles on the shelf…",
     shelfEmpty: "The shelf is still empty… leave a star, unlock achievements, or come back on a festival day?",
     bottleStar: "Star Message",

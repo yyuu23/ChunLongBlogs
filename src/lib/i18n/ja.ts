@@ -529,5 +529,6 @@ export const ja: Dictionary = {
   },
   egg: {
     toast: "🎉 イースターエッグを発見しました！",
+    visitorToast: "今日の{n}人目の訪問者です。ありがとう",
   },
 };

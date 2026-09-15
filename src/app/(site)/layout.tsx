@@ -9,6 +9,7 @@ import { ThemeParticles, ClickEffect } from "@/components/effects/Effects";
 import { SelectionSparkle } from "@/components/effects/SelectionSparkle";
 import { BottleProjection } from "@/components/effects/BottleProjection";
 import { AchievementToasts } from "@/components/effects/AchievementToasts";
+import { VisitMilestone } from "@/components/effects/VisitMilestone";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
@@ -61,6 +62,8 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <ChatWidget />
       <ProactiveChat />
       <AchievementToasts />
+      {/* 访客里程碑彩蛋：今日第 1 位 / 第 10 整倍数访客的全屏小庆祝 */}
+      <VisitMilestone />
       {/* PV/UV 埋点（路由变化上报，30s 同路径去重） */}
       <VisitBeacon />
     </WallpaperProvider>

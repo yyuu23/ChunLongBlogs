@@ -527,5 +527,6 @@ export const ko: Dictionary = {
   },
   egg: {
     toast: "🎉 이스터 에그를 발견했어요!",
+    visitorToast: "오늘 {n}번째 방문자예요. 와줘서 고마워요",
   },
 };

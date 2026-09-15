@@ -529,6 +529,7 @@ export const zh = {
   },
   egg: {
     toast: "🎉 恭喜你发现了彩蛋！",
+    visitorToast: "你是今天第 {n} 位访客，谢谢你的到来",
   },
 };
 

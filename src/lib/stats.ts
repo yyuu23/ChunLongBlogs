@@ -31,14 +31,35 @@ export async function incrStat(metric: string, key = "", n = 1): Promise<void> {
   }
 }
 
-export async function markVisit(visitorId: string): Promise<void> {
-  if (!visitorId || visitorId.length > 64) return;
+/** 里程碑：该访客是当日第 n 位（仅当日新访客返回，已存在返回 null） */
+export interface VisitMilestone {
+  n: number;
+}
+
+/**
+ * UV 去重标记。当日新插入成功时返回 { n: 当日第几位 }（含本位）；
+ * 冲突（当日已来过）/异常返回 null。
+ * insert 与 count 两条语句间无宏任务让出点（better-sqlite3 同步驱动），
+ * 序号不会被并发插入错位；day 是唯一索引最左前缀，计数走索引范围扫描。
+ */
+export async function markVisit(visitorId: string): Promise<VisitMilestone | null> {
+  if (!visitorId || visitorId.length > 64) return null;
   try {
-    await db
+    const day = localDay();
+    const inserted = await db
       .insert(visitorDays)
-      .values({ day: localDay(), visitorId })
-      .onConflictDoNothing();
-  } catch {}
+      .values({ day, visitorId })
+      .onConflictDoNothing()
+      .returning({ id: visitorDays.id });
+    if (!inserted.length) return null; // 当日已存在，无里程碑
+    const [row] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(visitorDays)
+      .where(sql`${visitorDays.day} = ${day}`);
+    return { n: Number(row?.n) || 1 };
+  } catch {
+    return null;
+  }
 }
 
 /* ---------- 查询（admin 面板 / 导出共用） ---------- */

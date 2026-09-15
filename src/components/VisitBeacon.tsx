@@ -24,7 +24,15 @@ export function VisitBeacon() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "visit", page: pathname, visitorId: getVisitorId() }),
       keepalive: true,
-    }).catch(() => {});
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { milestone?: { n: number } } | null) => {
+        // 里程碑彩蛋：响应带 milestone（今日第 n 位且命中阈值）→ 广播给庆祝组件
+        if (d?.milestone) {
+          window.dispatchEvent(new CustomEvent("cl-visit-milestone", { detail: { n: d.milestone.n } }));
+        }
+      })
+      .catch(() => {});
   }, [pathname]);
 
   return null;

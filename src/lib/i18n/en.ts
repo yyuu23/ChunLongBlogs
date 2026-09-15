@@ -530,5 +530,6 @@ export const en: Dictionary = {
   },
   egg: {
     toast: "🎉 Congratulations, you found the easter egg!",
+    visitorToast: "You're visitor #{n} today — thanks for stopping by",
   },
 };

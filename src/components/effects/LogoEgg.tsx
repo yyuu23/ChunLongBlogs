@@ -25,9 +25,9 @@ const COLORS = [
 
 /**
  * Logo 七连击彩蛋：全屏彩纸雨（三波共 ~600 片）+ 玻璃 toast。
- * 通过递增 trigger 属性触发。
+ * 通过递增 trigger 属性触发；message 可覆盖默认文案（访客里程碑等复用此组件）。
  */
-export function LogoEgg({ trigger }: { trigger: number }) {
+export function LogoEgg({ trigger, message }: { trigger: number; message?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [toast, setToast] = useState(false);
   const t = useT();
@@ -148,7 +148,7 @@ export function LogoEgg({ trigger }: { trigger: number }) {
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
             className="glass-card fixed left-1/2 top-20 z-[71] -translate-x-1/2 px-5 py-3 text-sm font-medium"
           >
-            🎉 {t("egg.toast")}
+            🎉 {message ?? t("egg.toast")}
           </motion.div>
         )}
       </AnimatePresence>

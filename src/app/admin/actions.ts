@@ -167,6 +167,31 @@ export async function deletePost(id: number) {
   revalidateAll();
 }
 
+/* ============ Markdown 批量导入（核心逻辑在 lib/post-import.ts，与本地脚本共用） ============ */
+
+import { importMarkdownPost, importPostsFromContentDir, type ImportResult } from "@/lib/post-import";
+
+export type { ImportResult };
+
+/** 导入入口一：浏览器上传的 .md 文件（前端读好文本传进来，gray-matter 只在服务端跑） */
+export async function importMarkdownFiles(files: { name: string; text: string }[]): Promise<ImportResult[]> {
+  await guard();
+  const results: ImportResult[] = [];
+  for (const f of files.slice(0, 50)) {
+    results.push(await importMarkdownPost(f.text, f.name));
+  }
+  if (results.some((r) => r.outcome !== "error")) revalidateAll();
+  return results;
+}
+
+/** 导入入口二：一键导入服务器 content/posts/ 目录下的全部 .md（随 git/rsync 部署，云端发布全批文章用） */
+export async function importMarkdownFromContentDir(): Promise<ImportResult[]> {
+  await guard();
+  const results = await importPostsFromContentDir();
+  if (results.some((r) => r.outcome !== "error")) revalidateAll();
+  return results;
+}
+
 export async function togglePostPin(id: number) {
   await guard();
   const row = (await db.select().from(posts).where(eq(posts.id, id)).limit(1))[0];

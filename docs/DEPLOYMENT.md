@@ -307,6 +307,15 @@ cd /opt/chunlong-blog && node -e 'const b=require("bcryptjs");const db=require("
 
 **不要**用 `npm run db:seed` 修密码——它会先清空全部内容表（文章/说说/相册）再写演示数据。
 
+### 批量发布文章（云端）
+
+部署不跑 seed，云端数据库的文章内容只能单独同步。两条路：
+
+- **后台导入（推荐）**：把写好的 `.md`（front-matter 约定见 `content/posts/` 示例）提交进仓库随部署同步，然后云端 `/admin` →「文章」→ 点**「从内容目录导入」**，一键把服务器 `content/posts/` 下全部文章按 slug 幂等入库。也可以点「导入 .md」直接上传本地文件。
+- **ssh 脚本**：`cd /opt/chunlong-blog && npx tsx scripts/import-posts.ts`（同一份逻辑，node_modules 里已带 tsx）。
+
+两种方式重复执行都安全（按 slug upsert，绝不删除已有文章）。
+
 ---
 
 ## 6. 关键信息都存在哪（改配置时查这张表）

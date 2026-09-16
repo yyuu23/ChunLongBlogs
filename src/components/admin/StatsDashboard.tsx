@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Heart, Loader2, MessageSquareText, Music2 } from "lucide-react";
+import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Heart, Loader2, MessageSquareText, Music2, Sparkles } from "lucide-react";
 
 /**
  * Admin 数据统计面板：概览卡 + 流量趋势（PV 柱 / UV 线）+ AI 使用（环形/条形/工具）
@@ -273,19 +273,43 @@ function HBars({
 
 const EFFORT_ZH: Record<string, string> = { off: "无", low: "低", mid: "中", high: "高", max: "最高", on: "开" };
 
-export function StatsDashboard({ initial }: { initial: StatsPayload }) {
+export function StatsDashboard({ initial, aiEnabled = false }: { initial: StatsPayload; aiEnabled?: boolean }) {
   const [data, setData] = useState(initial);
   const [range, setRange] = useState(initial.range);
   const [loading, setLoading] = useState(false);
+  /** AI 数据解读（按 range 缓存，切范围清空） */
+  const [insight, setInsight] = useState<null | { text: string; generatedAt: string }>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState("");
 
   const load = async (r: number) => {
     setRange(r);
     setLoading(true);
+    setInsight(null);
+    setInsightError("");
     try {
       const res = await fetch(`/api/admin/stats?range=${r}`);
       if (res.ok) setData((await res.json()) as StatsPayload);
     } catch {}
     setLoading(false);
+  };
+
+  const runInsights = async () => {
+    setInsightLoading(true);
+    setInsightError("");
+    try {
+      const res = await fetch("/api/admin/stats/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ range }),
+      });
+      const j = (await res.json().catch(() => null)) as { text?: string; generatedAt?: string; error?: string } | null;
+      if (j?.text) setInsight({ text: j.text, generatedAt: j.generatedAt ?? new Date().toISOString() });
+      else setInsightError(j?.error ?? "生成失败，请重试");
+    } catch {
+      setInsightError("请求失败");
+    }
+    setInsightLoading(false);
   };
 
   const o = data.overview;
@@ -310,6 +334,16 @@ export function StatsDashboard({ initial }: { initial: StatsPayload }) {
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
+          {aiEnabled && (
+            <button
+              onClick={() => void runInsights()}
+              disabled={insightLoading}
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-60"
+            >
+              {insightLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {insightLoading ? "解读中…" : "AI 解读"}
+            </button>
+          )}
           <a href={exportUrl("zip")} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-3.5 py-2 text-xs font-medium text-white shadow-md shadow-indigo-500/20">
             <Download className="h-3.5 w-3.5" /> ZIP 全量包
           </a>
@@ -324,6 +358,32 @@ export function StatsDashboard({ initial }: { initial: StatsPayload }) {
           </a>
         </div>
       </div>
+
+      {/* AI 数据解读结果（可折叠卡片） */}
+      {(insight || insightError) && (
+        <div className="flex gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 to-purple-50/50 p-4">
+          <div className="w-1 shrink-0 rounded-full bg-gradient-to-b from-indigo-400 to-purple-400" />
+          <div className="min-w-0 flex-1">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI 解读 · 近 {range} 天
+              {insight && (
+                <span className="font-normal text-slate-400">
+                  {new Date(insight.generatedAt).toLocaleString("zh-CN")}
+                </span>
+              )}
+              <button onClick={() => { setInsight(null); setInsightError(""); }} className="ml-auto text-[11px] font-normal text-slate-400 hover:text-slate-600">
+                收起
+              </button>
+            </p>
+            {insight ? (
+              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{insight.text}</p>
+            ) : (
+              <p className="text-xs text-rose-500">{insightError}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 概览卡 */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-6">

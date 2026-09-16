@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
 import { suggestTitle } from "@/lib/ai";
+import { incrStat } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +29,6 @@ export async function POST(request: Request) {
   if (!r.ok) {
     return NextResponse.json({ error: r.error }, { status: r.status });
   }
+  void incrStat("ai_tool", "起标题");
   return NextResponse.json({ title: r.title });
 }

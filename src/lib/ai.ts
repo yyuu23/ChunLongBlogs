@@ -52,8 +52,8 @@ const POLISH_MOMENT_PROMPT =
   "长度与原文相近（不要超过一倍）；保留原文已有的 emoji；不要添加话题标签，不要解释。" +
   "只输出改写后的说说文字。";
 
-/** 后台编辑类任务跟随后台默认模型预设，固定关思考（要快） */
-async function llmConfig(): Promise<LlmRequest | null> {
+/** 后台编辑类任务跟随后台默认模型预设，固定关思考（要快）。流式封装（ai-stream.ts）共用此配置 */
+export async function llmConfig(): Promise<LlmRequest | null> {
   const config = await getSiteConfig();
   const choice = resolveAiChatChoice(config.aiChat);
   return choice
@@ -65,8 +65,8 @@ export async function llmConfigured(): Promise<boolean> {
   return (await llmConfig())?.key != null;
 }
 
-/** OpenAI 兼容协议的单轮调用：六个 AI 功能共用的请求/错误样板 */
-async function chatLLM(
+/** OpenAI 兼容协议的单轮调用：六个 AI 功能共用的请求/错误样板（ai-stream 的非流式降级也用它） */
+export async function chatLLM(
   system: string,
   user: string,
   opts: { maxTokens: number; temperature: number; timeoutMs?: number },

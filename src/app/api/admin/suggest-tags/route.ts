@@ -5,6 +5,7 @@ import { tags as tagsTable } from "@/lib/db/schema";
 import { requireAdminApi } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
 import { suggestTags } from "@/lib/ai";
+import { incrStat } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -46,5 +47,6 @@ export async function POST(request: Request) {
   if (!r.ok) {
     return NextResponse.json({ error: r.error }, { status: r.status });
   }
+  void incrStat("ai_tool", "荐标签");
   return NextResponse.json({ tags: r.tags });
 }

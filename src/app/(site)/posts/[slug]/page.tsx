@@ -11,7 +11,9 @@ import { PostLike } from "@/components/comments/PostLike";
 import { Comments } from "@/components/comments/Comments";
 import { CodeBlockTools } from "@/components/posts/CodeBlockTools";
 import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
+import { RelatedPosts } from "@/components/posts/RelatedPosts";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
+import { relatedPosts } from "@/lib/rag";
 import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
@@ -49,14 +51,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PostDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const [post, config, { t }] = await Promise.all([getPostBySlug(slug), getSiteConfig(), getT()]);
+  const [post, config, { t, locale }] = await Promise.all([getPostBySlug(slug), getSiteConfig(), getT()]);
   if (!post || post.status !== "published") notFound();
 
-  const [html, neighbors] = await Promise.all([
+  const [html, neighbors, related] = await Promise.all([
     // 以内容派生 key 缓存渲染结果：shiki 十主题管线是 SSR 的 CPU 大头，
     // 热门文章重复访问不再重渲染；内容变更 key 自然改变
     renderMarkdown(post.content, markdownCacheKey("post", post.content)),
     getNeighborPosts(post.publishedAt, post.id),
+    // 相关阅读：embedding 相似度，未配置/失败时 rag 内部回落同分类最新
+    relatedPosts(post.id, 3),
   ]);
   const toc = extractToc(post.content);
 
@@ -187,6 +191,11 @@ export default async function PostDetailPage({ params }: PageProps) {
                 {/* 给上面注入的代码块补语言标签 + 复制按钮（slug 变则重新注入） */}
                 <CodeBlockTools slug={post.slug} />
               </div>
+            </FadeIn>
+
+            {/* 相关阅读（embedding 相似度推荐） */}
+            <FadeIn delay={0.08}>
+              <RelatedPosts items={related} locale={locale} />
             </FadeIn>
 
             {/* 上一篇 / 下一篇 */}

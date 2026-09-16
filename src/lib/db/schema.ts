@@ -34,7 +34,7 @@ export const posts = sqliteTable("posts", {
   categoryId: integer("category_id").references(() => categories.id, {
     onDelete: "set null",
   }),
-  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "published", "scheduled"] }).notNull().default("draft"),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
   views: integer("views").notNull().default(0),
   /* 反范式点赞计数（同 views）：like/unlike 事务内原子增减，列表页免 join post_likes */

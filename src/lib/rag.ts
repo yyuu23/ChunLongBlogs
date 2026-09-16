@@ -1,6 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "./db";
-import { embeddings, moments, posts } from "./db/schema";
+import { categories, embeddings, moments, posts } from "./db/schema";
 
 /** ===== Embedding（可选配置，未配置时 RAG 自动走关键词检索） ===== */
 
@@ -274,4 +274,107 @@ export async function retrieveContext(query: string, topK = 3) {
     }
   }
   return { mode: "keyword" as const, hits: await keywordSearch(query, topK) };
+}
+
+/** ===== 相关文章推荐（embedding 相似度，文章页"相关阅读"用） ===== */
+
+export interface RelatedPostItem {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  cover: string;
+  category: { name: string; slug: string; color: string } | null;
+  publishedAt: Date | null;
+}
+
+/**
+ * 相关阅读：本文各 chunk 向量平均 → 与其他已发布文章的 chunks 算 cosine →
+ * 按文章取最高相似度 → top n。未配置 embedding / 无向量 / 异常时回落
+ * 同分类最新 n 篇（不足补全站最新）。文章规模下全表载入无压力。
+ */
+export async function relatedPosts(postId: number, n = 3): Promise<RelatedPostItem[]> {
+  const [self] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+  if (!self) return [];
+  const postsRows = await db.select().from(posts).where(eq(posts.status, "published"));
+  const others = postsRows.filter((p) => p.id !== postId);
+  if (!others.length) return [];
+
+  let ranked: number[] = [];
+  try {
+    if (embeddingConfigured()) {
+      const rows = await db.select().from(embeddings).where(eq(embeddings.refType, "post"));
+      const byPost = new Map<number, number[][]>();
+      for (const r of rows) {
+        try {
+          const vec = JSON.parse(r.vector) as number[];
+          const list = byPost.get(r.refId) ?? [];
+          list.push(vec);
+          byPost.set(r.refId, list);
+        } catch {}
+      }
+      const own = byPost.get(postId);
+      if (own?.length) {
+        // 本文向量平均（chunks 中心）
+        const dim = own[0]!.length;
+        const center = new Array<number>(dim).fill(0);
+        for (const v of own) for (let i = 0; i < dim; i++) center[i]! += v[i]!;
+        for (let i = 0; i < dim; i++) center[i]! /= own.length;
+        // 其他文章取其 chunks 的最高相似度
+        const scored = others
+          .map((p) => {
+            const vecs = byPost.get(p.id);
+            if (!vecs?.length) return null;
+            const best = Math.max(...vecs.map((v) => cosine(center, v)));
+            return { id: p.id, score: best };
+          })
+          .filter((x): x is { id: number; score: number } => x !== null)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, n);
+        if (scored.length) ranked = scored.map((s) => s.id);
+      }
+    }
+  } catch {
+    // 回落
+  }
+
+  // 回落（向量不足 n 篇时补同分类最新，再不足补全站最新）
+  if (ranked.length < n) {
+    const picked = new Set(ranked);
+    const byCat = self.categoryId
+      ? others
+          .filter((p) => p.categoryId === self.categoryId && !picked.has(p.id))
+          .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
+      : [];
+    for (const p of byCat) {
+      if (ranked.length >= n) break;
+      ranked.push(p.id);
+      picked.add(p.id);
+    }
+    const latest = [...others].sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
+    for (const p of latest) {
+      if (ranked.length >= n) break;
+      if (!picked.has(p.id)) {
+        ranked.push(p.id);
+        picked.add(p.id);
+      }
+    }
+  }
+
+  const catRows = ranked.length
+    ? await db.select().from(categories).where(inArray(categories.id, [...new Set(postsRows.filter((p) => ranked.includes(p.id) && p.categoryId != null).map((p) => p.categoryId!))]))
+    : [];
+  const catMap = new Map(catRows.map((c) => [c.id, c]));
+  return ranked
+    .map((id) => postsRows.find((p) => p.id === id))
+    .filter((p): p is (typeof postsRows)[number] => !!p)
+    .map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      description: p.description,
+      cover: p.cover,
+      category: p.categoryId != null ? catMap.get(p.categoryId) ?? null : null,
+      publishedAt: p.publishedAt,
+    }));
 }

@@ -95,6 +95,7 @@ export const en: Dictionary = {
     readingTimeOnly: "{m} min",
     views: "{n} view | {n} views",
     prevPost: "Previous post",
+    relatedReading: "Related Reading",
     nextPost: "Next post",
     copyCode: "Copy code",
     copyFailed: "Copy failed",

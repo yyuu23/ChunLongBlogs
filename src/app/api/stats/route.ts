@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
 import { incrStat, markVisit, type VisitMilestone } from "@/lib/stats";
+import { checkScheduledPosts } from "@/lib/scheduled";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
       : "";
   const vid = typeof body.visitorId === "string" ? body.visitorId.slice(0, 64) : "";
 
+  // 定时发布惰性触发（60s 节流，fire-and-forget）
+  void checkScheduledPosts();
   void incrStat("pv", page || "/");
   const milestone = vid ? await markVisit(vid) : null;
   return NextResponse.json({

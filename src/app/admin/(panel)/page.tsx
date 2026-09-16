@@ -125,10 +125,12 @@ export default async function AdminDashboard() {
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${
                       p.status === "published"
                         ? "bg-emerald-50 text-emerald-600"
-                        : "bg-amber-50 text-amber-600"
+                        : p.status === "scheduled"
+                          ? "bg-sky-50 text-sky-600"
+                          : "bg-amber-50 text-amber-600"
                     }`}
                   >
-                    {p.status === "published" ? "已发布" : "草稿"}
+                    {p.status === "published" ? "已发布" : p.status === "scheduled" ? "定时中" : "草稿"}
                   </span>
                   <span className="min-w-0 flex-1 truncate">{p.title}</span>
                   <span className="hidden shrink-0 text-xs text-slate-400 sm:inline">

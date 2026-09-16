@@ -94,6 +94,7 @@ export const zh = {
     readingTimeOnly: "{m} 分钟",
     views: "{n} 次阅读",
     prevPost: "上一篇",
+    relatedReading: "相关阅读",
     nextPost: "下一篇",
     copyCode: "复制代码",
     copyFailed: "复制失败",

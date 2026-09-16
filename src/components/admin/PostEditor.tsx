@@ -18,9 +18,11 @@ import {
   Sparkles,
   Wand2,
   Undo2,
+  Clock,
 } from "lucide-react";
 import { savePost } from "@/app/admin/actions";
 import { UploadButton } from "@/components/admin/UploadButton";
+import { AiAssist } from "@/components/admin/AiAssist";
 import { AutoCover } from "@/components/posts/AutoCover";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { countWords, slugify } from "@/lib/utils";
@@ -34,8 +36,10 @@ export interface EditorPostData {
   cover: string;
   categoryId: number | null;
   tagNames: string[];
-  status: "draft" | "published";
+  status: "draft" | "published" | "scheduled";
   isPinned: boolean;
+  /** scheduled 文章的目标发布时刻（ISO）；编辑时未改时间则原样传回 */
+  publishedAt?: string | null;
 }
 
 type Mode = "edit" | "split" | "preview";
@@ -77,10 +81,13 @@ export function PostEditor({
   initial,
   categories,
   allTags,
+  aiCoverEnabled = false,
 }: {
   initial: EditorPostData;
   categories: { id: number; name: string }[];
   allTags: string[];
+  /** 配置了智谱 key（CogView）时编辑页传入，显示「AI 生成」封面按钮 */
+  aiCoverEnabled?: boolean;
 }) {
   const router = useRouter();
   const [data, setData] = useState<EditorPostData>(initial);
@@ -100,6 +107,20 @@ export function PostEditor({
   const [aiTagging, setAiTagging] = useState(false);
   /** AI 生成的标签建议词条，点击添加后才进 tagNames */
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  /** CodeMirror 实例（写作助手的选区监听与结果落盘都靠它） */
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  /** AiAssist 注入的「续写」回调（工具栏按钮在编辑器外，经 ref 桥接） */
+  const continueRef = useRef<(() => void) | null>(null);
+  /** AI 封面生成面板：null = 收起 */
+  const [coverGen, setCoverGen] = useState<null | { prompt: string; generating: boolean; url?: string; error?: string }>(null);
+  /** 定时发布面板与时间值（datetime-local 格式，默认明天 9:00） */
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleValue, setScheduleValue] = useState(() => {
+    const d = new Date(Date.now() + 86_400_000);
+    d.setHours(9, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const words = useMemo(() => countWords(data.content), [data.content]);
@@ -356,18 +377,36 @@ export function PostEditor({
     set("content", `${data.content}\n\n![图片](${text})\n`);
   };
 
-  const save = async (status: "draft" | "published") => {
+  const save = async (status: "draft" | "published" | "scheduled", scheduledAt?: string) => {
     setSaving(true);
     setMessage(null);
     try {
-      const result = await savePost({ ...data, status });
+      const result = await savePost({
+        ...data,
+        status,
+        // 定时发布统一转 ISO：datetime-local 是浏览器本地时间，直接传字符串会被
+        // 服务器按本地时区解析，跨机部署时区差会让发布时间漂移。
+        // 编辑已定时文章未改时间时，沿用 data.publishedAt 原样传回
+        publishedAt:
+          status === "scheduled"
+            ? new Date(scheduledAt ?? data.publishedAt ?? Date.now()).toISOString()
+            : undefined,
+      });
       if ("error" in result && result.error) {
         setMessage({ type: "err", text: result.error });
         return;
       }
       if ("ok" in result) {
         set("status", status);
-        setMessage({ type: "ok", text: status === "published" ? "已发布 ✓" : "草稿已保存 ✓" });
+        setMessage({
+          type: "ok",
+          text:
+            status === "published"
+              ? "已发布 ✓"
+              : status === "scheduled"
+                ? `已定时 ${scheduledAt ? new Date(scheduledAt).toLocaleString("zh-CN") : ""} ✓`
+                : "草稿已保存 ✓",
+        });
         setTimeout(() => router.push("/admin/posts"), 600);
       }
     } catch {
@@ -408,6 +447,19 @@ export function PostEditor({
             存草稿
           </button>
           <button
+            onClick={() => setScheduleOpen((v) => !v)}
+            disabled={saving}
+            className={`rounded-xl border px-4 py-2 text-sm transition-colors disabled:opacity-60 ${
+              data.status === "scheduled"
+                ? "border-amber-300 bg-amber-50 text-amber-600"
+                : "border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-600"
+            }`}
+          >
+            {data.status === "scheduled" && data.publishedAt
+              ? `定时中 · ${new Date(data.publishedAt).toLocaleString("zh-CN")}`
+              : "定时…"}
+          </button>
+          <button
             onClick={() => save("published")}
             disabled={saving}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
@@ -417,6 +469,48 @@ export function PostEditor({
           </button>
         </div>
       </header>
+
+      {/* 定时发布面板：datetime-local（默认明天 9:00），确认后以 scheduled 状态保存 */}
+      {scheduleOpen && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
+          <label className="flex items-center gap-2 text-slate-600">
+            <Clock className="h-4 w-4 text-amber-500" />
+            <input
+              type="datetime-local"
+              value={scheduleValue}
+              min={new Date(Date.now() + 60_000 - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16)}
+              onChange={(e) => setScheduleValue(e.target.value)}
+              className="rounded-xl border border-amber-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-amber-400"
+            />
+          </label>
+          <button
+            onClick={() => {
+              if (!scheduleValue) return;
+              setScheduleOpen(false);
+              void save("scheduled", scheduleValue);
+            }}
+            disabled={saving || !scheduleValue}
+            className="rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+          >
+            确认定时
+          </button>
+          {data.status === "scheduled" && (
+            <button
+              onClick={() => {
+                setScheduleOpen(false);
+                void save("published");
+              }}
+              disabled={saving}
+              className="rounded-xl border border-amber-300 px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-100 disabled:opacity-60"
+            >
+              立即发布
+            </button>
+          )}
+          <p className="w-full text-[11px] text-amber-600/80">
+            到点后需有访客访问站点才会自动发布（通常延迟数秒到数分钟）；定时中的文章前台不可见。
+          </p>
+        </div>
+      )}
 
       {/* 元信息 */}
       <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm md:grid-cols-2">
@@ -554,7 +648,84 @@ export function PostEditor({
               className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none transition-colors focus:border-indigo-400"
             />
             <UploadButton onUploaded={([url]) => set("cover", url)} label="上传" />
+            {aiCoverEnabled && (
+              <button
+                type="button"
+                onClick={() =>
+                  setCoverGen((p) =>
+                    p
+                      ? null
+                      : {
+                          prompt: `为博客文章《${data.title || "未命名"}》生成封面插画：${data.description.slice(0, 80) || "技术手记"}，主题关键词：${data.tagNames.join("、") || "技术、写作"}，扁平插画风，明快配色，无文字`,
+                          generating: false,
+                        },
+                  )
+                }
+                className="shrink-0 rounded-xl border border-indigo-200 px-3 py-2 text-xs text-indigo-600 transition-colors hover:bg-indigo-50"
+              >
+                AI 生成
+              </button>
+            )}
           </div>
+          {/* AI 封面生成面板（CogView，按张计费） */}
+          {coverGen && (
+            <div className="flex flex-col gap-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+              <textarea
+                value={coverGen.prompt}
+                onChange={(e) => setCoverGen({ ...coverGen, prompt: e.target.value })}
+                rows={2}
+                placeholder="描述想要的封面（英文 prompt 亦可）"
+                className="w-full resize-none rounded-lg border border-indigo-100 bg-white px-2.5 py-2 text-xs outline-none focus:border-indigo-300"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={coverGen.generating || coverGen.prompt.trim().length < 4}
+                  onClick={() => {
+                    setCoverGen({ ...coverGen, generating: true, error: undefined, url: undefined });
+                    void fetch("/api/admin/gen-cover", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ prompt: coverGen.prompt }),
+                    })
+                      .then(async (res) => {
+                        const j = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+                        setCoverGen((p) =>
+                          p
+                            ? { ...p, generating: false, url: j?.url, error: j?.url ? undefined : j?.error ?? "生成失败" }
+                            : p,
+                        );
+                      })
+                      .catch(() => setCoverGen((p) => (p ? { ...p, generating: false, error: "请求失败" } : p)));
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {coverGen.generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                  {coverGen.generating ? "生成中（约 5-15 秒，按张计费）…" : "生成封面"}
+                </button>
+                {coverGen.url && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set("cover", coverGen.url!);
+                      setCoverGen(null);
+                    }}
+                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                  >
+                    用作封面
+                  </button>
+                )}
+                <button type="button" onClick={() => setCoverGen(null)} className="text-xs text-slate-400 hover:text-slate-600">
+                  收起
+                </button>
+              </div>
+              {coverGen.error && <p className="text-[11px] text-rose-500">{coverGen.error}</p>}
+              {coverGen.url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={coverGen.url} alt="AI 生成封面预览" className="aspect-video w-full rounded-lg object-cover" />
+              )}
+            </div>
+          )}
           {/* 封面预览：有地址看加载结果（失败有提示），没地址直接预览自动渐变封面 */}
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-100">
             {data.cover ? (
@@ -703,6 +874,15 @@ export function PostEditor({
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400">{words} 字</span>
+            <button
+              type="button"
+              onClick={() => continueRef.current?.()}
+              title="从光标处继续写：AI 沿接上文生成 200-600 字，流式输出"
+              className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+            >
+              <Sparkles className="h-3 w-3" />
+              AI 续写
+            </button>
             {polishBackup != null && (
               <button
                 type="button"
@@ -730,15 +910,23 @@ export function PostEditor({
 
         <div className={`grid ${mode === "split" ? "lg:grid-cols-2" : "grid-cols-1"}`}>
           {mode !== "preview" && (
-            <div className="min-h-[28rem] border-slate-100 lg:border-r">
+            <div className="relative min-h-[28rem] border-slate-100 lg:border-r">
               <CodeMirror
                 value={data.content}
                 height="28rem"
                 extensions={[markdownLang(), EditorView.lineWrapping]}
                 onChange={(v) => set("content", v)}
+                onCreateEditor={(v) => setEditorView(v)}
                 basicSetup={{ foldGutter: false, highlightActiveLine: false }}
                 placeholder="用 Markdown 写点什么…"
                 className="text-sm"
+              />
+              {/* 写作助手：选中文字浮现 AI 工具条，结果流式浮层 */}
+              <AiAssist
+                view={editorView}
+                title={data.title}
+                getContent={() => data.content}
+                exposeContinue={(fn) => (continueRef.current = fn)}
               />
             </div>
           )}

@@ -79,8 +79,9 @@ export interface PostInput {
   cover?: string;
   categoryId?: number | null;
   tagNames: string[];
-  status: "draft" | "published";
+  status: "draft" | "published" | "scheduled";
   isPinned?: boolean;
+  /** published 时忽略（刷当前时间）；scheduled 时必传（目标时刻）；draft 时忽略 */
   publishedAt?: string | null;
 }
 
@@ -88,6 +89,9 @@ export async function savePost(input: PostInput) {
   await guard();
   const title = input.title.trim();
   if (!title) return { error: "标题不能为空" };
+  if (input.status === "scheduled" && !input.publishedAt) {
+    return { error: "请选择定时发布时间" };
+  }
   const content = input.content ?? "";
 
   let slug = (input.slug ?? "").trim() || slugify(title);
@@ -113,11 +117,13 @@ export async function savePost(input: PostInput) {
     readingTime: readingTimeMinutes(content),
     updatedAt: new Date(),
     publishedAt:
-      input.status === "published"
+      input.status === "scheduled"
         ? input.publishedAt
           ? new Date(input.publishedAt)
           : new Date()
-        : null,
+        : input.status === "published"
+          ? new Date()
+          : null,
   };
 
   let postId: number;
@@ -200,16 +206,36 @@ export async function togglePostPin(id: number) {
   revalidateAll();
 }
 
-export async function setPostStatus(id: number, status: "draft" | "published") {
+export async function setPostStatus(id: number, status: "draft" | "published" | "scheduled") {
   await guard();
+  const row = (await db.select().from(posts).where(eq(posts.id, id)).limit(1))[0];
+  if (!row) return;
   await db
     .update(posts)
     .set({
       status,
-      publishedAt: status === "published" ? new Date() : null,
+      // published：立即发布刷当前时间；scheduled：保留/沿用原 publishedAt（目标时刻）；
+      // draft：清空（回到未发布态）
+      publishedAt:
+        status === "published"
+          ? new Date()
+          : status === "scheduled"
+            ? row.publishedAt ?? new Date()
+            : null,
       updatedAt: new Date(),
     })
     .where(eq(posts.id, id));
+  if (status === "published") {
+    try {
+      const { rebuildPostEmbeddings } = await import("@/lib/rag");
+      void rebuildPostEmbeddings(id).catch(() => {});
+    } catch {}
+  } else {
+    try {
+      const { deleteEmbeddings } = await import("@/lib/rag");
+      await deleteEmbeddings("post", id);
+    } catch {}
+  }
   revalidateAll();
 }
 

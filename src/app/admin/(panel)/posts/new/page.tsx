@@ -1,6 +1,7 @@
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, tags } from "@/lib/db/schema";
+import { cogviewConfigured } from "@/lib/ai-image";
 import { PostEditor } from "@/components/admin/PostEditor";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function NewPostPage() {
       }}
       categories={cats}
       allTags={tagRows.map((t) => t.name)}
+      aiCoverEnabled={cogviewConfigured()}
     />
   );
 }

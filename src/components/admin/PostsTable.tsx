@@ -10,12 +10,13 @@ export interface AdminPostRow {
   id: number;
   title: string;
   slug: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "scheduled";
   isPinned: boolean;
   views: number;
   likes: number;
   wordCount: number;
   updatedAt: Date;
+  publishedAt: Date | null;
   categoryName: string | null;
 }
 
@@ -136,10 +137,16 @@ export function PostsTable({ rows }: { rows: AdminPostRow[] }) {
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${
                   p.status === "published"
                     ? "bg-emerald-50 text-emerald-600"
-                    : "bg-amber-50 text-amber-600"
+                    : p.status === "scheduled"
+                      ? "bg-sky-50 text-sky-600"
+                      : "bg-amber-50 text-amber-600"
                 }`}
               >
-                {p.status === "published" ? "已发布" : "草稿"}
+                {p.status === "published"
+                  ? "已发布"
+                  : p.status === "scheduled"
+                    ? `定时 · ${p.publishedAt ? formatDateTime(p.publishedAt) : "—"}`
+                    : "草稿"}
               </span>
               {p.isPinned && (
                 <Pin className="h-3.5 w-3.5 shrink-0 rotate-45 text-amber-500" />
@@ -160,7 +167,7 @@ export function PostsTable({ rows }: { rows: AdminPostRow[] }) {
                   {p.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                 </button>
                 <button
-                  title={p.status === "published" ? "转为草稿" : "发布"}
+                  title={p.status === "published" ? "转为草稿" : p.status === "scheduled" ? "立即发布" : "发布"}
                   onClick={() =>
                     startTransition(() =>
                       setPostStatus(p.id, p.status === "published" ? "draft" : "published"),

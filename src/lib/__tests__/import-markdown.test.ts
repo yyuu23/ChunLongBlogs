@@ -39,7 +39,7 @@ beforeAll(async () => {
       content TEXT NOT NULL DEFAULT '',
       cover TEXT NOT NULL DEFAULT '',
       category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','scheduled')),
       is_pinned INTEGER NOT NULL DEFAULT 0,
       views INTEGER NOT NULL DEFAULT 0,
       likes INTEGER NOT NULL DEFAULT 0,

@@ -95,6 +95,7 @@ export const ko: Dictionary = {
     readingTimeOnly: "{m}분",
     views: "{n}회 조회",
     prevPost: "이전 글",
+    relatedReading: "관련 글",
     nextPost: "다음 글",
     copyCode: "코드 복사",
     copyFailed: "복사 실패",

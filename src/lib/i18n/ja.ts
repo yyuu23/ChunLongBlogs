@@ -97,6 +97,7 @@ export const ja: Dictionary = {
     readingTimeOnly: "{m} 分",
     views: "{n} 回閲覧",
     prevPost: "前の記事",
+    relatedReading: "関連記事",
     nextPost: "次の記事",
     copyCode: "コードをコピー",
     copyFailed: "コピーに失敗しました",

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, postTags, posts, tags } from "@/lib/db/schema";
+import { cogviewConfigured } from "@/lib/ai-image";
 import { PostEditor } from "@/components/admin/PostEditor";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +38,11 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
         tagNames: tagRows.filter((t) => tagIdSet.has(t.id)).map((t) => t.name),
         status: row.status,
         isPinned: row.isPinned,
+        publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
       }}
       categories={cats.map((c) => ({ id: c.id, name: c.name }))}
       allTags={tagRows.map((t) => t.name)}
+      aiCoverEnabled={cogviewConfigured()}
     />
   );
 }

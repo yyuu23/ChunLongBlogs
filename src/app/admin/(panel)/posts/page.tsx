@@ -17,6 +17,7 @@ export default async function AdminPostsPage() {
       likes: posts.likes,
       wordCount: posts.wordCount,
       updatedAt: posts.updatedAt,
+      publishedAt: posts.publishedAt,
       categoryName: categories.name,
     })
     .from(posts)

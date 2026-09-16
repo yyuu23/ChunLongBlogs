@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { githubUsers, postLikes, posts } from "@/lib/db/schema";
-import { dailyCount } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
 import { getUserSession } from "@/lib/authUser";
 import { incrStat } from "@/lib/stats";
 import { logError } from "@/lib/logger";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { postLikeSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +30,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (!post) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const { searchParams } = new URL(request.url);
-  const visitorId = (searchParams.get("visitorId") ?? "").trim().slice(0, 64);
+  const visitor = await resolveAnonymousVisitor(request, searchParams.get("visitorId"));
+  const visitorId = visitor.visitorId;
 
   const [likedRow] = visitorId
     ? await db
@@ -44,11 +50,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     .orderBy(desc(postLikes.createdAt))
     .limit(15);
 
-  return NextResponse.json({
-    likes: post.likes,
-    liked: Boolean(likedRow),
-    likers,
-  });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({
+      likes: post.likes,
+      liked: Boolean(likedRow),
+      likers,
+    }),
+    request,
+    visitor,
+  );
 }
 
 /**
@@ -58,16 +68,36 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
  */
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const body = (await request.json().catch(() => null)) as { visitorId?: string; action?: string } | null;
-  const visitorId = (body?.visitorId ?? "").trim().slice(0, 64);
-  const action = body?.action === "unlike" ? "unlike" : "like";
-  if (!visitorId) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, postLikeSchema);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
+  const visitor = await resolveAnonymousVisitor(request, body.visitorId);
+  const visitorId = visitor.visitorId;
+  const action = body.action;
 
   const post = await findPost(slug);
-  if (!post) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!post) {
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "not found" }, { status: 404 }),
+      request,
+      visitor,
+    );
+  }
 
-  if (!dailyCount(`like:${visitorId}`, 50).ok) {
-    return NextResponse.json({ error: "too many likes today" }, { status: 429 });
+  const ip = clientIp(request);
+  const burst = burstQuota("post-like", "ip", ip, 20, 60_000);
+  const visitorDaily = persistentQuota("post-like", "visitor", visitorId, 50, 24 * 60 * 60_000);
+  const ipDaily = persistentQuota("post-like", "ip", ip, 200, 24 * 60 * 60_000);
+  if (!burst.ok || !visitorDaily.ok || !ipDaily.ok) {
+    return attachAnonymousVisitorCookie(
+      quotaResponse(Math.max(burst.retryAfter, visitorDaily.retryAfter, ipDaily.retryAfter), "too many likes today"),
+      request,
+      visitor,
+    );
   }
 
   const session = await getUserSession();
@@ -107,13 +137,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     }
   } catch (err) {
     logError("posts/like", err, { slug });
-    return NextResponse.json({ error: "internal" }, { status: 500 });
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "internal" }, { status: 500 }),
+      request,
+      visitor,
+    );
   }
 
   const fresh = await findPost(slug);
-  return NextResponse.json({
-    ok: true,
-    likes: fresh?.likes ?? post.likes,
-    liked: action === "like",
-  });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({
+      ok: true,
+      likes: fresh?.likes ?? post.likes,
+      liked: action === "like",
+    }),
+    request,
+    visitor,
+  );
 }

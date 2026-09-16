@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stars, starLights } from "@/lib/db/schema";
-import { dailyCount } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { starLightSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +18,26 @@ export const dynamic = "force-dynamic";
  * 返回该星的最新回光总数（前台就地更新弹卡计数）。
  */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { starId?: number; visitorId?: string } | null;
-  const starId = Number(body?.starId);
-  const visitorId = (body?.visitorId ?? "").trim().slice(0, 64);
-  if (!Number.isInteger(starId) || starId <= 0 || !visitorId) {
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, starLightSchema);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
+  const session = await resolveAnonymousVisitor(request, body.visitorId);
+  const visitorId = session.visitorId;
+  const starId = body.starId;
+  const ip = clientIp(request);
+  const burst = burstQuota("star-light", "ip", ip, 30, 60_000);
+  const visitorDaily = persistentQuota("star-light", "visitor", visitorId, 20, 24 * 60 * 60_000);
+  const ipDaily = persistentQuota("star-light", "ip", ip, 100, 24 * 60 * 60_000);
+  if (!burst.ok || !visitorDaily.ok || !ipDaily.ok) {
+    return attachAnonymousVisitorCookie(
+      quotaResponse(Math.max(burst.retryAfter, visitorDaily.retryAfter, ipDaily.retryAfter)),
+      request,
+      session,
+    );
   }
 
   // 星必须存在且未被软删
@@ -27,11 +47,11 @@ export async function POST(request: Request) {
     .where(and(eq(stars.id, starId), isNull(stars.deletedAt)))
     .limit(1);
   if (!star) {
-    return NextResponse.json({ error: "star not found" }, { status: 404 });
-  }
-
-  if (!dailyCount(`light:${visitorId}`, 20).ok) {
-    return NextResponse.json({ error: "too many lights today" }, { status: 429 });
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "star not found" }, { status: 404 }),
+      request,
+      session,
+    );
   }
 
   await db.insert(starLights).values({ starId, visitorId }).onConflictDoNothing();
@@ -40,5 +60,9 @@ export async function POST(request: Request) {
     .select({ n: sql<number>`count(*)` })
     .from(starLights)
     .where(eq(starLights.starId, starId));
-  return NextResponse.json({ ok: true, lights: Number(countRow?.n ?? 0) });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({ ok: true, lights: Number(countRow?.n ?? 0) }),
+    request,
+    session,
+  );
 }

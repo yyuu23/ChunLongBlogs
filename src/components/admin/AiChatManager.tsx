@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useRef } from "react";
 import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Undo2, Wrench } from "lucide-react";
-import { saveAiChat } from "@/app/admin/actions";
+import { saveAiChat } from "@/app/admin/actions/ai-chat";
 import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site";
 import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
 import { EFFORT_COST_DEFAULTS, creditsCfg } from "@/lib/credits";
+import { budgetYuanToCredits, suggestModelCredits } from "@/lib/admin/ai-pricing";
 
 const input =
   "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400";
@@ -66,15 +67,9 @@ export function AiChatManager({
   const cr = creditsCfg(cfg);
 
   /* ===== 每日预算换算器：1 元 = 1000 积分，就近取整到 50（大额 100）的倍数 ===== */
-  const CREDIT_RATE = 1000;
   const [budgetYuan, setBudgetYuan] = useState("");
   const prevGrantRef = useRef<number | null>(null);
-  const convertedGrant = (() => {
-    const v = Number(budgetYuan);
-    if (!Number.isFinite(v) || v <= 0) return null;
-    const raw = v * CREDIT_RATE;
-    return raw >= 1000 ? Math.round(raw / 100) * 100 : Math.round(raw / 50) * 50;
-  })();
+  const convertedGrant = budgetYuanToCredits(budgetYuan);
   const applyBudget = () => {
     if (convertedGrant === null) return;
     prevGrantRef.current = cr.dailyGrant;
@@ -94,13 +89,8 @@ export function AiChatManager({
   const markup = cr.pricingMarkup ?? 2;
   const estIn = cr.estInputTokens ?? 4000;
   const estOut = cr.estOutputTokens ?? 1000;
-  const apiPriceSuggest = (c: AiChatChoice): number | null => {
-    const p = c.apiPrice;
-    if (!p?.input || !p?.output) return null;
-    const inPrice = p.cache ? 0.5 * p.cache + 0.5 * p.input : p.input;
-    const costYuan = (estIn * inPrice + estOut * (p.outputMult ?? 1) * p.output) / 1_000_000;
-    return Math.max(1, Math.ceil(costYuan * 1000 * markup));
-  };
+  const apiPriceSuggest = (choice: AiChatChoice) =>
+    suggestModelCredits(choice, { markup, inputTokens: estIn, outputTokens: estOut });
 
   /* ===== 档位倍率输入：允许一位小数（1.5 ✓ / 1.25 ✗）=====
    * 草稿态保证 "1." 这类中间态能正常输入（受控 number 输入会把小数点吃掉）；

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Check, Loader2 } from "lucide-react";
-import { addPhotos, updatePhotoCaption, deletePhoto } from "@/app/admin/actions";
+import { addPhotos, updatePhotoCaption, deletePhoto } from "@/app/admin/actions/albums";
 import { UploadButton } from "@/components/admin/UploadButton";
 
 interface PhotoRow {

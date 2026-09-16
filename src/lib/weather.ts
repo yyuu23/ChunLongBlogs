@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { T } from "@/components/providers/LocaleProvider";
+import type { T } from "@/lib/i18n";
 
 /* ===== 类型 =====
  * 状态与缓存只保存语言中立的原始数据（天气码分桶 + 数值），

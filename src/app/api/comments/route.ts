@@ -3,9 +3,13 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { comments, githubUsers, moments, posts } from "@/lib/db/schema";
 import { getUserSession } from "@/lib/authUser";
-import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
 import { incrStat } from "@/lib/stats";
 import { logError } from "@/lib/logger";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { commentCreateSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -124,16 +128,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请先登录 GitHub" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    refType?: string;
-    refId?: number;
-    parentId?: number;
-    content?: string;
-  } | null;
-  const refType = parseRefType(body?.refType);
-  const refId = Number(body?.refId);
-  const parentId = Number(body?.parentId);
-  const content = String(body?.content ?? "")
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, commentCreateSchema, 8 * 1024);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
+  const refType = parseRefType(body.refType);
+  const refId = body.refId;
+  const parentId = Number(body.parentId);
+  const content = body.content
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "") // 控制字符（保留 \t \n \r）
     .trim()
     .slice(0, 1000);
@@ -142,11 +147,14 @@ export async function POST(request: Request) {
   }
 
   const ip = clientIp(request);
-  if (!rateLimit(`comment:${ip}`, 3, 10 * 60_000).ok) {
-    return NextResponse.json({ error: "评论太快啦，休息一下" }, { status: 429 });
-  }
-  if (!dailyCount(`comment:${ip}`, 10).ok) {
-    return NextResponse.json({ error: "今天评论得够多啦，明天再来" }, { status: 429 });
+  const burst = burstQuota("comment", "ip", ip, 3, 10 * 60_000);
+  const ipDaily = persistentQuota("comment", "ip", ip, 10, 24 * 60 * 60_000);
+  const userDaily = persistentQuota("comment", "user", String(session.userId), 10, 24 * 60 * 60_000);
+  if (!burst.ok || !ipDaily.ok || !userDaily.ok) {
+    return quotaResponse(
+      Math.max(burst.retryAfter, ipDaily.retryAfter, userDaily.retryAfter),
+      burst.ok ? "今天评论得够多啦，明天再来" : "评论太快啦，休息一下",
+    );
   }
 
   if (!(await targetExists(refType, refId))) {
@@ -202,6 +210,11 @@ export async function POST(request: Request) {
 
 /** DELETE /api/comments?id= —— 作者删除自己的评论（软删除；admin 可在后台恢复） */
 export async function DELETE(request: Request) {
+  try {
+    assertSameOrigin(request);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
   const session = await getUserSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

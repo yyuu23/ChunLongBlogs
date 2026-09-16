@@ -12,6 +12,7 @@ import { festivalByKey, isYearEndWindow } from "@/lib/festivals";
 import { bottleStyleOf, type BottleStyle } from "@/lib/bottle-style";
 import { bsChime, bsPickup, bsPutdown, bsPop, bsSlosh } from "@/lib/bottle-audio";
 import { DATE_LOCALE, pick } from "@/lib/i18n/config";
+import { useBottleOrder } from "@/components/lab/bottles/useBottleOrder";
 
 /** /api/bottles 行结构（openedAt 开瓶后回填） */
 interface BottleRow {
@@ -25,7 +26,6 @@ interface BottleRow {
 }
 
 const PER_ROW = 8;
-const ORDER_KEY = "cl-bottle-order";
 
 /* 交互语义（层级手势，互不抢戏）：
  * 轻点 = 拿起端详；按住不动 220ms = 举起预备（上浮 + 轻响）；按下后移动 >7px 或举着移动 = 拖拽；
@@ -109,7 +109,6 @@ export function BottleShelf({ quotes }: { quotes?: Record<string, string> }) {
   /** null = 未加载（首帧壳，hydration 恒定）；[] = 已加载但为空 */
   const [bottles, setBottles] = useState<BottleRow[] | null>(null);
   const [picked, setPicked] = useState<BottleRow | null>(null);
-  const [customOrder, setCustomOrder] = useState<number[] | null>(null);
   const [nudged, setNudged] = useState<Set<number>>(new Set());
   const [opening, setOpening] = useState<number | null>(null);
   const [yearEnd] = useState(() => isYearEndWindow());
@@ -152,42 +151,7 @@ export function BottleShelf({ quotes }: { quotes?: Record<string, string> }) {
     };
   }, [load]);
 
-  /* 展示顺序：本地自定义顺序在前，未记录的新瓶按时间线（左旧右新）追加尾部 */
-  const display = useMemo(() => {
-    if (!bottles) return null;
-    const byId = new Map(bottles.map((b) => [b.id, b]));
-    const timeline = [...bottles].reverse();
-    if (!customOrder) return timeline;
-    const stored = customOrder.map((id) => byId.get(id)).filter((b): b is BottleRow => !!b);
-    const storedIds = new Set(stored.map((b) => b.id));
-    return [...stored, ...timeline.filter((b) => !storedIds.has(b.id))];
-  }, [bottles, customOrder]);
-  const displayRef = useRef(display);
-  displayRef.current = display;
-
-  const persistOrder = useCallback((ids: number[]) => {
-    try {
-      localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
-    } catch {}
-  }, []);
-
-  /** 换位：把 id 移到 target 旁（mode: before/after），并持久化（恒稳定，供手势闭包引用） */
-  const moveItem = useCallback(
-    (id: number, targetId: number, mode: "before" | "after") => {
-      const list = displayRef.current;
-      if (!list || id === targetId) return;
-      const ids = list.map((b) => b.id);
-      const from = ids.indexOf(id);
-      const to = ids.indexOf(targetId);
-      if (from < 0 || to < 0) return;
-      ids.splice(from, 1);
-      const insertAt = ids.indexOf(targetId) + (mode === "after" ? 1 : 0);
-      ids.splice(insertAt, 0, id);
-      setCustomOrder(ids);
-      persistOrder(ids);
-    },
-    [persistOrder],
-  );
+  const { display, displayRef, moveItem, persistOrder } = useBottleOrder(bottles);
 
   const nudgeNeighbors = useCallback((id: number) => {
     const list = displayRef.current;

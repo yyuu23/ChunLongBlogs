@@ -130,6 +130,8 @@ npm run dev                 # http://localhost:3000
 ```bash
 npm run typecheck   # TypeScript 类型检查
 npm test            # vitest（含评论/点赞 API 集成测试，自带临时库）
+npm run lint        # ESLint（Next/TypeScript/依赖方向）
+npm run check       # 素材记录 + lint + 类型检查 + 测试
 npm run assets      # 重新生成演示音频等占位资源
 ```
 
@@ -137,4 +139,5 @@ push 与 PR 会触发 [CI](./.github/workflows/ci.yml) 自动跑类型检查和�
 
 ## License
 
-[MIT](./LICENSE)
+项目代码采用 [MIT](./LICENSE)。第三方素材、字体和商标不随代码许可证授权，详见
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。未列入该清单的内容不代表已经完成权利审计。

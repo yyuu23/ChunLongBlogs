@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Plus, Trash2, Pencil, X, Check } from "lucide-react";
-import { saveCategory, deleteCategory, createTag, deleteTag } from "@/app/admin/actions";
+import { saveCategory, deleteCategory, createTag, deleteTag } from "@/app/admin/actions/taxonomy";
 
 interface CategoryRow {
   id: number;

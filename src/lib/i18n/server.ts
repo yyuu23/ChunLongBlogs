@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "./config";
-import { DICTIONARIES, translate, type TParams } from "./index";
+import { DICTIONARIES, translate, type T } from "./index";
 
-export type T = (key: string, params?: TParams) => string;
+export type { T } from "./index";
 
 /** 服务端组件里获取语言（cookie 驱动，供 SSR 与 generateMetadata 使用） */
 export async function getLocale(): Promise<Locale> {

@@ -270,6 +270,17 @@ jobs:
           curl -fsS --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3002/ >/dev/null
           # robots.txt 是构建期静态生成的，grep 到正式域名说明 SITE_URL 注入生效
           curl -fsS http://127.0.0.1:3002/robots.txt | grep -qF "$1"
+          error_log="$HOME/.pm2/logs/chunlong-blog-error.log"
+          error_offset=0
+          if [ -f "$error_log" ]; then error_offset="$(stat -c %s "$error_log")"; fi
+          # 从 sitemap 选择真实已发布文章，验证正文标记与可解析的 JSON-LD
+          node /opt/chunlong-blog/scripts/smoke-article.mjs http://127.0.0.1:3002
+          # 只检查本次文章请求新追加的错误日志，避免历史日志造成误报
+          if [ -f "$error_log" ] && tail -c "+$((error_offset + 1))" "$error_log" | grep -Eqi 'invalid hook call|hooks can only be called|useT.*server'; then
+            echo "Article request emitted a client-hook/server-component error:" >&2
+            tail -c "+$((error_offset + 1))" "$error_log" >&2
+            exit 1
+          fi
           echo "App smoke test passed on http://127.0.0.1:3002"
           REMOTE
 

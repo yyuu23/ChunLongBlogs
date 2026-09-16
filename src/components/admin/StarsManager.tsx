@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Sparkles, Trash2, Undo2 } from "lucide-react";
-import { setStarDeleted, setStarFeatured } from "@/app/admin/actions";
+import { setStarDeleted, setStarFeatured } from "@/app/admin/actions/community";
 
 export interface AdminStarItem {
   id: number;

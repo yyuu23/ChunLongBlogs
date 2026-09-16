@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlayerSong } from "@/components/music/PlayerProvider";
+import type { PlayerSong } from "@/lib/music-types";
 
 /**
  * 本地收藏歌曲（cl-fav-songs）：纯访客侧数据，不上报服务端。

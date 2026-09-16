@@ -10,7 +10,7 @@ import {
   deleteSong,
   importNetease,
   fetchMissingLyrics,
-} from "@/app/admin/actions";
+} from "@/app/admin/actions/music";
 import { UploadButton } from "@/components/admin/UploadButton";
 
 interface PlaylistRow {
@@ -131,7 +131,7 @@ export function MusicManager({
         </div>
         {message && <p className="mt-2 text-xs text-slate-500">{message}</p>}
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-          拉取歌单的名称/歌手/封面，音频走网易云官方外链。VIP 歌曲可能无法播放（前台会显示"音频不可用"），介意的话可在下方手动替换音频地址。
+          拉取歌单的名称/歌手/封面，音频走网易云官方外链。VIP 歌曲可能无法播放（前台会显示“音频不可用”），介意的话可在下方手动替换音频地址。
         </p>
       </section>
 

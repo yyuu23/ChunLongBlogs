@@ -21,7 +21,7 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
-import { logoutAction } from "@/app/admin/actions";
+import { logoutAction } from "@/app/admin/actions/auth";
 
 const NAV = [
   { href: "/admin", label: "仪表盘", icon: LayoutDashboard },

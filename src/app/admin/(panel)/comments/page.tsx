@@ -61,7 +61,7 @@ export default async function AdminCommentsPage() {
     <div>
       <h1 className="mx-auto mb-2 max-w-4xl text-xl font-bold">评论管理</h1>
       <p className="mx-auto mb-6 max-w-4xl text-xs text-slate-500">
-        GitHub 登录访客在文章与说说下的评论。删除为软删除（前台不再显示原文，挂有回复的显示"已删除"占位，可恢复）。
+        GitHub 登录访客在文章与说说下的评论。删除为软删除（前台不再显示原文，挂有回复的显示“已删除”占位，可恢复）。
         最多显示最近 300 条。
       </p>
       <CommentsManager items={items} />

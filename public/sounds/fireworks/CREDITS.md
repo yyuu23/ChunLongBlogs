@@ -1,7 +1,9 @@
 # 烟花音效采样来源
 
-全部来自 [Mixkit](https://mixkit.co/free-sound-effects/fireworks/)（Mixkit License：可商用、无需署名）。
+全部来自 [Mixkit](https://mixkit.co/free-sound-effects/fireworks/)（[Mixkit License](https://mixkit.co/license/)：可商用、无需署名）。
 下载日期：2026-09-15。仅在用户进入 `/lab/fireworks` 且选择"真实"音色时懒加载。
+
+逐文件 SHA-256 见仓库根目录 `THIRD_PARTY_NOTICES.md`。
 
 | 文件 | 原名 | Mixkit sfx ID |
 |---|---|---|

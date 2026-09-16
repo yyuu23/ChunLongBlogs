@@ -108,6 +108,7 @@ export const XP_RULES = {
 } as const;
 
 export type XpEvent = keyof typeof XP_RULES;
+export const XP_EVENTS = Object.keys(XP_RULES) as [XpEvent, ...XpEvent[]];
 
 /** 每类事件的单日上限（防刷） */
 export const DAILY_CAPS: Partial<Record<XpEvent, number>> = {

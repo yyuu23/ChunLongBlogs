@@ -2,49 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Heart, Loader2, MessageSquareText, Music2, Sparkles } from "lucide-react";
+import { useStatsDashboard } from "@/components/admin/stats/useStatsDashboard";
+import type { AdminStatsPayload } from "@/lib/adminStats";
 
 /**
  * Admin 数据统计面板：概览卡 + 流量趋势（PV 柱 / UV 线）+ AI 使用（环形/条形/工具）
  * + 音乐 TOP + 内容资产 + 四格式导出。图表自绘 SVG，零第三方依赖。
  */
 
-export interface StatsPayload {
-  generatedAt: string;
-  range: number;
-  overview: {
-    todayUV: number;
-    yesterdayUV: number;
-    todayPV: number;
-    yesterdayPV: number;
-    uvTotal: number;
-    aiToday: number;
-    aiTotal: number;
-    musicTotal: number;
-    imgTotal: number;
-    likeTotal: number;
-    commentTotal: number;
-  };
-  traffic: { day: string; pv: number; uv: number }[];
-  aiCalls: { key: string; provider: string; model: string; effort: string; count: number }[];
-  aiTools: { key: string; count: number }[];
-  topPages: { key: string; count: number }[];
-  musicTop: { key: string; count: number }[];
-  likeTop: { key: string; count: number }[];
-  commentTop: { key: string; count: number }[];
-  content: {
-    postsPublished: number;
-    postsDrafts: number;
-    postViews: number;
-    postWords: number;
-    moments: number;
-    albums: number;
-    photos: number;
-    playlists: number;
-    songs: number;
-    friends: number;
-    stars: number;
-  };
-}
+export type StatsPayload = AdminStatsPayload;
 
 const card = "rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm";
 const nf = (n: number) => n.toLocaleString("zh-CN");
@@ -274,43 +240,17 @@ function HBars({
 const EFFORT_ZH: Record<string, string> = { off: "无", low: "低", mid: "中", high: "高", max: "最高", on: "开" };
 
 export function StatsDashboard({ initial, aiEnabled = false }: { initial: StatsPayload; aiEnabled?: boolean }) {
-  const [data, setData] = useState(initial);
-  const [range, setRange] = useState(initial.range);
-  const [loading, setLoading] = useState(false);
-  /** AI 数据解读（按 range 缓存，切范围清空） */
-  const [insight, setInsight] = useState<null | { text: string; generatedAt: string }>(null);
-  const [insightLoading, setInsightLoading] = useState(false);
-  const [insightError, setInsightError] = useState("");
-
-  const load = async (r: number) => {
-    setRange(r);
-    setLoading(true);
-    setInsight(null);
-    setInsightError("");
-    try {
-      const res = await fetch(`/api/admin/stats?range=${r}`);
-      if (res.ok) setData((await res.json()) as StatsPayload);
-    } catch {}
-    setLoading(false);
-  };
-
-  const runInsights = async () => {
-    setInsightLoading(true);
-    setInsightError("");
-    try {
-      const res = await fetch("/api/admin/stats/insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ range }),
-      });
-      const j = (await res.json().catch(() => null)) as { text?: string; generatedAt?: string; error?: string } | null;
-      if (j?.text) setInsight({ text: j.text, generatedAt: j.generatedAt ?? new Date().toISOString() });
-      else setInsightError(j?.error ?? "生成失败，请重试");
-    } catch {
-      setInsightError("请求失败");
-    }
-    setInsightLoading(false);
-  };
+  const {
+    data,
+    range,
+    loading,
+    insight,
+    insightLoading,
+    insightError,
+    load,
+    runInsights,
+    dismissInsight,
+  } = useStatsDashboard(initial);
 
   const o = data.overview;
   const c = data.content;
@@ -372,7 +312,7 @@ export function StatsDashboard({ initial, aiEnabled = false }: { initial: StatsP
                   {new Date(insight.generatedAt).toLocaleString("zh-CN")}
                 </span>
               )}
-              <button onClick={() => { setInsight(null); setInsightError(""); }} className="ml-auto text-[11px] font-normal text-slate-400 hover:text-slate-600">
+              <button onClick={dismissInsight} className="ml-auto text-[11px] font-normal text-slate-400 hover:text-slate-600">
                 收起
               </button>
             </p>

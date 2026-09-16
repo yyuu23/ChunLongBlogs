@@ -16,7 +16,6 @@ import {
   postTags,
   posts,
   songs,
-  siteConfigs,
   tags,
 } from "../src/lib/db/schema";
 import { countWords, readingTimeMinutes, excerpt, slugify } from "../src/lib/utils";

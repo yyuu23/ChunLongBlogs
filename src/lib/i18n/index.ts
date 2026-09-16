@@ -6,6 +6,8 @@ import type { Locale } from "./config";
 
 export type { Dictionary };
 export type TParams = Record<string, string | number>;
+export type T = (key: string, params?: TParams) => string;
+export type TArr = (key: string) => string[];
 
 export const DICTIONARIES: Record<Locale, Dictionary> = { zh, en, ja, ko };
 

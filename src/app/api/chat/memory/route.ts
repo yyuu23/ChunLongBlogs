@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { clientIp, rateLimit, dailyCount } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
 import { getLlmRequest, resolveAiChatChoice } from "@/lib/llm";
 import { getSiteConfig } from "@/lib/site";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { chatMemorySchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -10,20 +15,33 @@ export const dynamic = "force-dynamic";
  * 计入聊天的全局日额度（dailyCount("chat:global")，成本上限统一）；记忆只在响应里走一趟，服务端不落库。
  */
 export async function POST(request: Request) {
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, chatMemorySchema, 128 * 1024);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
+  const visitor = await resolveAnonymousVisitor(request);
   // 提取频率本就低（每 4 轮一次），分钟限流从紧
-  const rl = rateLimit(`memory:${clientIp(request)}`, 5, 60_000);
+  const rl = burstQuota("chat-memory", "ip", clientIp(request), 5, 60_000);
   if (!rl.ok) {
-    return NextResponse.json(
-      { error: "rate limited" },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    return attachAnonymousVisitorCookie(
+      quotaResponse(rl.retryAfter),
+      request,
+      visitor,
     );
   }
 
   // 与聊天共享每日总额度（记忆提取也是 LLM 成本）
   const dailyLimit = Number(process.env.CHAT_DAILY_LIMIT) || 500;
-  const dl = dailyCount("chat:global", dailyLimit);
+  const dl = persistentQuota("chat-global", "global", "global", dailyLimit, 24 * 60 * 60_000);
   if (!dl.ok) {
-    return NextResponse.json({ error: "daily limit" }, { status: 429, headers: { "Retry-After": String(dl.resetIn) } });
+    return attachAnonymousVisitorCookie(
+      quotaResponse(dl.retryAfter, "daily limit"),
+      request,
+      visitor,
+    );
   }
 
   // 记忆蒸馏要快：跟随后台默认模型预设，但固定关思考
@@ -33,20 +51,10 @@ export async function POST(request: Request) {
     ? getLlmRequest({ provider: choice.provider, model: choice.model, level: "off" })
     : null;
   if (!llm) {
-    return NextResponse.json({ error: "no key" }, { status: 503 });
+    return attachAnonymousVisitorCookie(NextResponse.json({ error: "no key" }, { status: 503 }), request, visitor);
   }
-
-  const body = (await request.json().catch(() => null)) as {
-    messages?: { role?: unknown; content?: unknown }[];
-    digest?: unknown;
-  } | null;
-  const messages = (body?.messages ?? [])
-    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-    .slice(-10) as { role: "user" | "assistant"; content: string }[];
-  if (!messages.length) {
-    return NextResponse.json({ error: "empty" }, { status: 400 });
-  }
-  const digest = typeof body?.digest === "string" ? body.digest.slice(0, 800) : "";
+  const messages = body.messages.slice(-10);
+  const digest = body.digest ?? "";
 
   const system =
     `你在为一位博客看板娘维护关于访客的长期记忆小本本。把下面的对话浓缩/合并成记忆要点。\n` +
@@ -67,12 +75,28 @@ export async function POST(request: Request) {
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) return NextResponse.json({ error: "upstream error" }, { status: 502 });
+    if (!res.ok) {
+      return attachAnonymousVisitorCookie(
+        NextResponse.json({ error: "upstream error" }, { status: 502 }),
+        request,
+        visitor,
+      );
+    }
     const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const memory = data.choices?.[0]?.message?.content?.trim() ?? "";
-    if (!memory) return NextResponse.json({ error: "empty reply" }, { status: 502 });
-    return NextResponse.json({ memory });
+    if (!memory) {
+      return attachAnonymousVisitorCookie(
+        NextResponse.json({ error: "empty reply" }, { status: 502 }),
+        request,
+        visitor,
+      );
+    }
+    return attachAnonymousVisitorCookie(NextResponse.json({ memory }), request, visitor);
   } catch {
-    return NextResponse.json({ error: "request failed" }, { status: 502 });
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "request failed" }, { status: 502 }),
+      request,
+      visitor,
+    );
   }
 }

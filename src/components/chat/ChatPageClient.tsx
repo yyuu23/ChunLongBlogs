@@ -34,32 +34,23 @@ import { ChatStatusLine, statusPhaseOf } from "./ChatStatusLine";
 import { ImageLightbox, type LightboxState } from "./ImageLightbox";
 import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
-import {
-  groupSessions,
-  lastActiveId,
-  loadSessions,
-  newSessionId,
-  rememberActive,
-  removeSession,
-  saveSessions,
-  sessionKey,
-  titleOf,
-  type ChatSessionMeta,
-} from "@/lib/chatSessions";
+import { groupSessions, sessionKey, type ChatSessionMeta } from "@/lib/chatSessions";
 import { copyText } from "@/lib/clipboard";
 import { attachImage, type AttachedImage } from "@/lib/imageAttach";
+import { useChatSessionIndex } from "./useChatSessionIndex";
 
 export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const t = useT();
   const { tArr } = useLocale();
-  // 初始恢复上次活跃会话（无记录才新开）；该 id 不在索引/无数据时 useChat 会重置为欢迎语
-  const [activeId, setActiveId] = useState<string>(() => lastActiveId() ?? newSessionId());
-  const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const stopRef = useRef<() => void>(() => {});
+  const sessionIndex = useChatSessionIndex(() => stopRef.current());
+  const { activeId, sessions, touchSession, dropFromIndex, dropSession } = sessionIndex;
   const { messages, busy, send, retry, stop, clear, regenerateFrom } = useChat({
     welcome: t("chatPage.welcomeLong"),
     persistKey: sessionKey(activeId),
   });
+  stopRef.current = stop;
   const [input, setInput] = useState("");
   const [pending, setPending] = useState<AttachedImage[]>([]);
   /** 拖拽深度计数（dragenter/leave 成对触发，计数防子元素间移动时闪烁） */
@@ -104,48 +95,13 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
-  // 挂载载入会话索引（含旧 cl-chat-history 的一次性迁移）
-  useEffect(() => {
-    setSessions(loadSessions());
-  }, []);
-
-  const setActive = (id: string) => {
-    setActiveId(id);
-    rememberActive(id);
-  };
-
-  /**
-   * 会话入索引/刷新时间 —— 只在明确的用户动作点调用（发送/重生成）。
-   * 不监听 messages 流：切换会话时 persistKey 重载是异步的，中间渲染里
-   * "旧会话消息 + 新会话 id"会污染新会话的标题。
-   */
-  const touchSession = (currentText?: string) => {
-    setSessions((prev) => {
-      const existing = prev.find((s) => s.id === activeId);
-      const meta: ChatSessionMeta = {
-        id: activeId,
-        title: existing?.title ?? titleOf(currentText ?? "对话"),
-        updatedAt: Date.now(),
-      };
-      return saveSessions([meta, ...prev.filter((s) => s.id !== activeId)]);
-    });
-  };
-  const dropFromIndex = (id: string) => {
-    setSessions((prev) => saveSessions(prev.filter((s) => s.id !== id)));
-  };
-
   const switchTo = (id: string) => {
-    stop(); // 在途流随会话一起放下
-    setActive(id);
+    sessionIndex.switchTo(id);
     setDrawerOpen(false);
   };
-  const startNew = () => switchTo(newSessionId());
-  const dropSession = (id: string) => {
-    setSessions((prev) => removeSession(prev, id));
-    if (id === activeId) {
-      stop();
-      setActive(newSessionId());
-    }
+  const startNew = () => {
+    sessionIndex.startNew();
+    setDrawerOpen(false);
   };
 
   /** 添加图片附件（文件选择/粘贴共用；解码压缩失败静默跳过） */

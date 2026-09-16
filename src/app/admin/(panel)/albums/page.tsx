@@ -1,6 +1,6 @@
 import { asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { albums, photos } from "@/lib/db/schema";
+import { albums } from "@/lib/db/schema";
 import { AlbumsManager } from "@/components/admin/AlbumsManager";
 
 export const dynamic = "force-dynamic";

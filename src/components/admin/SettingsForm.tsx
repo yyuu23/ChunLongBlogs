@@ -3,7 +3,12 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Save, Loader2, CheckCircle2, Plus, X, Megaphone, Sparkles, Download, Upload, Wine } from "lucide-react";
-import { saveSettings, rebuildEmbeddingsAction, backfillSummariesAction, backfillTagsAction } from "@/app/admin/actions";
+import {
+  saveSettings,
+  rebuildEmbeddingsAction,
+  backfillSummariesAction,
+  backfillTagsAction,
+} from "@/app/admin/actions/settings";
 import { UploadButton } from "@/components/admin/UploadButton";
 import { parseFestivalQuotes, stringifyFestivalQuotes } from "@/lib/festival-quotes";
 import type { SiteConfig } from "@/lib/site";

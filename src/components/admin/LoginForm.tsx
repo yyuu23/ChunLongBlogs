@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Lock, UserRound, Loader2 } from "lucide-react";
-import { loginAction } from "@/app/admin/actions";
+import { loginAction } from "@/app/admin/actions/auth";
 
 export function LoginForm() {
   const [error, formAction, pending] = useActionState(loginAction, null);

@@ -94,7 +94,16 @@ export const dispatchCredits = (credits: number) => {
  * POST /api/chat {stream:true} → 消费 SSE：related → delta* → done/error。
  * persistKey 传入时启用 localStorage 历史持久化（仅客户端读写，SSR 安全）。
  */
-export function useChat({ welcome, persistKey }: { welcome: string; persistKey?: string }) {
+export function useChat({
+  welcome,
+  persistKey,
+  getSummary,
+}: {
+  welcome: string;
+  persistKey?: string;
+  /** 长会话滚动摘要（ChatPageClient 维护，客户端 localStorage；ref 语义避免闭包旧值） */
+  getSummary?: () => string | undefined;
+}) {
   const t = useT();
   const pathname = usePathname();
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -235,8 +244,15 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
               pathname && /^\/posts\/[^/]+$/.test(pathname)
                 ? document.title.split(" - ")[0].slice(0, 60)
                 : undefined,
+            // 文章详情页带 slug：服务端查全文注入（伴读/划词问答以此回答"本文里"的问题）
+            articleSlug:
+              pathname && /^\/posts\/[^/]+$/.test(pathname)
+                ? decodeURIComponent(pathname.split("/")[2]!).slice(0, 120)
+                : undefined,
             // 记忆小本本：本机 localStorage 的长期记忆注入（服务端按不可信数据包裹）
             memory: readDigest(),
+            // 长会话滚动摘要（16 条窗口之外的更早对话压缩稿，同样按不可信数据包裹）
+            summary: getSummary?.() || undefined,
           }),
           signal: ac.signal,
         });
@@ -443,6 +459,20 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
     await runTurn(ms);
   }, [busy, messages, runTurn]);
 
+  /** 重新生成最后一条 AI 回复：取最后一条 user 消息（内容不变）截断重跑 */
+  const regenerateLast = useCallback(async () => {
+    if (busy) return;
+    const ms = messages.filter((m) => !m.failed && !m.streaming);
+    for (let i = ms.length - 1; i >= 0; i--) {
+      if (ms[i]!.role === "user") {
+        if (i === ms.length - 1) return; // 尾部是 user（AI 还没答/已失败）——无事可做
+        trackEvent("use_chat");
+        await runTurn(ms.slice(0, i + 1));
+        return;
+      }
+    }
+  }, [busy, messages, runTurn]);
+
   const stop = useCallback(() => acRef.current?.abort(), []);
 
   const clear = useCallback(() => {
@@ -455,5 +485,5 @@ export function useChat({ welcome, persistKey }: { welcome: string; persistKey?:
     }
   }, [welcome, persistKey]);
 
-  return { messages, busy, send, retry, stop, clear, regenerateFrom };
+  return { messages, busy, send, retry, stop, clear, regenerateFrom, regenerateLast };
 }

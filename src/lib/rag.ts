@@ -378,3 +378,55 @@ export async function relatedPosts(postId: number, n = 3): Promise<RelatedPostIt
       publishedAt: p.publishedAt,
     }));
 }
+
+export interface SemanticHit {
+  postId: number;
+  slug: string;
+  title: string;
+  description: string;
+  category: string | null;
+  score: number;
+}
+
+/** 仅文章的语义检索（搜索面板补足用）：未配置 embedding / 无向量 / 任何异常 → 空数组（调用方回落纯 LIKE） */
+export async function semanticPostSearch(query: string, topK = 5, minScore = 0.3): Promise<SemanticHit[]> {
+  try {
+    if (!embeddingConfigured() || !query.trim()) return [];
+    const [qv] = await embed([query.slice(0, 200)]);
+    if (!qv) return [];
+    const [rows, postsRows, catRows] = await Promise.all([
+      db.select().from(embeddings).where(eq(embeddings.refType, "post")),
+      db.select().from(posts).where(eq(posts.status, "published")),
+      db.select().from(categories),
+    ]);
+    const published = new Map(postsRows.map((p) => [p.id, p]));
+    const catName = new Map(catRows.map((c) => [c.id, c.name]));
+    const best = new Map<number, number>();
+    for (const r of rows) {
+      const post = published.get(r.refId);
+      if (!post) continue;
+      try {
+        const score = cosine(qv, JSON.parse(r.vector) as number[]);
+        const prev = best.get(r.refId);
+        if (prev === undefined || score > prev) best.set(r.refId, score);
+      } catch {}
+    }
+    return [...best.entries()]
+      .filter(([, score]) => score >= minScore)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, topK)
+      .map(([id, score]) => {
+        const p = published.get(id)!;
+        return {
+          postId: id,
+          slug: p.slug,
+          title: p.title,
+          description: p.description,
+          category: p.categoryId != null ? catName.get(p.categoryId) ?? null : null,
+          score,
+        };
+      });
+  } catch {
+    return [];
+  }
+}

@@ -85,8 +85,65 @@ export const chatRequestSchema = z
     visitorId: visitorIdInput,
     page: z.string().max(256).optional(),
     pageTitle: z.string().max(120).optional(),
+    /** 文章详情页伴读：服务端按 slug 查全文注入（与 page 联动校验） */
+    articleSlug: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]{1,120}$/)
+      .optional(),
     memory: z.string().max(800).optional(),
+    /** 长会话滚动摘要（客户端维护的 16 条窗口外压缩稿；按不可信数据包裹注入） */
+    summary: z.string().max(800).optional(),
     model: z.string().max(100).optional(),
     effort: z.enum(["off", "low", "mid", "high", "max", "on"]).optional(),
+  })
+  .strict();
+
+/** 长会话滚动摘要：把 16 条窗口之外的溢出消息压缩成 ≤200 字摘要（客户端存 localStorage） */
+export const chatSummarizeSchema = z
+  .object({
+    messages: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string().max(4000),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(40),
+    prevSummary: z.string().max(800).optional(),
+    visitorId: visitorIdInput,
+  })
+  .strict();
+
+/** 看板娘 AI 主动搭话：触发时机 + 上下文（天气/记忆/页面），台词由服务端生成 */
+export const mascotSaySchema = z
+  .object({
+    kind: z.enum(["postRead", "night", "linger", "lab", "music", "festival", "yearEnd"]),
+    locale: z.enum(["zh", "en", "ja", "ko"]),
+    page: z.string().max(200).optional(),
+    articleTitle: z.string().max(60).optional(),
+    weather: z
+      .object({
+        bucket: z.enum([
+          "clear",
+          "cloudy",
+          "overcast",
+          "fog",
+          "drizzle",
+          "rain",
+          "snow",
+          "showers",
+          "snowShowers",
+          "thunder",
+        ]),
+        temp: z.number().finite(),
+      })
+      .strict()
+      .optional(),
+    memory: z.string().max(300).optional(),
+    localHour: z.number().int().min(0).max(23).optional(),
+    visitorId: visitorIdInput,
   })
   .strict();

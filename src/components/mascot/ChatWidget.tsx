@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImagePlus, MessageCircle, X, SendHorizonal, Square } from "lucide-react";
+import { ImagePlus, MessageCircle, RefreshCw, X, SendHorizonal, Square } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useChat } from "@/components/chat/useChat";
@@ -32,13 +32,30 @@ export function ChatWidget() {
   const [dragOnPanel, setDragOnPanel] = useState(0);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { messages, busy, send, stop } = useChat({ welcome: t("chat.welcome") });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { messages, busy, send, stop, regenerateLast } = useChat({ welcome: t("chat.welcome") });
   const listRef = useRef<HTMLDivElement>(null);
 
   // /chat 页有自己的完整聊天界面，这里隐藏避免双入口
   const onChatPage = pathname === "/chat";
   // 看板娘被用户关闭时左下空无一物，按钮回贴底，别悬在半空
   const mascotOff = hydrated && !effects.mascot;
+
+  /* 全局打开通道：文章伴读条/划词问 AI/搜索空态经 cl-open-chat 唤起（prefill 预填不自动发）。
+   * /chat 页 no-op（那边有自己的输入框）。 */
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      if (onChatPage) return;
+      const d = (e as CustomEvent<{ prefill?: string }>).detail;
+      setOpen(true);
+      if (typeof d?.prefill === "string" && d.prefill.trim()) {
+        setInput(d.prefill.slice(0, 2000));
+        window.setTimeout(() => inputRef.current?.focus(), 120); // 面板入场动画后聚焦
+      }
+    };
+    window.addEventListener("cl-open-chat", onOpen);
+    return () => window.removeEventListener("cl-open-chat", onOpen);
+  }, [onChatPage]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -192,6 +209,17 @@ export function ChatWidget() {
                           🔍 {m.tools.map((x) => x.label).join(" · ")}
                         </p>
                       )}
+                      {/* 重新生成：仅最后一条稳定 AI 回复显示（追问场景常需要换个答案） */}
+                      {i === messages.length - 1 && m.role === "assistant" && !m.streaming && !m.failed && !busy && (
+                        <button
+                          type="button"
+                          onClick={() => void regenerateLast()}
+                          title={t("chatPage.regenerate")}
+                          className="mt-0.5 flex items-center gap-1 text-[0.625rem] text-muted transition-colors hover:text-accent"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </button>
+                      )}
                       </div>
                     </div>
                   )}
@@ -248,6 +276,7 @@ export function ChatWidget() {
                 <ImagePlus className="h-3.5 w-3.5" />
               </button>
               <input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onPaste={(e) => {

@@ -78,3 +78,13 @@ export function timeTonePrompt(localHour: unknown): string {
   if (typeof localHour !== "number" || !Number.isInteger(localHour) || localHour < 0 || localHour > 23) return "";
   return TIME_TONES[timeBucket(localHour)];
 }
+
+/**
+ * 文章伴读上下文注入：访客正在读的文章全文（截 3000 字）。
+ * 与 pageContextPrompt 相邻注入——页面感知告诉模型"访客在这里"，
+ * 这里给它真正的内容，让"问本文"类问题以正文为准作答。
+ */
+export function articleContextBlock(title: string, slug: string, excerpt: string): string {
+  return `[访客正在读的文章《${title}》（/posts/${slug}），下面是这篇文章的内容（长文截断）。
+回答与该文相关的问题时以此为准，文中没有的再用自己的知识并说明来源]\n${excerpt}`;
+}

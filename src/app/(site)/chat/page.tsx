@@ -55,7 +55,14 @@ export default async function ChatPage() {
   return (
     <PageTransition>
       <div className="pb-8">
-        <ChatPageClient aiChoices={aiChoices} />
+        <ChatPageClient
+          aiChoices={aiChoices}
+          siteMeta={{
+            name: config.siteName,
+            avatar: config.avatar || null,
+            url: process.env.SITE_URL ?? "",
+          }}
+        />
       </div>
     </PageTransition>
   );

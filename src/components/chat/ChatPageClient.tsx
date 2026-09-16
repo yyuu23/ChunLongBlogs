@@ -16,7 +16,10 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  RefreshCw,
   Search,
+  FileDown,
+  Share2,
   SendHorizonal,
   Square,
   Trash2,
@@ -38,17 +41,30 @@ import { groupSessions, sessionKey, type ChatSessionMeta } from "@/lib/chatSessi
 import { copyText } from "@/lib/clipboard";
 import { attachImage, type AttachedImage } from "@/lib/imageAttach";
 import { useChatSessionIndex } from "./useChatSessionIndex";
+import { SUMMARY_WINDOW, clearSummary, readSummary, shouldSummarize, summarizeOverflow } from "@/lib/chatSummary";
+import { buildChatMarkdown, downloadBlob } from "@/lib/chatExport";
+import { ShareCardDialog } from "./ShareCardDialog";
 
-export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
+export function ChatPageClient({
+  aiChoices,
+  siteMeta,
+}: {
+  aiChoices?: AiChoicesPublic;
+  /** 分享卡头部信息（服务端 env SITE_URL 不能在客户端直读，经页面转发） */
+  siteMeta?: { name: string; avatar: string | null; url: string };
+}) {
   const t = useT();
   const { tArr } = useLocale();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const stopRef = useRef<() => void>(() => {});
   const sessionIndex = useChatSessionIndex(() => stopRef.current());
   const { activeId, sessions, touchSession, dropFromIndex, dropSession } = sessionIndex;
-  const { messages, busy, send, retry, stop, clear, regenerateFrom } = useChat({
+  /** 滚动摘要：ref 桥接（useChat 发送时读取，避免闭包旧值） */
+  const summaryRef = useRef<string | undefined>(undefined);
+  const { messages, busy, send, retry, stop, clear, regenerateFrom, regenerateLast } = useChat({
     welcome: t("chatPage.welcomeLong"),
     persistKey: sessionKey(activeId),
+    getSummary: () => summaryRef.current,
   });
   stopRef.current = stop;
   const [input, setInput] = useState("");
@@ -57,6 +73,8 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
   const [dragDepth, setDragDepth] = useState(0);
   /** 图片灯箱（点击气泡/预览图打开，放大查看） */
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+  /** 分享卡弹层（导出 MD 随点随下，分享卡走 canvas 弹层） */
+  const [shareOpen, setShareOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -95,12 +113,40 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
+  /* 滚动摘要：turn 收尾且溢出量达阈值时后台压缩（哨兵防并发；失败静默下轮再试）。
+   * 摘要按会话存 localStorage（cl-chat-sum-<id>），切换/清空自动换摘要。 */
+  useEffect(() => {
+    const stable = messages.filter((m) => !m.failed && !m.streaming);
+    const state = readSummary(activeId);
+    summaryRef.current = state?.text;
+    if (!stable.length || !shouldSummarize(stable.length, state?.covered ?? 0)) return;
+    try {
+      if (sessionStorage.getItem("cl-sum-working")) return;
+      sessionStorage.setItem("cl-sum-working", "1");
+    } catch {
+      return;
+    }
+    const seg = stable
+      .slice(state?.covered ?? 0, stable.length - SUMMARY_WINDOW)
+      .map((m) => ({ role: m.role, content: m.content }));
+    void summarizeOverflow(activeId, seg, state?.text ?? "", state?.covered ?? 0)
+      .then((ok) => {
+        if (ok) summaryRef.current = readSummary(activeId)?.text;
+      })
+      .finally(() => {
+        try {
+          sessionStorage.removeItem("cl-sum-working");
+        } catch {}
+      });
+  }, [messages, activeId]);
+
   const switchTo = (id: string) => {
     sessionIndex.switchTo(id);
     setDrawerOpen(false);
   };
   const startNew = () => {
     sessionIndex.startNew();
+    clearSummary(activeId);
     setDrawerOpen(false);
   };
 
@@ -168,7 +214,10 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
       activeId={activeId}
       onSwitch={switchTo}
       onNew={startNew}
-      onRemove={dropSession}
+      onRemove={(id: string) => {
+        clearSummary(id);
+        dropSession(id);
+      }}
     />
   );
 
@@ -219,17 +268,56 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
             </div>
             <AffinityBadge />
           </div>
-          <button
-            onClick={() => {
-              clear();
-              dropFromIndex(activeId); // 回到欢迎态的会话不再挂侧栏
-            }}
-            className="glass-button flex shrink-0 items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
-            aria-label={t("chatPage.clearAria")}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("chatPage.clear")}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* 导出/分享：有实际对话才显示（欢迎态无内容可导） */}
+            {!onlyWelcome && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const msgs = messages
+                      .filter((m) => !m.failed && !m.streaming)
+                      .map((m) => ({ role: m.role, content: m.content }));
+                    const name = siteMeta?.name ?? "Blog";
+                    const title =
+                      sessions.find((s) => s.id === activeId)?.title ?? t("chatPage.title");
+                    downloadBlob(
+                      `${title.slice(0, 20) || "chat"}.md`,
+                      new Blob([buildChatMarkdown(title, msgs, name)], {
+                        type: "text/markdown;charset=utf-8",
+                      }),
+                    );
+                  }}
+                  aria-label={t("chatPage.exportMd")}
+                  title={t("chatPage.exportMd")}
+                  className="glass-button !rounded-full !p-2 text-muted transition-colors hover:text-accent"
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  aria-label={t("chatPage.shareCard")}
+                  title={t("chatPage.shareCard")}
+                  className="glass-button !rounded-full !p-2 text-muted transition-colors hover:text-accent"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => {
+                clear();
+                clearSummary(activeId); // 摘要随会话一起清
+                dropFromIndex(activeId); // 回到欢迎态的会话不再挂侧栏
+              }}
+              className="glass-button flex shrink-0 items-center gap-1.5 !rounded-full !px-3 !py-1.5 text-xs"
+              aria-label={t("chatPage.clearAria")}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("chatPage.clear")}
+            </button>
+          </div>
         </div>
 
         {/* 消息卡片：dvh 高度，软键盘弹出（interactiveWidget）时随之收缩。
@@ -249,21 +337,27 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
             </div>
           )}
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-            {messages.map((m) => (
-              <MessageRow
-                key={m.id}
-                m={m}
-                busy={busy}
-                onRetry={retry}
-                onOpenImage={(index) =>
-                  setLightbox({ srcs: m.viewImages ?? m.images ?? [], index })
-                }
-                onRegenerate={(id, text) => {
-                  touchSession(text);
-                  void regenerateFrom(id, text);
-                }}
-              />
-            ))}
+            {messages.map((m, i) => {
+              /* 最后一条稳定 AI 回复（其后没有更多稳定消息）才显示重新生成 */
+              const stableRest = messages.slice(i + 1).filter((x) => !x.failed && !x.streaming);
+              return (
+                <MessageRow
+                  key={m.id}
+                  m={m}
+                  busy={busy}
+                  onRetry={retry}
+                  onOpenImage={(index) =>
+                    setLightbox({ srcs: m.viewImages ?? m.images ?? [], index })
+                  }
+                  onRegenerate={(id, text) => {
+                    touchSession(text);
+                    void regenerateFrom(id, text);
+                  }}
+                  canRegenLast={m.role === "assistant" && stableRest.length === 0}
+                  onRegenLast={() => void regenerateLast()}
+                />
+              );
+            })}
 
             {/* 空会话：快捷问题（大版） */}
             {onlyWelcome && suggestions.length > 0 && (
@@ -431,6 +525,20 @@ export function ChatPageClient({ aiChoices }: { aiChoices?: AiChoicesPublic }) {
           onNav={(index) => setLightbox((st) => (st ? { ...st, index } : st))}
         />
       )}
+
+      {/* 分享卡弹层：取最后 3 对消息（user/assistant 各取有效项） */}
+      <ShareCardDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        siteName={siteMeta?.name ?? "Blog"}
+        avatar={siteMeta?.avatar ?? null}
+        siteUrl={siteMeta?.url ?? ""}
+        title={sessions.find((s) => s.id === activeId)?.title ?? t("chatPage.title")}
+        messages={messages
+          .filter((m) => !m.failed && !m.streaming && m.content.trim())
+          .slice(-6)
+          .map((m) => ({ role: m.role, content: m.content }))}
+      />
     </div>
   );
 }
@@ -648,12 +756,17 @@ function MessageRow({
   onRetry,
   onOpenImage,
   onRegenerate,
+  canRegenLast,
+  onRegenLast,
 }: {
   m: ChatMsg;
   busy: boolean;
   onRetry: () => void;
   onOpenImage: (index: number) => void;
   onRegenerate: (id: string, text: string) => void;
+  /** 本条是最后一条稳定 AI 回复（重新生成按钮只在它上面出现） */
+  canRegenLast: boolean;
+  onRegenLast: () => void;
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
@@ -810,9 +923,18 @@ function MessageRow({
           </div>
         )}
 
-        {/* 复制 + 失败重试 */}
+        {/* 复制 + 重新生成 + 失败重试 */}
         <div className="cl-msg-actions mt-0.5 flex items-center gap-2">
           {!m.streaming && !m.failed && <CopyBtn text={m.content} />}
+          {canRegenLast && !m.streaming && !m.failed && !busy && (
+            <button
+              onClick={onRegenLast}
+              title={t("chatPage.regenerate")}
+              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </button>
+          )}
           {m.failed && !m.streaming && (
             <button
               onClick={onRetry}

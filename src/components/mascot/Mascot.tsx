@@ -251,11 +251,13 @@ export function Mascot() {
       } catch {}
     };
     const onSay = (e: Event) => {
-      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
-      if (!text) return;
-      showBubble(text);
+      // detail 可选 motion/expression：升级庆祝等场景指定动作（缺省 tap_body，向后兼容）
+      const d = (e as CustomEvent<{ text?: string; motion?: string; expression?: string }>).detail;
+      if (!d?.text) return;
+      showBubble(d.text);
       try {
-        modelRef.current?.motion("tap_body");
+        modelRef.current?.motion(d.motion ?? "tap_body");
+        if (d.expression) modelRef.current?.expression(d.expression);
       } catch {}
     };
     window.addEventListener("cl-mascot-mood", onMood);

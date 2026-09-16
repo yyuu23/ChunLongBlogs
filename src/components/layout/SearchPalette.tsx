@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, CornerDownLeft } from "lucide-react";
+import { Search, CornerDownLeft, Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { trackEvent } from "@/lib/track";
 
@@ -12,6 +12,8 @@ interface Hit {
   slug: string;
   description: string | null;
   category: string | null;
+  /** 语义命中（embedding 补足）——带小徽章与 LIKE 结果区分 */
+  semantic?: boolean;
 }
 
 /** 命中关键词高亮（大小写不敏感），关键词里的正则元字符要转义 */
@@ -181,9 +183,25 @@ export function SearchPalette() {
               {q.trim() && (
                 <div className="max-h-[50vh] overflow-y-auto overscroll-contain p-2">
                   {hits.length === 0 ? (
-                    <p className="px-2 py-6 text-center text-xs text-muted">
-                      {loading ? "…" : t("search.empty")}
-                    </p>
+                    <div className="flex flex-col items-center gap-2 px-2 py-6 text-center">
+                      <p className="text-xs text-muted">
+                        {loading ? "…" : t("search.empty")}
+                      </p>
+                      {!loading && q.trim().length >= 2 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const kw = q.trim();
+                            close();
+                            window.dispatchEvent(new CustomEvent("cl-open-chat", { detail: { prefill: kw } }));
+                          }}
+                          className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/15"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {t("search.askAi")}
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     hits.map((hit, i) => (
                       <button
@@ -209,6 +227,12 @@ export function SearchPalette() {
                         {hit.category && (
                           <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] text-accent">
                             {hit.category}
+                          </span>
+                        )}
+                        {hit.semantic && (
+                          <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] text-accent">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            {t("search.semanticTag")}
                           </span>
                         )}
                         {i === active && (

@@ -12,6 +12,8 @@ import { Comments } from "@/components/comments/Comments";
 import { CodeBlockTools } from "@/components/posts/CodeBlockTools";
 import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
 import { RelatedPosts } from "@/components/posts/RelatedPosts";
+import { ArticleAskBar } from "@/components/posts/ArticleAskBar";
+import { ArticleSelectionAsk } from "@/components/posts/ArticleSelectionAsk";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
 import { relatedPosts } from "@/lib/rag";
 import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/markdown";
@@ -197,6 +199,11 @@ export default async function PostDetailPage({ params }: PageProps) {
               </div>
             </FadeIn>
 
+            {/* AI 伴读：读完即问——唤起悬浮聊天窗预填（文章全文由服务端注入 AI 上下文） */}
+            <FadeIn delay={0.06}>
+              <ArticleAskBar />
+            </FadeIn>
+
             {/* 相关阅读（embedding 相似度推荐） */}
             <FadeIn delay={0.08}>
               <RelatedPosts items={related} locale={locale} heading={t("posts.relatedReading")} />
@@ -255,6 +262,8 @@ export default async function PostDetailPage({ params }: PageProps) {
           </aside>
         </div>
       </article>
+      {/* 划词问 AI：正文选中 ≥8 字浮现浮条（fixed 定位，挂在 article 外避免 overflow 裁剪） */}
+      <ArticleSelectionAsk title={post.title} />
       </PageTransition>
     </>
   );

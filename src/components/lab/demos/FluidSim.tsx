@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { accentColor, parseRgb, rand } from "@/lib/demo-utils";
+import { FLUID_FRAGMENT_SHADERS, FLUID_VERTEX_SHADER } from "./fluid-shaders";
 
 /**
  * 流体模拟实验（/lab/fluid）：手指/鼠标划过，像搅动一池彩色烟雾。
@@ -25,135 +26,6 @@ interface FluidEngine {
   resize: () => void;
   destroy: () => void;
 }
-
-/* ---------- shader 源码 ---------- */
-
-const VERT = `
-precision highp float;
-attribute vec2 aPosition;
-varying vec2 vUv;
-varying vec2 vL;
-varying vec2 vR;
-varying vec2 vT;
-varying vec2 vB;
-uniform vec2 texelSize;
-void main () {
-  vUv = aPosition * 0.5 + 0.5;
-  vL = vUv - vec2(texelSize.x, 0.0);
-  vR = vUv + vec2(texelSize.x, 0.0);
-  vT = vUv + vec2(0.0, texelSize.y);
-  vB = vUv - vec2(0.0, texelSize.y);
-  gl_Position = vec4(aPosition, 0.0, 1.0);
-}`;
-
-const FRAG_ADVECTION = `
-precision highp float; precision highp sampler2D;
-varying vec2 vUv;
-uniform sampler2D uVelocity;
-uniform sampler2D uSource;
-uniform vec2 texelSize;
-uniform float dt;
-uniform float dissipation;
-void main () {
-  vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize;
-  vec4 result = texture2D(uSource, coord);
-  float decay = 1.0 + dissipation * dt;
-  gl_FragColor = result / decay;
-}`;
-
-const FRAG_DIVERGENCE = `
-precision mediump float; precision mediump sampler2D;
-varying highp vec2 vUv;
-varying highp vec2 vL;
-varying highp vec2 vR;
-varying highp vec2 vT;
-varying highp vec2 vB;
-uniform sampler2D uVelocity;
-void main () {
-  float L = texture2D(uVelocity, vL).x;
-  float R = texture2D(uVelocity, vR).x;
-  float T = texture2D(uVelocity, vT).y;
-  float B = texture2D(uVelocity, vB).y;
-  vec2 C = texture2D(uVelocity, vUv).xy;
-  if (vL.x < 0.0) { L = -C.x; }
-  if (vR.x > 1.0) { R = -C.x; }
-  if (vT.y > 1.0) { T = -C.y; }
-  if (vB.y < 0.0) { B = -C.y; }
-  float div = 0.5 * (R - L + T - B);
-  gl_FragColor = vec4(div, 0.0, 0.0, 1.0);
-}`;
-
-const FRAG_PRESSURE = `
-precision mediump float; precision mediump sampler2D;
-varying highp vec2 vUv;
-varying highp vec2 vL;
-varying highp vec2 vR;
-varying highp vec2 vT;
-varying highp vec2 vB;
-uniform sampler2D uPressure;
-uniform sampler2D uDivergence;
-void main () {
-  float L = texture2D(uPressure, vL).x;
-  float R = texture2D(uPressure, vR).x;
-  float T = texture2D(uPressure, vT).x;
-  float B = texture2D(uPressure, vB).x;
-  float divergence = texture2D(uDivergence, vUv).x;
-  float pressure = (L + R + B + T - divergence) * 0.25;
-  gl_FragColor = vec4(pressure, 0.0, 0.0, 1.0);
-}`;
-
-const FRAG_GRADIENT = `
-precision mediump float; precision mediump sampler2D;
-varying highp vec2 vUv;
-varying highp vec2 vL;
-varying highp vec2 vR;
-varying highp vec2 vT;
-varying highp vec2 vB;
-uniform sampler2D uPressure;
-uniform sampler2D uVelocity;
-void main () {
-  float L = texture2D(uPressure, vL).x;
-  float R = texture2D(uPressure, vR).x;
-  float T = texture2D(uPressure, vT).x;
-  float B = texture2D(uPressure, vB).x;
-  vec2 velocity = texture2D(uVelocity, vUv).xy;
-  velocity -= vec2(R - L, T - B);
-  gl_FragColor = vec4(velocity, 0.0, 1.0);
-}`;
-
-const FRAG_SPLAT = `
-precision highp float; precision highp sampler2D;
-varying vec2 vUv;
-uniform sampler2D uTarget;
-uniform float aspectRatio;
-uniform vec3 color;
-uniform vec2 point;
-uniform float radius;
-void main () {
-  vec2 p = vUv - point.xy;
-  p.x *= aspectRatio;
-  vec3 splat = exp(-dot(p, p) / radius) * color;
-  vec3 base = texture2D(uTarget, vUv).xyz;
-  gl_FragColor = vec4(base + splat, 1.0);
-}`;
-
-const FRAG_CLEAR = `
-precision mediump float; precision mediump sampler2D;
-varying highp vec2 vUv;
-uniform sampler2D uTexture;
-uniform float value;
-void main () {
-  gl_FragColor = value * texture2D(uTexture, vUv);
-}`;
-
-const FRAG_DISPLAY = `
-precision highp float; precision highp sampler2D;
-varying vec2 vUv;
-uniform sampler2D uTexture;
-void main () {
-  vec3 c = texture2D(uTexture, vUv).rgb;
-  gl_FragColor = vec4(c, 1.0);
-}`;
 
 /* ---------- 引擎 ---------- */
 
@@ -196,7 +68,6 @@ function initFluid(canvas: HTMLCanvasElement): FluidEngine | null {
     if (!gl.getExtension("EXT_color_buffer_float")) gl = null;
     else halfFloat = gl.HALF_FLOAT;
   }
-  let isGL2 = !!gl;
   let internalFormat: number;
   if (!gl) {
     const gl1 = canvas.getContext("webgl", params) as WebGLRenderingContext | null;
@@ -207,21 +78,20 @@ function initFluid(canvas: HTMLCanvasElement): FluidEngine | null {
     gl = gl1 as unknown as WebGL2RenderingContext;
     halfFloat = (ext as OES_texture_half_float).HALF_FLOAT_OES;
     internalFormat = gl1.RGBA;
-    isGL2 = false;
   } else {
     internalFormat = gl.RGBA16F;
   }
   const g = gl as unknown as WebGLRenderingContext;
 
-  const vs = compile(g, g.VERTEX_SHADER, VERT);
+  const vs = compile(g, g.VERTEX_SHADER, FLUID_VERTEX_SHADER);
   const sources: [string, string][] = [
-    ["advection", FRAG_ADVECTION],
-    ["divergence", FRAG_DIVERGENCE],
-    ["pressure", FRAG_PRESSURE],
-    ["gradient", FRAG_GRADIENT],
-    ["splat", FRAG_SPLAT],
-    ["clear", FRAG_CLEAR],
-    ["display", FRAG_DISPLAY],
+    ["advection", FLUID_FRAGMENT_SHADERS.advection],
+    ["divergence", FLUID_FRAGMENT_SHADERS.divergence],
+    ["pressure", FLUID_FRAGMENT_SHADERS.pressure],
+    ["gradient", FLUID_FRAGMENT_SHADERS.gradient],
+    ["splat", FLUID_FRAGMENT_SHADERS.splat],
+    ["clear", FLUID_FRAGMENT_SHADERS.clear],
+    ["display", FLUID_FRAGMENT_SHADERS.display],
   ];
   const progs: Record<string, WebGLProgram> = {};
   for (const [name, src] of sources) {

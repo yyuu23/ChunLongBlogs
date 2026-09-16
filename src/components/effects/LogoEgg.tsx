@@ -74,7 +74,7 @@ export function LogoEgg({ trigger, message }: { trigger: number; message?: strin
     const waves = [setTimeout(() => spawnWave(200), 220), setTimeout(() => spawnWave(180), 460)];
 
     let raf = 0;
-    let start = performance.now();
+    const start = performance.now();
     const drawStar = (p: Piece) => {
       const s = p.w * 0.7;
       const inner = s * 0.4;

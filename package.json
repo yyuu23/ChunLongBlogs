@@ -9,8 +9,12 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "assets": "node scripts/gen-assets.mjs",
+    "assets:check": "node scripts/check-asset-notices.mjs",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run assets:check && npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.2",
@@ -41,10 +45,12 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "server-only": "^0.0.1",
     "sharp": "^0.35.4",
     "shiki": "^4.4.3",
     "three": "^0.185.1",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -54,6 +60,10 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.185.4",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.3",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
     "ffmpeg-static": "^5.3.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
@@ -63,6 +73,7 @@
   "allowScripts": {
     "esbuild@0.18.20": true,
     "esbuild@0.25.12": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "unrs-resolver@1.12.2": true
   }
 }

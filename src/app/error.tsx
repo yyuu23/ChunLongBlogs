@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * 路由段错误边界：server/client 组件抛错时展示此页（否则是裸 500）。
  * 文案用固定中文（站点默认语言）——client 组件拿不到服务端 getT()，
@@ -22,9 +24,9 @@ export default function Error({
         <button onClick={() => reset()} className="glass-button">
           重试
         </button>
-        <a href="/" className="glass-button">
+        <Link href="/" className="glass-button">
           回首页
-        </a>
+        </Link>
       </div>
       {error.digest ? <p className="mt-2 text-xs opacity-50">digest: {error.digest}</p> : null}
     </div>

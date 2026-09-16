@@ -11,11 +11,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, HTML_LANG, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
-import { DICTIONARIES, translate, translateList, type TParams } from "@/lib/i18n";
+import { DICTIONARIES, translate, translateList, type T, type TArr } from "@/lib/i18n";
 import { trackEvent } from "@/lib/track";
 
-export type T = (key: string, params?: TParams) => string;
-export type TArr = (key: string) => string[];
+export type { T, TArr } from "@/lib/i18n";
 
 interface LocaleCtx {
   locale: Locale;

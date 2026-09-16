@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Eye } from "lucide-react";
-import { trackEvent } from "@/lib/track";
+import { getVisitorId, trackEvent } from "@/lib/track";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /** 阅读量上报 + 展示（同一会话对同一文章只计一次） */
@@ -20,7 +20,7 @@ export function ViewCounter({ slug, initial, postId }: { slug: string; initial: 
       sessionStorage.setItem(key, "1");
     } catch {}
     trackEvent("read_post", { postId });
-    fetch(`/api/posts/${slug}/view`, { method: "POST" })
+    fetch(`/api/posts/${slug}/view?visitorId=${encodeURIComponent(getVisitorId())}`, { method: "POST" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && typeof d.views === "number") setViews(d.views);

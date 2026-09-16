@@ -12,7 +12,6 @@ import {
   Columns2,
   BookOpen,
   X,
-  Check,
   CheckCircle2,
   AlertCircle,
   Sparkles,
@@ -20,11 +19,13 @@ import {
   Undo2,
   Clock,
 } from "lucide-react";
-import { savePost } from "@/app/admin/actions";
+import { savePost } from "@/app/admin/actions/posts";
 import { UploadButton } from "@/components/admin/UploadButton";
 import { AiAssist } from "@/components/admin/AiAssist";
 import { AutoCover } from "@/components/posts/AutoCover";
 import { LazyImage } from "@/components/effects/Typewriter";
+import { OverwriteConfirm } from "@/components/admin/post-editor/OverwriteConfirm";
+import { usePostSchedule } from "@/components/admin/post-editor/usePostSchedule";
 import { countWords, slugify } from "@/lib/utils";
 
 export interface EditorPostData {
@@ -43,39 +44,6 @@ export interface EditorPostData {
 }
 
 type Mode = "edit" | "split" | "preview";
-
-/** 字段级"确定覆盖 / 取消"内联确认按钮组：摘要 / 标题 / slug 三处共用 */
-function OverwriteConfirm({
-  hint,
-  onConfirm,
-  onCancel,
-}: {
-  hint: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
-      <span className="text-[11px] text-amber-600">{hint}</span>
-      <button
-        type="button"
-        onClick={onConfirm}
-        className="flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-100"
-      >
-        <Check className="h-3 w-3" />
-        确定覆盖
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-200"
-      >
-        <X className="h-3 w-3" />
-        取消
-      </button>
-    </span>
-  );
-}
 
 export function PostEditor({
   initial,
@@ -114,13 +82,7 @@ export function PostEditor({
   /** AI 封面生成面板：null = 收起 */
   const [coverGen, setCoverGen] = useState<null | { prompt: string; generating: boolean; url?: string; error?: string }>(null);
   /** 定时发布面板与时间值（datetime-local 格式，默认明天 9:00） */
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleValue, setScheduleValue] = useState(() => {
-    const d = new Date(Date.now() + 86_400_000);
-    d.setHours(9, 0, 0, 0);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  });
+  const schedule = usePostSchedule();
   const previewTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const words = useMemo(() => countWords(data.content), [data.content]);
@@ -389,7 +351,9 @@ export function PostEditor({
         // 编辑已定时文章未改时间时，沿用 data.publishedAt 原样传回
         publishedAt:
           status === "scheduled"
-            ? new Date(scheduledAt ?? data.publishedAt ?? Date.now()).toISOString()
+            ? scheduledAt
+              ? new Date(scheduledAt).toISOString()
+              : schedule.toIso(data.publishedAt)
             : undefined,
       });
       if ("error" in result && result.error) {
@@ -447,7 +411,7 @@ export function PostEditor({
             存草稿
           </button>
           <button
-            onClick={() => setScheduleOpen((v) => !v)}
+            onClick={schedule.toggle}
             disabled={saving}
             className={`rounded-xl border px-4 py-2 text-sm transition-colors disabled:opacity-60 ${
               data.status === "scheduled"
@@ -471,25 +435,25 @@ export function PostEditor({
       </header>
 
       {/* 定时发布面板：datetime-local（默认明天 9:00），确认后以 scheduled 状态保存 */}
-      {scheduleOpen && (
+      {schedule.isOpen && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm">
           <label className="flex items-center gap-2 text-slate-600">
             <Clock className="h-4 w-4 text-amber-500" />
             <input
               type="datetime-local"
-              value={scheduleValue}
+              value={schedule.value}
               min={new Date(Date.now() + 60_000 - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16)}
-              onChange={(e) => setScheduleValue(e.target.value)}
+              onChange={(e) => schedule.setValue(e.target.value)}
               className="rounded-xl border border-amber-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-amber-400"
             />
           </label>
           <button
             onClick={() => {
-              if (!scheduleValue) return;
-              setScheduleOpen(false);
-              void save("scheduled", scheduleValue);
+              if (!schedule.value) return;
+              schedule.close();
+              void save("scheduled", schedule.value);
             }}
-            disabled={saving || !scheduleValue}
+            disabled={saving || !schedule.value}
             className="rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
           >
             确认定时
@@ -497,7 +461,7 @@ export function PostEditor({
           {data.status === "scheduled" && (
             <button
               onClick={() => {
-                setScheduleOpen(false);
+                schedule.close();
                 void save("published");
               }}
               disabled={saving}

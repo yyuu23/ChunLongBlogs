@@ -21,6 +21,12 @@ import { ensureDailyCredits } from "@/lib/credits-server";
 import { logError } from "@/lib/logger";
 import { grantBottle, themeFromMeta } from "@/lib/bottles";
 import { festivalOf, isYearEndWindow } from "@/lib/festivals";
+import { clientIp } from "@/lib/rateLimit";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { playerEventSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -184,17 +190,44 @@ function applyEvent(stats: PlayerStats, daily: DayCounter, event: XpEvent, paylo
 /** POST /api/player —— body: { visitorId, event, payload? } */
 export async function POST(request: Request) {
   const locale = await getLocale();
-  const body = (await request.json().catch(() => null)) as {
-    visitorId?: string;
-    event?: XpEvent;
-    payload?: Record<string, unknown>;
-    __meta?: { theme?: unknown };
-  } | null;
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, playerEventSchema);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
+  }
+  const visitor = await resolveAnonymousVisitor(request, body.visitorId);
+  const visitorId = visitor.visitorId;
+  const event = body.event as XpEvent;
+  if (!(event in XP_RULES)) {
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "invalid" }, { status: 400 }),
+      request,
+      visitor,
+    );
+  }
 
-  const visitorId = (body?.visitorId ?? "").trim();
-  const event = body?.event;
-  if (!visitorId || visitorId.length > 64 || !event || !(event in XP_RULES)) {
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+  const ip = clientIp(request);
+  const limits = [
+    burstQuota("player", "visitor", visitorId, 120, 60_000),
+    burstQuota("player", "ip", ip, 300, 60_000),
+    persistentQuota("player", "visitor", visitorId, 1000, 24 * 60 * 60_000),
+    persistentQuota("player", "ip", ip, 3000, 24 * 60 * 60_000),
+  ];
+  if (limits.some((limit) => !limit.ok)) {
+    return attachAnonymousVisitorCookie(
+      quotaResponse(Math.max(...limits.map((limit) => limit.retryAfter))),
+      request,
+      visitor,
+    );
+  }
+  const [knownVisitor] = await db.select({ id: visitors.id }).from(visitors).where(eq(visitors.id, visitorId)).limit(1);
+  if (!knownVisitor) {
+    const newVisitorLimit = persistentQuota("player-new-visitor", "ip", ip, 20, 24 * 60 * 60_000);
+    if (!newVisitorLimit.ok) {
+      return attachAnonymousVisitorCookie(quotaResponse(newVisitorLimit.retryAfter), request, visitor);
+    }
   }
 
   /* ===== AI 积分（✦）每日重置（必须在 stats 事务之前） =====
@@ -235,7 +268,7 @@ export async function POST(request: Request) {
     // 成就 diff 的基线要含 touchVisit 之前的状态（夜之住民等首见成就也算"本次解锁"）
     const beforeKeys = new Set(unlockedAchievements(stats));
     const firstVisitToday = touchVisit(stats, daily, existing?.lastSeen ?? null);
-    const gained = applyEvent(stats, daily, event, body?.payload);
+    const gained = applyEvent(stats, daily, event, body.payload);
     const xp = (existing?.xp ?? 0) + gained;
 
     // stats 里捎带当日计数与积分重置标记（简单起见存同列）；
@@ -271,7 +304,7 @@ export async function POST(request: Request) {
   const creditsBalance = creditCfg.enabled ? creditsBase + creditsGain : r.credits;
 
   // ===== 漂流瓶（幂等，失败不阻断结算）=====
-  const theme = themeFromMeta(body?.__meta);
+  const theme = themeFromMeta(body.__meta);
   try {
     if (r.firstVisitToday) {
       // 当日首见撞上节气/农历节日 → 封一只节日限定瓶
@@ -292,40 +325,48 @@ export async function POST(request: Request) {
   }
 
   const lvl = levelOf(r.xp);
-  return NextResponse.json({
-    xp: r.xp,
-    gained: r.gained,
-    level: lvl.level,
-    title: levelTitle(lvl.level, locale),
-    progress: lvl.progress,
-    tier: lvl.tier,
-    achievements: unlockedAchievements(r.stats),
-    stats: r.stats,
-    credits: creditsBalance,
-  });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({
+      xp: r.xp,
+      gained: r.gained,
+      level: lvl.level,
+      title: levelTitle(lvl.level, locale),
+      progress: lvl.progress,
+      tier: lvl.tier,
+      achievements: unlockedAchievements(r.stats),
+      stats: r.stats,
+      credits: creditsBalance,
+    }),
+    request,
+    visitor,
+  );
 }
 
 /** GET /api/player?visitorId=xxx —— 查询进度 */
 export async function GET(request: Request) {
   const locale = await getLocale();
   const { searchParams } = new URL(request.url);
-  const visitorId = (searchParams.get("visitorId") ?? "").trim();
-  if (!visitorId) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  const visitor = await resolveAnonymousVisitor(request, searchParams.get("visitorId"));
+  const visitorId = visitor.visitorId;
 
   const rows = await db.select().from(visitors).where(eq(visitors.id, visitorId)).limit(1);
   const row = rows[0];
   if (!row) {
     const lvl = levelOf(0);
-    return NextResponse.json({
-      xp: 0,
-      level: lvl.level,
-      title: levelTitle(1, locale),
-      progress: 0,
-      tier: lvl.tier,
-      achievements: [],
-      stats: EMPTY_STATS,
-      credits: 0,
-    });
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({
+        xp: 0,
+        level: lvl.level,
+        title: levelTitle(1, locale),
+        progress: 0,
+        tier: lvl.tier,
+        achievements: [],
+        stats: EMPTY_STATS,
+        credits: 0,
+      }),
+      request,
+      visitor,
+    );
   }
   // 老访客的 stats 里没有新字段，normalizeStats 补齐默认值，否则 check() 会读到 undefined
   const raw = JSON.parse(row.stats) as Partial<PlayerStats> & { __daily?: unknown; __credits?: unknown };
@@ -333,14 +374,18 @@ export async function GET(request: Request) {
   delete raw.__credits;
   const stats = normalizeStats(raw);
   const lvl = levelOf(row.xp);
-  return NextResponse.json({
-    xp: row.xp,
-    level: lvl.level,
-    title: levelTitle(lvl.level, locale),
-    progress: lvl.progress,
-    tier: lvl.tier,
-    achievements: unlockedAchievements(stats),
-    stats,
-    credits: row.credits ?? 0,
-  });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({
+      xp: row.xp,
+      level: lvl.level,
+      title: levelTitle(lvl.level, locale),
+      progress: lvl.progress,
+      tier: lvl.tier,
+      achievements: unlockedAchievements(stats),
+      stats,
+      credits: row.credits ?? 0,
+    }),
+    request,
+    visitor,
+  );
 }

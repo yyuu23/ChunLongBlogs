@@ -15,29 +15,18 @@ import { trackEvent } from "@/lib/track";
 import { Heart, Play, Pause, ChevronDown, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
+import type { PlayerSong, PlayMode } from "@/lib/music-types";
+import {
+  loadPlayMode,
+  loadVolumePreference,
+  recordRecentSong,
+  saveMutedPreference,
+  savePlayMode,
+  saveVolumePreference,
+} from "@/lib/music-preferences";
 
-export interface PlayerSong {
-  id: number;
-  title: string;
-  artist: string;
-  cover: string;
-  url: string;
-  /** LRC 歌词原文（歌词面板逐行滚动用；最近播放/收藏队列里同样携带） */
-  lrc?: string;
-}
+export type { PlayerSong, PlayMode } from "@/lib/music-types";
 
-/** 播放模式：顺序 / 单曲循环 / 随机 */
-export type PlayMode = "sequential" | "repeat-one" | "shuffle";
-const MODE_KEY = "cl-play-mode";
-
-function loadModePref(): PlayMode {
-  try {
-    const m = localStorage.getItem(MODE_KEY);
-    return m === "repeat-one" || m === "shuffle" ? m : "sequential";
-  } catch {
-    return "sequential";
-  }
-}
 
 interface PlayerCtx {
   current: PlayerSong | null;
@@ -64,17 +53,6 @@ export const usePlayer = () => useContext(Ctx);
 const fmt = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-/** 音量偏好持久化（cl-volume / cl-muted），读写失败静默 */
-function loadVolumePref(): { volume: number; muted: boolean } {
-  try {
-    const v = parseFloat(localStorage.getItem("cl-volume") ?? "");
-    const m = localStorage.getItem("cl-muted") === "1";
-    return { volume: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8, muted: m };
-  } catch {
-    return { volume: 0.8, muted: false };
-  }
-}
-
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [current, setCurrent] = useState<PlayerSong | null>(null);
@@ -91,7 +69,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   if (typeof window !== "undefined" && !audioRef.current) {
     const audio = new Audio();
     audio.preload = "metadata";
-    const pref = loadVolumePref();
+    const pref = loadVolumePreference();
     audio.volume = pref.volume;
     audio.muted = pref.muted;
     audioRef.current = audio;
@@ -122,15 +100,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const recordRecent = (song: PlayerSong) => {
-    try {
-      const raw = localStorage.getItem("cl-recent-songs");
-      const list: PlayerSong[] = raw ? JSON.parse(raw) : [];
-      const next = [song, ...list.filter((s) => s.id !== song.id)].slice(0, 12);
-      localStorage.setItem("cl-recent-songs", JSON.stringify(next));
-    } catch {}
-  };
-
   const startPlay = useCallback((song: PlayerSong) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -140,7 +109,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setDuration(0);
     audio.src = song.url;
     void audio.play().catch(() => setFailed(true));
-    recordRecent(song);
+    recordRecentSong(song);
     trackEvent("play_music", { title: song.title, songId: song.id });
   }, []);
 
@@ -172,16 +141,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // 播放模式偏好：与音量偏好同款 —— 挂载后读一次 localStorage（SSR 首帧固定顺序模式）
   useEffect(() => {
-    setMode(loadModePref());
+    setMode(loadPlayMode());
   }, []);
 
   const cycleMode = useCallback(() => {
     setMode((prev) => {
       const nextMode: PlayMode =
         prev === "sequential" ? "repeat-one" : prev === "repeat-one" ? "shuffle" : "sequential";
-      try {
-        localStorage.setItem(MODE_KEY, nextMode);
-      } catch {}
+      savePlayMode(nextMode);
       return nextMode;
     });
   }, []);
@@ -228,7 +195,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // 状态与 audio 单例的音量偏好对齐（单例在创建时已应用，这里同步 UI 展示值）
   useEffect(() => {
-    const pref = loadVolumePref();
+    const pref = loadVolumePreference();
     setVolumeState(pref.volume);
     setMuted(pref.muted);
   }, []);
@@ -238,18 +205,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const clamped = Math.min(1, Math.max(0, v));
     setVolumeState(clamped);
     if (audio) audio.volume = clamped;
-    try {
-      localStorage.setItem("cl-volume", String(clamped));
-    } catch {}
+    saveVolumePreference(clamped);
   }, []);
 
   const setMutedAll = useCallback((m: boolean) => {
     const audio = audioRef.current;
     setMuted(m);
     if (audio) audio.muted = m;
-    try {
-      localStorage.setItem("cl-muted", m ? "1" : "0");
-    } catch {}
+    saveMutedPreference(m);
   }, []);
 
   const close = useCallback(() => {

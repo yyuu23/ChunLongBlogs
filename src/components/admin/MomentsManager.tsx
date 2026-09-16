@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Plus, Trash2, X, Loader2, MapPin, Pencil, Check, Wand2, Undo2, Sparkles } from "lucide-react";
-import { saveMoment, deleteMoment } from "@/app/admin/actions";
+import { saveMoment, deleteMoment } from "@/app/admin/actions/moments";
 import { UploadButton } from "@/components/admin/UploadButton";
 import { relativeTime } from "@/lib/utils";
 

@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { Pin, PinOff, Eye, EyeOff, Trash2, Pencil, Plus, Upload, FolderDown, X } from "lucide-react";
-import { deletePost, importMarkdownFiles, importMarkdownFromContentDir, setPostStatus, togglePostPin, type ImportResult } from "@/app/admin/actions";
+import {
+  deletePost,
+  importMarkdownFiles,
+  importMarkdownFromContentDir,
+  setPostStatus,
+  togglePostPin,
+} from "@/app/admin/actions/posts";
+import type { ImportResult } from "@/lib/post-import";
 import { formatDateTime } from "@/lib/utils";
 
 export interface AdminPostRow {

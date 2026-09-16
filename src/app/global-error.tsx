@@ -23,6 +23,8 @@ export default function GlobalError({
           <button onClick={() => reset()} style={{ padding: "8px 20px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", cursor: "pointer" }}>
             重试
           </button>
+          {/* 根布局已失败，使用原生导航做一次完整页面恢复。 */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/" style={{ padding: "8px 20px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "inherit", textDecoration: "none" }}>
             回首页
           </a>

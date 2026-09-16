@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { bottles } from "@/lib/db/schema";
+import { clientIp } from "@/lib/rateLimit";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota } from "@/lib/public-write/quota";
+import { bottleOpenSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +17,25 @@ export const dynamic = "force-dynamic";
  * 并发开也只有一次生效。开瓶后：液体剩四成、节气瓶的站长信笺可读。
  */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { visitorId?: string; bottleId?: number } | null;
-  const visitorId = (body?.visitorId ?? "").trim().slice(0, 64);
-  const bottleId = Number(body?.bottleId);
-  if (!visitorId || !Number.isInteger(bottleId) || bottleId <= 0) {
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, bottleOpenSchema);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
   }
+  const session = await resolveAnonymousVisitor(request, body.visitorId);
+  const ipLimit = burstQuota("bottle-open", "ip", clientIp(request), 30, 60_000);
+  const visitorLimit = burstQuota("bottle-open", "visitor", session.visitorId, 30, 60_000);
+  if (!ipLimit.ok || !visitorLimit.ok) {
+    return attachAnonymousVisitorCookie(
+      quotaResponse(Math.max(ipLimit.retryAfter, visitorLimit.retryAfter)),
+      request,
+      session,
+    );
+  }
+  const visitorId = session.visitorId;
+  const bottleId = body.bottleId;
 
   const [row] = await db
     .update(bottles)
@@ -24,7 +43,9 @@ export async function POST(request: Request) {
     .where(and(eq(bottles.id, bottleId), eq(bottles.visitorId, visitorId), isNull(bottles.openedAt)))
     .returning({ id: bottles.id, openedAt: bottles.openedAt });
 
-  if (row) return NextResponse.json({ ok: true, openedAt: row.openedAt });
+  if (row) {
+    return attachAnonymousVisitorCookie(NextResponse.json({ ok: true, openedAt: row.openedAt }), request, session);
+  }
 
   // 没更新到：要么不是你的瓶，要么已经开过——区分返回
   const [existing] = await db
@@ -32,6 +53,16 @@ export async function POST(request: Request) {
     .from(bottles)
     .where(and(eq(bottles.id, bottleId), eq(bottles.visitorId, visitorId)))
     .limit(1);
-  if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json({ ok: true, already: true, openedAt: existing.openedAt });
+  if (!existing) {
+    return attachAnonymousVisitorCookie(
+      NextResponse.json({ error: "not found" }, { status: 404 }),
+      request,
+      session,
+    );
+  }
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({ ok: true, already: true, openedAt: existing.openedAt }),
+    request,
+    session,
+  );
 }

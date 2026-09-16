@@ -78,7 +78,8 @@ export function noteTurn(messages: { role: string; content: string }[]): void {
   } catch {}
   const recent = messages
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-10);
+    .slice(-10)
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
   fetch("/api/chat/memory", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

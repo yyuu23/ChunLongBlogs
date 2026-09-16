@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Plus, Trash2, Pencil, X, Check, Images } from "lucide-react";
-import { saveAlbum, deleteAlbum } from "@/app/admin/actions";
+import { saveAlbum, deleteAlbum } from "@/app/admin/actions/albums";
 
 interface AlbumRow {
   id: number;

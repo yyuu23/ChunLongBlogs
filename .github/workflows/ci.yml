@@ -1,6 +1,6 @@
 name: CI
 
-# 轻量质量闸门：类型检查 + 单元/集成测试。
+# 轻量质量闸门：lint + 类型检查 + 单元/集成测试。
 # 不做 next build（构建由 Deploy production 在发布时完成），
 # 测试自带临时 SQLite（src/lib/__tests__ 各文件自设 DATABASE_PATH），无需 .env。
 
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   check:
-    name: Typecheck & test
+    name: Lint, typecheck & test
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -35,6 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify asset notices
+        run: npm run assets:check
+
+      - name: Lint
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck

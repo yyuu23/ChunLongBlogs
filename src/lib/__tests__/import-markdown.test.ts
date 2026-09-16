@@ -15,13 +15,14 @@ import Database from "better-sqlite3";
  */
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/headers", () => ({ headers: async () => new Map(), cookies: async () => new Map() }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({
   getSession: async () => ({ username: "test" }),
   createSession: async () => {},
   destroySession: async () => {},
 }));
 
-let actions: typeof import("@/app/admin/actions");
+let actions: typeof import("@/app/admin/actions/posts");
 let raw: Database.Database;
 
 beforeAll(async () => {
@@ -51,7 +52,7 @@ beforeAll(async () => {
     );
     CREATE TABLE post_tags (post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE, tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (post_id, tag_id));
   `);
-  actions = await import("@/app/admin/actions");
+  actions = await import("@/app/admin/actions/posts");
 });
 
 const mdCount = () => readdirSync(join(process.cwd(), "content/posts")).filter((f) => f.endsWith(".md")).length;

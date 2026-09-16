@@ -3,6 +3,12 @@ import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stars, starLights } from "@/lib/db/schema";
 import { grantBottle } from "@/lib/bottles";
+import { clientIp } from "@/lib/rateLimit";
+import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
+import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
+import { readJson } from "@/lib/public-write/json";
+import { burstQuota, persistentQuota } from "@/lib/public-write/quota";
+import { starCreateSchema } from "@/lib/public-write/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +20,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const visitorId = (searchParams.get("visitorId") ?? "").trim().slice(0, 64);
+  const session = await resolveAnonymousVisitor(request, searchParams.get("visitorId"));
+  const visitorId = session.visitorId;
 
   const rows = await db
     .select()
@@ -54,32 +61,45 @@ export async function GET(request: Request) {
     for (const r of mine) litByMeSet.add(r.starId);
   }
 
-  return NextResponse.json({
-    stars: merged.map((s) => ({
-      id: s.id,
-      content: s.content,
-      createdAt: s.createdAt,
-      ...(visitorId && s.visitorId === visitorId ? { mine: true } : {}),
-      ...(s.featured ? { featured: true } : {}),
-      ...(visitorId ? { lights: lightCountMap.get(s.id) ?? 0, litByMe: litByMeSet.has(s.id) } : {}),
-    })),
-  });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({
+      stars: merged.map((s) => ({
+        id: s.id,
+        content: s.content,
+        createdAt: s.createdAt,
+        ...(s.visitorId === visitorId ? { mine: true } : {}),
+        ...(s.featured ? { featured: true } : {}),
+        lights: lightCountMap.get(s.id) ?? 0,
+        litByMe: litByMeSet.has(s.id),
+      })),
+    }),
+    request,
+    session,
+  );
 }
 
 /** POST /api/stars —— 留下一颗星（50 字限制 + 每访客 24h 最多 3 条）+ 封存一只漂流瓶 */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as {
-    content?: string;
-    visitorId?: string;
-    theme?: unknown;
-  } | null;
-
-  const content = (body?.content ?? "").trim().slice(0, 50);
-  const visitorId = (body?.visitorId ?? "").trim().slice(0, 64);
-
-  if (!content || content.length < 2) {
-    return NextResponse.json({ error: "写下 2-50 个字再化作星星吧 ✨" }, { status: 400 });
+  let body;
+  try {
+    assertSameOrigin(request);
+    body = await readJson(request, starCreateSchema);
+  } catch (error) {
+    return publicWriteErrorResponse(error) ?? NextResponse.json({ error: "internal" }, { status: 500 });
   }
+  const session = await resolveAnonymousVisitor(request, body.visitorId);
+  const visitorId = session.visitorId;
+  const ip = clientIp(request);
+  const burst = burstQuota("star-create", "ip", ip, 5, 10 * 60_000);
+  const dailyIp = persistentQuota("star-create", "ip", ip, 10, 24 * 60 * 60_000);
+  if (!burst.ok || !dailyIp.ok) {
+    return attachAnonymousVisitorCookie(
+      quotaResponse(Math.max(burst.retryAfter, dailyIp.retryAfter)),
+      request,
+      session,
+    );
+  }
+  const content = body.content;
 
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   const [countRow] = await db
@@ -88,11 +108,19 @@ export async function POST(request: Request) {
     .where(and(eq(stars.visitorId, visitorId || "anonymous"), gte(stars.createdAt, since)));
 
   if (Number(countRow?.n ?? 0) >= 3) {
-    return NextResponse.json({ error: "一天最多留 3 颗星哦，明天再来 ✨" }, { status: 429 });
+    return attachAnonymousVisitorCookie(
+      quotaResponse(24 * 60 * 60, "一天最多留 3 颗星哦，明天再来 ✨"),
+      request,
+      session,
+    );
   }
 
   const [row] = await db.insert(stars).values({ content, visitorId }).returning();
   // 留星封瓶：瓶里永远留着今天留下的这句话
   await grantBottle(visitorId, "star", row.id, body?.theme, content).catch(() => {});
-  return NextResponse.json({ star: { id: row.id, content: row.content, createdAt: row.createdAt, mine: true } });
+  return attachAnonymousVisitorCookie(
+    NextResponse.json({ star: { id: row.id, content: row.content, createdAt: row.createdAt, mine: true } }),
+    request,
+    session,
+  );
 }

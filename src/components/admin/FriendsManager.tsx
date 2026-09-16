@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Plus, Trash2, Pencil, X, Check, ExternalLink } from "lucide-react";
-import { saveFriend, deleteFriend } from "@/app/admin/actions";
+import { saveFriend, deleteFriend } from "@/app/admin/actions/community";
 import { UploadButton } from "@/components/admin/UploadButton";
 
 interface FriendRow {

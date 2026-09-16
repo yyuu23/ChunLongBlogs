@@ -106,9 +106,13 @@ export default async function PostDetailPage({ params }: PageProps) {
   };
 
   return (
-    <PageTransition>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
+      <PageTransition>
       <article data-cl-article className="mx-auto w-[min(96%,72rem)] pb-8">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {/* 面包屑 */}
         <nav className="mb-5 flex items-center gap-1.5 text-xs text-muted">
           <Link href="/" className="inline-flex items-center gap-1 hover-text-accent">
@@ -195,7 +199,7 @@ export default async function PostDetailPage({ params }: PageProps) {
 
             {/* 相关阅读（embedding 相似度推荐） */}
             <FadeIn delay={0.08}>
-              <RelatedPosts items={related} locale={locale} />
+              <RelatedPosts items={related} locale={locale} heading={t("posts.relatedReading")} />
             </FadeIn>
 
             {/* 上一篇 / 下一篇 */}
@@ -251,6 +255,7 @@ export default async function PostDetailPage({ params }: PageProps) {
           </aside>
         </div>
       </article>
-    </PageTransition>
+      </PageTransition>
+    </>
   );
 }

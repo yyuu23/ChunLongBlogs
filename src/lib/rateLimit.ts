@@ -24,11 +24,18 @@ export function rateLimit(key: string, limit = 20, windowMs = 60_000): { ok: boo
 }
 
 /** 从请求头取客户端 IP（生产在 nginx 反代后面）。
- *  需要 nginx 配置：proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
- *  （XFF 首段即真实客户端；取不到时退 x-real-ip，再退 "unknown" 共享桶）。 */
+ *  需要 nginx 覆盖 X-Real-IP 与 X-Forwarded-For 为 $remote_addr，不能附带客户端
+ *  自报的 XFF；取不到时退 "unknown"，公共配额层会让部署健康检查通过。 */
 export function clientIp(req: Request): string {
+  const trustProxy =
+    process.env.TRUST_PROXY === "1" ||
+    process.env.NODE_ENV === "test" ||
+    (process.env.TRUST_PROXY !== "0" && process.env.NODE_ENV === "production");
+  if (!trustProxy) return "unknown";
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const xff = req.headers.get("x-forwarded-for");
-  return xff?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  return xff?.split(",")[0]?.trim() || "unknown";
 }
 
 /** 每日计数器（内存，按服务器本地日期分桶）——防脚本低频长跑刷爆 API 账单。

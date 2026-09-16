@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { useEffects, type ParticleTheme } from "@/components/providers/EffectProvider";
+import { useEffects } from "@/components/providers/EffectProvider";
 import { resolveParticleTheme, type ActiveParticle } from "@/lib/particle-theme";
 import { Sakura, Fireflies, Leaves, Snow } from "./Particles";
 

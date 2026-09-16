@@ -1,22 +1,30 @@
 import Link from "next/link";
-import { useT } from "@/components/providers/LocaleProvider";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { AutoCover } from "@/components/posts/AutoCover";
 import type { RelatedPostItem } from "@/lib/rag";
+import { DATE_LOCALE, type Locale } from "@/lib/i18n/config";
 
 /**
  * 相关阅读（文章正文后）：embedding 相似度推荐（lib/rag relatedPosts），
- * 简化版卡片（无 3D 倾斜），空数组时整块不渲染。client 组件只为取 i18n 文案。
+ * 简化版卡片（无 3D 倾斜），空数组时整块不渲染。
+ * 文案由页面的服务端翻译函数传入，避免为了一个标题把整块变成客户端组件。
  */
-export function RelatedPosts({ items, locale }: { items: RelatedPostItem[]; locale: string }) {
-  const t = useT();
+export function RelatedPosts({
+  items,
+  locale,
+  heading,
+}: {
+  items: RelatedPostItem[];
+  locale: Locale;
+  heading: string;
+}) {
   if (!items.length) return null;
   const fmtDate = (d: Date | null) =>
-    d ? new Date(d).toLocaleDateString(locale === "zh" ? "zh-CN" : locale === "ja" ? "ja-JP" : locale === "ko" ? "ko-KR" : "en-US") : "";
+    d ? new Date(d).toLocaleDateString(DATE_LOCALE[locale]) : "";
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted">{t("posts.relatedReading")}</h2>
+      <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted">{heading}</h2>
       <div className="grid gap-4 sm:grid-cols-3">
         {items.map((p) => (
           <Link key={p.id} href={`/posts/${p.slug}`} className="glass-card glass-hover group block overflow-hidden !p-0">

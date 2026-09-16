@@ -1,6 +1,6 @@
 import { asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { categories, posts, tags } from "@/lib/db/schema";
+import { categories, tags } from "@/lib/db/schema";
 import { CategoriesTagsManager } from "@/components/admin/CategoriesTagsManager";
 
 export const dynamic = "force-dynamic";

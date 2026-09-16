@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ExternalLink, MessageSquareText, Trash2, Undo2 } from "lucide-react";
-import { setCommentDeleted } from "@/app/admin/actions";
+import { setCommentDeleted } from "@/app/admin/actions/community";
 
 export interface AdminCommentItem {
   id: number;

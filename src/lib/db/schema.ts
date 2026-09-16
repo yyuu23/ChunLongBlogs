@@ -232,6 +232,20 @@ export const visitorDays = sqliteTable(
 );
 
 /**
+ * 公共写接口的持久配额桶。key 只包含策略名与 HMAC 后的身份摘要，不落原始 IP。
+ * expiresAt 用于机会式清理；短时间突发限制仍由进程内滑动窗口负责。
+ */
+export const writeQuotaCounters = sqliteTable(
+  "write_quota_counters",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull().default(0),
+    expiresAt: integer("expires_at", ts).notNull(),
+  },
+  (t) => [index("write_quota_expires_idx").on(t.expiresAt)],
+);
+
+/**
  * GitHub 访客身份（OAuth 登录后 upsert）：只存公开资料，不存 access_token。
  * login/avatarUrl 每次登录刷新，评论与点赞的头像列表都从这里取。
  */

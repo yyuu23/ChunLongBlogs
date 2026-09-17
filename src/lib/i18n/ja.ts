@@ -134,6 +134,17 @@ export const ja: Dictionary = {
     pagePrev: "前のページ",
     pageNext: "次のページ",
   },
+  series: {
+    label: "記事シリーズ", progress: "{current} / {total} 本目", minutes: "合計 {n} 分", posts: "{n} 本の記事",
+    directory: "シリーズ目次", prev: "シリーズの前の記事", next: "シリーズの次の記事",
+    difficultyBeginner: "入門", difficultyIntermediate: "中級", difficultyAdvanced: "上級",
+  },
+  projects: {
+    title: "プロジェクト", subtitle: "課題、選択、成果、振り返り", viewAll: "すべてのプロジェクト",
+    related: "関連プロジェクト", relatedPosts: "実装と振り返りの記事", repository: "ソースを見る",
+    demo: "デモを見る", lab: "実験を開く", empty: "プロジェクト事例を整理中です", timeline: "成長タイムライン",
+    stage: { planned: "計画中", in_progress: "進行中", maintaining: "保守中", completed: "完了", archived: "アーカイブ" },
+  },
   time: {
     justNow: "たった今",
     minutesAgo: "{n} 分前",
@@ -340,6 +351,7 @@ export const ja: Dictionary = {
     affinityTitle: "看板娘との好感度：おしゃべり、頭撫で、毎日の訪問で少しずつ上がるよ",
     affinityProgress: "好感度 {cur} / {next}",
   },
+  difficulty: { beginner: "入門", intermediate: "中級", advanced: "上級" },
   chatPage: {
     title: "AI アシスタント",
     subtitle: "サイトQ&A · 技術トーク · 日常のおしゃべり",
@@ -370,6 +382,21 @@ export const ja: Dictionary = {
     yesterday: "昨日",
     earlier: "それ以前",
     deleteSessionAria: "会話を削除",
+    guideTitle: "AI とサイトを巡る",
+    guidePrefillHint: "クリックすると入力欄に入るだけで、送信はあなたが確認します。",
+    guideStarters: [
+      "今の時間に合う記事を探して",
+      "今のレベルに合う学習シリーズを勧めて",
+      "体験できるインタラクティブ実験を勧めて",
+    ],
+    preferencesTitle: "案内の好みを記憶する（任意）",
+    preferencesSaved: "好みを保存済み — 展開して確認・編集できます",
+    preferencesInterests: "興味（AI、フロントエンドなど）",
+    preferencesLevel: "現在のレベル",
+    preferencesGoal: "学習目標",
+    preferencesPrivacy: "このブラウザだけに30日間保存し、サーバー側の訪問者プロフィールは作りません。",
+    preferencesSave: "30日間保存",
+    preferencesClear: "消去",
     suggestions: [
       "このブログの技術スタックは？",
       "最近のつぶやきは？",

@@ -12,10 +12,13 @@ import { Comments } from "@/components/comments/Comments";
 import { CodeBlockTools } from "@/components/posts/CodeBlockTools";
 import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
 import { RelatedPosts } from "@/components/posts/RelatedPosts";
+import { SeriesNavigator } from "@/components/posts/SeriesNavigator";
+import { RelatedProjects } from "@/components/projects/RelatedProjects";
 import { ArticleAskBar } from "@/components/posts/ArticleAskBar";
 import { ArticleSelectionAsk } from "@/components/posts/ArticleSelectionAsk";
 import { getPostBySlug, getNeighborPosts } from "@/lib/posts";
 import { relatedPosts } from "@/lib/rag";
+import { getProjectsForPost, getSeriesForPost } from "@/lib/content-hub";
 import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/markdown";
 import { getSiteConfig } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
@@ -56,13 +59,15 @@ export default async function PostDetailPage({ params }: PageProps) {
   const [post, config, { t, locale }] = await Promise.all([getPostBySlug(slug), getSiteConfig(), getT()]);
   if (!post || post.status !== "published") notFound();
 
-  const [html, neighbors, related] = await Promise.all([
+  const [html, neighbors, related, seriesNav, projectItems] = await Promise.all([
     // 以内容派生 key 缓存渲染结果：shiki 十主题管线是 SSR 的 CPU 大头，
     // 热门文章重复访问不再重渲染；内容变更 key 自然改变
     renderMarkdown(post.content, markdownCacheKey("post", post.content)),
     getNeighborPosts(post.publishedAt, post.id),
     // 相关阅读：embedding 相似度，未配置/失败时 rag 内部回落同分类最新
     relatedPosts(post.id, 3),
+    getSeriesForPost(post.id),
+    getProjectsForPost(post.id),
   ]);
   const toc = extractToc(post.content);
 
@@ -151,6 +156,11 @@ export default async function PostDetailPage({ params }: PageProps) {
                       <CalendarDays className="h-3.5 w-3.5" />
                       {formatDate(post.publishedAt ?? post.createdAt)}
                     </span>
+                    {post.difficulty && (
+                      <span className="rounded-full bg-accent-soft px-2 py-0.5 text-accent">
+                        {t(`series.difficulty${post.difficulty[0]!.toUpperCase()}${post.difficulty.slice(1)}`)}
+                      </span>
+                    )}
                     <span className="inline-flex items-center gap-1">
                       <Clock3 className="h-3.5 w-3.5" />
                       {t("posts.wordMinute", { w: post.wordCount, m: post.readingTime })}
@@ -199,6 +209,21 @@ export default async function PostDetailPage({ params }: PageProps) {
               </div>
             </FadeIn>
 
+            {seriesNav && (
+              <FadeIn delay={0.04}>
+                <SeriesNavigator
+                  data={seriesNav}
+                  labels={{
+                    series: t("series.label"),
+                    progress: t("series.progress", { current: seriesNav.current, total: seriesNav.total }),
+                    directory: t("series.directory"),
+                    prev: t("series.prev"),
+                    next: t("series.next"),
+                  }}
+                />
+              </FadeIn>
+            )}
+
             {/* AI 伴读：读完即问——唤起悬浮聊天窗预填（文章全文由服务端注入 AI 上下文） */}
             <FadeIn delay={0.06}>
               <ArticleAskBar />
@@ -207,6 +232,10 @@ export default async function PostDetailPage({ params }: PageProps) {
             {/* 相关阅读（embedding 相似度推荐） */}
             <FadeIn delay={0.08}>
               <RelatedPosts items={related} locale={locale} heading={t("posts.relatedReading")} />
+            </FadeIn>
+
+            <FadeIn delay={0.09}>
+              <RelatedProjects items={projectItems} heading={t("projects.related")} />
             </FadeIn>
 
             {/* 上一篇 / 下一篇 */}

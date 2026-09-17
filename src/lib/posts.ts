@@ -180,6 +180,9 @@ export async function getPostBySlug(slug: string) {
     content: full[0]?.content ?? "",
     status: full[0]?.status ?? "draft",
     updatedAt: full[0]?.updatedAt ?? null,
+    seriesId: full[0]?.seriesId ?? null,
+    seriesOrder: full[0]?.seriesOrder ?? 0,
+    difficulty: full[0]?.difficulty ?? null,
   };
 }
 

@@ -10,6 +10,9 @@ import {
   playlists,
   postTags,
   posts,
+  projectPosts,
+  projects,
+  series,
   siteConfigs,
   songs,
   tags,
@@ -74,9 +77,9 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "备份文件不是有效的 JSON" }, { status: 400 });
   }
-  if (data.version !== 1 || typeof data.tables !== "object" || data.tables === null) {
+  if (![1, 2].includes(Number(data.version)) || typeof data.tables !== "object" || data.tables === null) {
     return NextResponse.json(
-      { error: "备份格式不符（version 应为 1，缺少 tables 字段），请确认是本站导出的备份" },
+      { error: "备份格式不符（仅支持 version 1/2，且必须包含 tables 字段）" },
       { status: 400 },
     );
   }
@@ -147,7 +150,38 @@ export async function POST(request: Request) {
         counts.tags++;
       });
 
-      /* ---------- ③ posts ---------- */
+      /* ---------- ③ series（先于 posts：seriesId 外键） ---------- */
+      const seriesSlugById = new Map(
+        db.select({ id: series.id, slug: series.slug }).from(series).all().map((row) => [row.id, row.slug]),
+      );
+      const seriesSlugTaken = new Set(seriesSlugById.values());
+      counts.series = 0;
+      arr("series").forEach((r, i) => {
+        const id = num(r.id);
+        let slug = str(r.slug);
+        if (!seriesSlugById.has(id) && slug && seriesSlugTaken.has(slug)) slug = `${slug}-${suffix}`;
+        const values = {
+          id,
+          title: str(r.title, "未命名系列"),
+          slug,
+          description: str(r.description),
+          cover: str(r.cover),
+          status: r.status === "published" ? ("published" as const) : ("draft" as const),
+          sort: num(r.sort),
+          createdAt: reqDate(r.createdAt),
+          updatedAt: reqDate(r.updatedAt),
+        };
+        try {
+          db.insert(series).values(values).onConflictDoUpdate({ target: series.id, set: values }).run();
+        } catch (e) {
+          throw new Error(`series 表第 ${i + 1} 行：${(e as Error).message}`);
+        }
+        seriesSlugById.set(id, slug);
+        seriesSlugTaken.add(slug);
+        counts.series++;
+      });
+
+      /* ---------- ④ posts ---------- */
       const postSlugById = new Map(
         db.select({ id: posts.id, slug: posts.slug }).from(posts).all().map((r) => [r.id, r.slug]),
       );
@@ -166,9 +200,15 @@ export async function POST(request: Request) {
           content: str(r.content),
           cover: str(r.cover),
           categoryId: r.categoryId == null ? null : num(r.categoryId),
-          status: r.status === "published" ? ("published" as const) : ("draft" as const),
+          seriesId: r.seriesId == null ? null : num(r.seriesId),
+          seriesOrder: Math.max(0, num(r.seriesOrder)),
+          difficulty: ["beginner", "intermediate", "advanced"].includes(str(r.difficulty))
+            ? (str(r.difficulty) as "beginner" | "intermediate" | "advanced")
+            : null,
+          status: r.status === "published" ? ("published" as const) : r.status === "scheduled" ? ("scheduled" as const) : ("draft" as const),
           isPinned: Boolean(r.isPinned),
           views: num(r.views),
+          likes: num(r.likes),
           wordCount: num(r.wordCount),
           readingTime: Math.max(1, num(r.readingTime, 1)),
           createdAt: reqDate(r.createdAt),
@@ -185,7 +225,7 @@ export async function POST(request: Request) {
         counts.posts++;
       });
 
-      /* ---------- ④ postTags（复合主键链接表，冲突静默跳过） ---------- */
+      /* ---------- ⑤ postTags（复合主键链接表，冲突静默跳过） ---------- */
       counts.postTags = 0;
       arr("postTags").forEach((r, i) => {
         const values = { postId: num(r.postId), tagId: num(r.tagId) };
@@ -197,7 +237,60 @@ export async function POST(request: Request) {
         counts.postTags++;
       });
 
-      /* ---------- ⑤~⑩ 无唯一列的内容表（统一按 id upsert） ---------- */
+      /* ---------- ⑥ projects 与 projectPosts ---------- */
+      const projectSlugById = new Map(
+        db.select({ id: projects.id, slug: projects.slug }).from(projects).all().map((row) => [row.id, row.slug]),
+      );
+      const projectSlugTaken = new Set(projectSlugById.values());
+      counts.projects = 0;
+      arr("projects").forEach((r, i) => {
+        const id = num(r.id);
+        let slug = str(r.slug);
+        if (!projectSlugById.has(id) && slug && projectSlugTaken.has(slug)) slug = `${slug}-${suffix}`;
+        const values = {
+          id,
+          title: str(r.title, "未命名项目"),
+          slug,
+          summary: str(r.summary),
+          content: str(r.content),
+          cover: str(r.cover),
+          status: r.status === "published" ? ("published" as const) : ("draft" as const),
+          stage: ["planned", "in_progress", "maintaining", "completed", "archived"].includes(str(r.stage))
+            ? (str(r.stage) as "planned" | "in_progress" | "maintaining" | "completed" | "archived")
+            : ("in_progress" as const),
+          techStack: jsonArrayOfStrings(r.techStack),
+          repoUrl: str(r.repoUrl),
+          demoUrl: str(r.demoUrl),
+          labSlug: r.labSlug == null ? null : str(r.labSlug),
+          sort: num(r.sort),
+          startedAt: toDate(r.startedAt),
+          createdAt: reqDate(r.createdAt),
+          updatedAt: reqDate(r.updatedAt),
+        };
+        try {
+          db.insert(projects).values(values).onConflictDoUpdate({ target: projects.id, set: values }).run();
+        } catch (e) {
+          throw new Error(`projects 表第 ${i + 1} 行：${(e as Error).message}`);
+        }
+        projectSlugById.set(id, slug);
+        projectSlugTaken.add(slug);
+        counts.projects++;
+      });
+      counts.projectPosts = 0;
+      arr("projectPosts").forEach((r, i) => {
+        const values = { projectId: num(r.projectId), postId: num(r.postId), sort: num(r.sort) };
+        try {
+          db.insert(projectPosts).values(values).onConflictDoUpdate({
+            target: [projectPosts.projectId, projectPosts.postId],
+            set: { sort: values.sort },
+          }).run();
+        } catch (e) {
+          throw new Error(`projectPosts 表第 ${i + 1} 行：${(e as Error).message}`);
+        }
+        counts.projectPosts++;
+      });
+
+      /* ---------- ⑦~⑫ 无唯一列的内容表（统一按 id upsert） ---------- */
       const simpleTables = [
         { name: "moments", table: moments, rows: arr("moments"), map: (r: Row) => ({
           id: num(r.id), content: str(r.content), images: jsonArrayOfStrings(r.images),
@@ -237,7 +330,7 @@ export async function POST(request: Request) {
         });
       }
 
-      /* ---------- ⑪ 站点配置（单行 JSON） ---------- */
+      /* ---------- ⑬ 站点配置（单行 JSON） ---------- */
       if (data.siteConfig && typeof data.siteConfig === "object") {
         const value = JSON.stringify(data.siteConfig);
         db.insert(siteConfigs)

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   FileText,
   FolderOpen,
+  LibraryBig,
   MessageCircleHeart,
   MessagesSquare,
   Users,
@@ -26,6 +27,7 @@ import { logoutAction } from "@/app/admin/actions/auth";
 const NAV = [
   { href: "/admin", label: "仪表盘", icon: LayoutDashboard },
   { href: "/admin/posts", label: "文章管理", icon: FileText },
+  { href: "/admin/content", label: "系列与项目", icon: LibraryBig },
   { href: "/admin/categories", label: "分类与标签", icon: FolderOpen },
   { href: "/admin/moments", label: "说说管理", icon: MessageCircleHeart },
   { href: "/admin/comments", label: "评论管理", icon: MessagesSquare },

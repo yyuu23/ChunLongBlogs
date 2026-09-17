@@ -18,6 +18,7 @@ import {
   Wand2,
   Undo2,
   Clock,
+  HeartPulse,
 } from "lucide-react";
 import { savePost } from "@/app/admin/actions/posts";
 import { UploadButton } from "@/components/admin/UploadButton";
@@ -36,6 +37,9 @@ export interface EditorPostData {
   content: string;
   cover: string;
   categoryId: number | null;
+  seriesId: number | null;
+  seriesOrder: number;
+  difficulty: "beginner" | "intermediate" | "advanced" | null;
   tagNames: string[];
   status: "draft" | "published" | "scheduled";
   isPinned: boolean;
@@ -44,15 +48,27 @@ export interface EditorPostData {
 }
 
 type Mode = "edit" | "split" | "preview";
+type HealthResult = {
+  missingSections: string[];
+  brokenLinks: string[];
+  issues: Array<{ title: string; detail: string }>;
+  prerequisites: string[];
+  outdatedHints: string[];
+  similarPosts: Array<{ id: number; title: string; slug: string }>;
+  nextTopics: string[];
+  aiError?: string;
+};
 
 export function PostEditor({
   initial,
   categories,
+  seriesOptions,
   allTags,
   aiCoverEnabled = false,
 }: {
   initial: EditorPostData;
   categories: { id: number; name: string }[];
+  seriesOptions: { id: number; title: string }[];
   allTags: string[];
   /** 配置了智谱 key（CogView）时编辑页传入，显示「AI 生成」封面按钮 */
   aiCoverEnabled?: boolean;
@@ -68,6 +84,8 @@ export function PostEditor({
   const [aiTitling, setAiTitling] = useState(false);
   const [aiSlugging, setAiSlugging] = useState(false);
   const [polishing, setPolishing] = useState(false);
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [health, setHealth] = useState<HealthResult | null>(null);
   /** 润色前的正文备份：null = 未润色过；再次润色会刷新备份（撤销只有一级） */
   const [polishBackup, setPolishBackup] = useState<string | null>(null);
   /** 字段已有内容时，对应按钮原地切换成"确定覆盖 / 取消"的内联确认态 */
@@ -295,6 +313,37 @@ export function PostEditor({
     setMessage({ type: "ok", text: "已撤销润色，恢复原文 ✓" });
   };
 
+  const checkContentHealth = async () => {
+    if (data.content.trim().length < 20) {
+      setMessage({ type: "err", text: "正文太短，暂时无法检查" });
+      return;
+    }
+    setCheckingHealth(true);
+    setHealth(null);
+    try {
+      const response = await fetch("/api/admin/content-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: data.id, title: data.title, content: data.content }),
+        signal: AbortSignal.timeout(75_000),
+      });
+      const result = (await response.json()) as HealthResult & { error?: string };
+      if (!response.ok) {
+        setMessage({ type: "err", text: result.error ?? "内容检查失败，请重试" });
+        return;
+      }
+      setHealth(result);
+      setMessage({ type: "ok", text: "内容健康检查完成；所有结论仅供编辑参考" });
+    } catch (error) {
+      setMessage({
+        type: "err",
+        text: error instanceof DOMException && error.name === "TimeoutError" ? "内容检查超时，请重试" : "内容检查失败，请检查网络",
+      });
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
+
   /** AI 依据标题+正文生成标签建议：显示为翠绿词条点击添加，不动已有标签 */
   const aiSuggestTags = async () => {
     if (data.content.trim().length < 20) {
@@ -404,6 +453,16 @@ export function PostEditor({
             </span>
           )}
           <button
+            type="button"
+            onClick={() => void checkContentHealth()}
+            disabled={checkingHealth || saving}
+            title="检查结构完整性、前置知识、站内链接、相似文章和可能过时的技术说明"
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-60"
+          >
+            {checkingHealth ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HeartPulse className="h-3.5 w-3.5" />}
+            {checkingHealth ? "检查中…" : "内容健康检查"}
+          </button>
+          <button
             onClick={() => save("draft")}
             disabled={saving}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-60"
@@ -433,6 +492,39 @@ export function PostEditor({
           </button>
         </div>
       </header>
+
+      {health && (
+        <section className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-slate-600">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-slate-800">内容健康建议</h2>
+            <button type="button" onClick={() => setHealth(null)} aria-label="关闭建议" className="text-slate-400 hover:text-slate-700">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">建议不会自动修改正文、系列或发布状态。</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <HealthList title="结构可补充" items={health.missingSections} />
+            <HealthList title="失效站内链接" items={health.brokenLinks.map((slug) => `/posts/${slug}`)} danger />
+            <HealthList title="前置知识" items={health.prerequisites} />
+            <HealthList title="可能过时，建议核验" items={health.outdatedHints} />
+            <HealthList title="后续选题" items={health.nextTopics} />
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500">相似但尚未关联</h3>
+              {health.similarPosts.length ? (
+                <ul className="mt-1 space-y-1 text-xs">
+                  {health.similarPosts.map((post) => <li key={post.id}>• {post.title}（/posts/{post.slug}）</li>)}
+                </ul>
+              ) : <p className="mt-1 text-xs text-slate-400">暂无明确建议</p>}
+            </div>
+          </div>
+          {health.issues.length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-indigo-100 pt-3">
+              {health.issues.map((issue, index) => <p key={`${issue.title}-${index}`} className="text-xs"><b>{issue.title}：</b>{issue.detail}</p>)}
+            </div>
+          )}
+          {health.aiError && <p className="mt-3 text-xs text-amber-600">AI 检查未完成：{health.aiError}；上方本地规则检查仍有效。</p>}
+        </section>
+      )}
 
       {/* 定时发布面板：datetime-local（默认明天 9:00），确认后以 scheduled 状态保存 */}
       {schedule.isOpen && (
@@ -556,6 +648,46 @@ export function PostEditor({
                 {c.name}
               </option>
             ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-slate-500">所属系列</span>
+          <select
+            value={data.seriesId ?? ""}
+            onChange={(e) => set("seriesId", e.target.value ? Number(e.target.value) : null)}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400"
+          >
+            <option value="">不属于系列</option>
+            {seriesOptions.map((item) => (
+              <option key={item.id} value={item.id}>{item.title}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-slate-500">系列顺序</span>
+          <input
+            type="number"
+            min={0}
+            value={data.seriesOrder}
+            onChange={(e) => set("seriesOrder", Math.max(0, Number(e.target.value) || 0))}
+            disabled={!data.seriesId}
+            className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-300"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-slate-500">阅读难度</span>
+          <select
+            value={data.difficulty ?? ""}
+            onChange={(e) => set("difficulty", (e.target.value || null) as EditorPostData["difficulty"])}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-indigo-400"
+          >
+            <option value="">未设置</option>
+            <option value="beginner">入门</option>
+            <option value="intermediate">进阶</option>
+            <option value="advanced">深入</option>
           </select>
         </label>
 
@@ -901,6 +1033,21 @@ export function PostEditor({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function HealthList({ title, items, danger = false }: { title: string; items: string[]; danger?: boolean }) {
+  return (
+    <div>
+      <h3 className={`text-xs font-semibold ${danger && items.length ? "text-rose-500" : "text-slate-500"}`}>{title}</h3>
+      {items.length ? (
+        <ul className={`mt-1 space-y-1 text-xs ${danger ? "text-rose-500" : ""}`}>
+          {items.map((item) => <li key={item}>• {item}</li>)}
+        </ul>
+      ) : (
+        <p className="mt-1 text-xs text-slate-400">暂无明确建议</p>
+      )}
     </div>
   );
 }

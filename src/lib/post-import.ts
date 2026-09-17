@@ -4,14 +4,15 @@
  * （actions.ts）与本地脚本 scripts/import-posts.ts 共用这一份。
  *
  * 字段约定与 scripts/seed.ts 一致：title/slug/description/cover/
- * category(slug)/tags([])/date/pinned/draft。分类与标签不存在则自动创建。
+ * category(slug)/series(slug)/seriesOrder/difficulty/tags([])/date/pinned/draft。
+ * 分类、标签与显式声明的系列不存在时自动创建为草稿系列。
  */
 import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import matter from "gray-matter";
 import { db } from "@/lib/db";
-import { categories, postTags, posts, tags } from "@/lib/db/schema";
+import { categories, postTags, posts, series, tags } from "@/lib/db/schema";
 import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
 
 export interface ImportResult {
@@ -44,6 +45,24 @@ export async function importMarkdownPost(raw: string, file: string): Promise<Imp
       categoryId = cat.id;
     }
 
+    let seriesId: number | null = null;
+    const seriesSlug = String(data.series ?? "").trim();
+    if (seriesSlug) {
+      let item = (await db.select().from(series).where(eq(series.slug, seriesSlug)).limit(1))[0];
+      if (!item) {
+        item = (await db.insert(series).values({
+          title: String(data.seriesTitle ?? seriesSlug),
+          slug: seriesSlug,
+          description: String(data.seriesDescription ?? ""),
+          status: "draft",
+        }).returning())[0]!;
+      }
+      seriesId = item.id;
+    }
+    const difficulty = ["beginner", "intermediate", "advanced"].includes(String(data.difficulty))
+      ? (String(data.difficulty) as "beginner" | "intermediate" | "advanced")
+      : null;
+
     const existing = (await db.select({ id: posts.id }).from(posts).where(eq(posts.slug, slug)).limit(1))[0];
     const payload = {
       title,
@@ -52,6 +71,9 @@ export async function importMarkdownPost(raw: string, file: string): Promise<Imp
       content,
       cover: String(data.cover ?? ""),
       categoryId,
+      seriesId,
+      seriesOrder: Math.max(0, Number(data.seriesOrder) || 0),
+      difficulty,
       status: isDraft ? ("draft" as const) : ("published" as const),
       isPinned: Boolean(data.pinned),
       wordCount: countWords(content),

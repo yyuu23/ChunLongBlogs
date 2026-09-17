@@ -12,6 +12,7 @@ import {
 import { UploadButton } from "@/components/admin/UploadButton";
 import { parseFestivalQuotes, stringifyFestivalQuotes } from "@/lib/festival-quotes";
 import type { SiteConfig } from "@/lib/site";
+import type { EmbeddingIndexStatus } from "@/lib/rag";
 
 const label = "flex flex-col gap-1.5";
 const input =
@@ -38,7 +39,7 @@ interface ImportPreview {
   counts: { label: string; n: number }[];
 }
 
-export function SettingsForm({ initial }: { initial: SiteConfig }) {
+export function SettingsForm({ initial, embeddingStatus }: { initial: SiteConfig; embeddingStatus: EmbeddingIndexStatus }) {
   const router = useRouter();
   const [config, setConfig] = useState<SiteConfig>(initial);
   const [pending, startTransition] = useTransition();
@@ -61,6 +62,7 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
     setEmbedBusy(false);
     if ("error" in r && r.error) setEmbedMsg(`❌ ${r.error}`);
     else if ("message" in r && r.message) setEmbedMsg(`✅ ${r.message}`);
+    router.refresh();
   };
 
   /** 为 description 为空的文章补 AI 摘要：每次 5 篇，剩余量提示继续点击 */
@@ -418,6 +420,14 @@ export function SettingsForm({ initial }: { initial: SiteConfig }) {
         </label>
         <div className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">AI 博客问答（RAG）向量索引</span>
+          <div className="grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500 sm:grid-cols-4">
+            <span>已发布 <b className="text-slate-700">{embeddingStatus.publishedPosts}</b> 篇</span>
+            <span>已索引 <b className="text-slate-700">{embeddingStatus.indexedPosts}</b> 篇</span>
+            <span>向量块 <b className="text-slate-700">{embeddingStatus.chunks}</b> 个</span>
+            <span>{embeddingStatus.configured ? "Embedding 已配置" : "当前使用关键词降级"}</span>
+            {embeddingStatus.lastIndexedAt && <span className="sm:col-span-2">最近索引：{embeddingStatus.lastIndexedAt.toLocaleString("zh-CN")}</span>}
+            {embeddingStatus.lastError && <span className="text-rose-500 sm:col-span-4">最近错误：{embeddingStatus.lastError}</span>}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={rebuildEmbeddings}

@@ -297,7 +297,7 @@ function CommentNode({
                 <button
                   type="button"
                   onClick={() => onReply(comment.id, comment.author!.login)}
-                  className="inline-flex items-center gap-1 transition-colors hover:text-accent"
+                  className="inline-flex items-center gap-1 transition-colors hover-text-accent"
                 >
                   <Reply className="h-3 w-3" />
                   {t("posts.commentReply")}

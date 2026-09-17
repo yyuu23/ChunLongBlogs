@@ -44,6 +44,7 @@ import { useChatSessionIndex } from "./useChatSessionIndex";
 import { SUMMARY_WINDOW, clearSummary, readSummary, shouldSummarize, summarizeOverflow } from "@/lib/chatSummary";
 import { buildChatMarkdown, downloadBlob } from "@/lib/chatExport";
 import { ShareCardDialog } from "./ShareCardDialog";
+import { GuideStarters } from "./GuideStarters";
 
 export function ChatPageClient({
   aiChoices,
@@ -193,8 +194,6 @@ export function ChatPageClient({
   };
 
   const onlyWelcome = messages.length === 1 && messages[0]!.role === "assistant";
-  const suggestions = onlyWelcome ? tArr("chatPage.suggestions") : [];
-
   // 对话进行中常驻的小提示：从"还没问过的"里按用户轮次确定性轮换 3 枚。
   // asked 由 messages 派生 —— 天然覆盖历史恢复/会话切换/编辑重生成三种场景
   const pool = tArr("chatPage.suggestions");
@@ -360,17 +359,14 @@ export function ChatPageClient({
             })}
 
             {/* 空会话：快捷问题（大版） */}
-            {onlyWelcome && suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {suggestions.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => doSend(s)}
-                    className="glass-button !rounded-full !px-3.5 !py-1.5 text-xs text-muted transition-colors hover:text-accent"
-                  >
-                    {s}
-                  </button>
-                ))}
+            {onlyWelcome && (
+              <div className="pt-2">
+                <GuideStarters
+                  onSelect={(question) => {
+                    setInput(question);
+                    window.setTimeout(() => taRef.current?.focus(), 0);
+                  }}
+                />
               </div>
             )}
             <div ref={endRef} />

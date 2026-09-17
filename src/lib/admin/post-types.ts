@@ -6,6 +6,9 @@ export interface PostInput {
   content: string;
   cover?: string;
   categoryId?: number | null;
+  seriesId?: number | null;
+  seriesOrder?: number;
+  difficulty?: "beginner" | "intermediate" | "advanced" | null;
   tagNames: string[];
   status: "draft" | "published" | "scheduled";
   isPinned?: boolean;

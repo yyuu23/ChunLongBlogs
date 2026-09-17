@@ -26,6 +26,9 @@ export async function savePost(input: PostInput) {
     content,
     cover: input.cover ?? "",
     categoryId: input.categoryId ?? null,
+    seriesId: input.seriesId ?? null,
+    seriesOrder: Math.max(0, Math.floor(input.seriesOrder ?? 0)),
+    difficulty: input.difficulty ?? null,
     status: input.status,
     isPinned: input.isPinned ?? false,
     wordCount: countWords(content),
@@ -135,5 +138,9 @@ export async function deletePostsByIds(ids: number[]) {
   if (!ids.length) return;
   await db.delete(postTags).where(inArray(postTags.postId, ids));
   await db.delete(posts).where(inArray(posts.id, ids));
+  try {
+    const { deleteEmbeddings } = await import("@/lib/rag");
+    await Promise.all(ids.map((id) => deleteEmbeddings("post", id)));
+  } catch {}
   revalidateSite();
 }

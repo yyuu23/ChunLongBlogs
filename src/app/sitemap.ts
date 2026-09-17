@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { posts } from "@/lib/db/schema";
+import { posts, projects, series } from "@/lib/db/schema";
 import { LAB_DEMOS } from "@/lib/lab-demos";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/albums",
     "/friends",
     "/about",
+    "/projects",
     // 功能页：收录但降权（应用型页面，内容更新频率低）
     "/music",
     "/lab",
@@ -29,18 +30,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   let postPages: MetadataRoute.Sitemap = [];
+  let contentPages: MetadataRoute.Sitemap = [];
   try {
-    const rows = await db
-      .select({ slug: posts.slug, updated: posts.updatedAt })
-      .from(posts)
-      .where(eq(posts.status, "published"))
-      .orderBy(desc(posts.publishedAt));
+    const [rows, seriesRows, projectRows] = await Promise.all([
+      db.select({ slug: posts.slug, updated: posts.updatedAt }).from(posts).where(eq(posts.status, "published")).orderBy(desc(posts.publishedAt)),
+      db.select({ slug: series.slug, updated: series.updatedAt }).from(series).where(eq(series.status, "published")),
+      db.select({ slug: projects.slug, updated: projects.updatedAt }).from(projects).where(eq(projects.status, "published")),
+    ]);
     postPages = rows.map((r) => ({
       url: `${base}/posts/${r.slug}`,
       lastModified: r.updated,
       changeFrequency: "monthly",
       priority: 0.8,
     }));
+    contentPages = [
+      ...seriesRows.map((row) => ({ url: `${base}/series/${row.slug}`, lastModified: row.updated, changeFrequency: "monthly" as const, priority: 0.65 })),
+      ...projectRows.map((row) => ({ url: `${base}/projects/${row.slug}`, lastModified: row.updated, changeFrequency: "monthly" as const, priority: 0.75 })),
+    ];
   } catch {
     // 数据库不可用时至少返回静态页
   }
@@ -53,5 +59,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.4,
   }));
 
-  return [...staticPages, ...postPages, ...demoPages];
+  return [...staticPages, ...postPages, ...contentPages, ...demoPages];
 }

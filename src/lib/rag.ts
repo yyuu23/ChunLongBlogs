@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./db";
-import { categories, embeddings, moments, posts } from "./db/schema";
+import { categories, embeddingIndexState, embeddings, moments, posts, series } from "./db/schema";
+import { getPostTagNames } from "@/lib/content-hub";
 
 /** ===== Embedding（可选配置，未配置时 RAG 自动走关键词检索） ===== */
 
@@ -29,19 +30,54 @@ async function embed(texts: string[]): Promise<number[][]> {
   return list;
 }
 
-/** 按 ~600 字切块（标题附加在每个块前，提升检索质量） */
-function chunkPost(title: string, content: string): string[] {
+interface PostEmbeddingMeta {
+  title: string;
+  slug: string;
+  category?: string | null;
+  series?: string | null;
+  tags?: string[];
+  updatedAt?: Date;
+}
+
+/**
+ * 按 Markdown 标题与自然段切块。每块都附带可追溯元数据，既提升召回，也让模型
+ * 得到片段时知道它来自哪篇文章/系列；不在代码围栏中按标题误切。
+ */
+export function chunkPostForEmbedding(meta: PostEmbeddingMeta, content: string): string[] {
   const chunks: string[] = [];
-  let current = "";
-  for (const para of content.split(/\n{2,}/)) {
-    if ((current + para).length > 600 && current) {
-      chunks.push(`《${title}》\n${current}`);
-      current = "";
+  let heading = "";
+  let current: string[] = [];
+  let size = 0;
+  let inFence = false;
+  const prefix = [
+    `文章：《${meta.title}》`,
+    `链接：/posts/${meta.slug}`,
+    meta.series ? `系列：${meta.series}` : "",
+    meta.category ? `分类：${meta.category}` : "",
+    meta.tags?.length ? `标签：${meta.tags.join("、")}` : "",
+    meta.updatedAt ? `更新：${meta.updatedAt.toISOString().slice(0, 10)}` : "",
+  ].filter(Boolean).join("｜");
+  const flush = () => {
+    const body = current.join("\n\n").trim();
+    if (body) chunks.push(`${prefix}${heading ? `\n章节：${heading}` : ""}\n${body}`);
+    current = [];
+    size = 0;
+  };
+
+  for (const block of content.split(/\n{2,}/)) {
+    const fenceCount = (block.match(/```/g) ?? []).length;
+    const titleLine = !inFence ? block.match(/^#{1,4}\s+(.+)$/)?.[1]?.trim() : undefined;
+    if (titleLine) {
+      flush();
+      heading = titleLine.slice(0, 120);
     }
-    current += `${para}\n\n`;
+    if (size + block.length > 800 && current.length) flush();
+    current.push(block);
+    size += block.length;
+    if (fenceCount % 2 === 1) inFence = !inFence;
   }
-  if (current.trim()) chunks.push(`《${title}》\n${current.trim()}`);
-  return chunks.slice(0, 12);
+  flush();
+  return chunks.slice(0, 20);
 }
 
 /** 说说可检索文本：极短不切块，mood/location/年月拼入提升召回与时间语境 */
@@ -62,46 +98,123 @@ export async function deleteEmbeddings(refType: RebuildSource, refId: number) {
 /** 向量重建结果：未配置 key 或失败时走 error 分支 */
 export type RebuildSource = "post" | "moment";
 
+async function writeIndexState(source: RebuildSource, error = "") {
+  const now = new Date();
+  await db
+    .insert(embeddingIndexState)
+    .values({ source, lastRunAt: now, lastSuccessAt: error ? null : now, lastError: error })
+    .onConflictDoUpdate({
+      target: embeddingIndexState.source,
+      set: {
+        lastRunAt: now,
+        ...(error ? {} : { lastSuccessAt: now }),
+        lastError: error,
+      },
+    });
+}
+
+export interface EmbeddingIndexStatus {
+  configured: boolean;
+  publishedPosts: number;
+  indexedPosts: number;
+  chunks: number;
+  lastIndexedAt: Date | null;
+  lastRunAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastError: string;
+}
+
+export async function getEmbeddingIndexStatus(): Promise<EmbeddingIndexStatus> {
+  const [publishedRows, indexRows, lastRows, stateRows] = await Promise.all([
+    db.select({ n: sql<number>`count(*)` }).from(posts).where(eq(posts.status, "published")),
+    db
+      .select({ chunks: sql<number>`count(*)`, posts: sql<number>`count(distinct ${embeddings.refId})` })
+      .from(embeddings)
+      .where(eq(embeddings.refType, "post")),
+    db
+      .select({ createdAt: embeddings.createdAt })
+      .from(embeddings)
+      .where(eq(embeddings.refType, "post"))
+      .orderBy(desc(embeddings.createdAt))
+      .limit(1),
+    db.select().from(embeddingIndexState).where(eq(embeddingIndexState.source, "post")).limit(1),
+  ]);
+  return {
+    configured: embeddingConfigured(),
+    publishedPosts: Number(publishedRows[0]?.n ?? 0),
+    indexedPosts: Number(indexRows[0]?.posts ?? 0),
+    chunks: Number(indexRows[0]?.chunks ?? 0),
+    lastIndexedAt: lastRows[0]?.createdAt ?? null,
+    lastRunAt: stateRows[0]?.lastRunAt ?? null,
+    lastSuccessAt: stateRows[0]?.lastSuccessAt ?? null,
+    lastError: stateRows[0]?.lastError ?? "",
+  };
+}
+
 /** 为单篇（或全部）已发布文章重建向量索引 */
 export async function rebuildPostEmbeddings(
   postId?: number,
-): Promise<{ error: string } | { ok: true; chunks: number; posts: number }> {
+): Promise<{ error: string } | { ok: true; chunks: number; posts: number; failures: number }> {
   if (!embeddingConfigured()) {
-    return { error: "未配置 EMBEDDING_API_KEY，当前使用关键词检索（不影响问答功能）" };
+    const error = "未配置 EMBEDDING_API_KEY，当前使用关键词检索（不影响问答功能）";
+    await writeIndexState("post", error);
+    return { error };
   }
   const rows = postId
     ? await db.select().from(posts).where(eq(posts.id, postId))
     : await db.select().from(posts);
   const published = rows.filter((p) => p.status === "published");
+  if (postId && !published.length) {
+    await deleteEmbeddings("post", postId);
+    await writeIndexState("post");
+    return { ok: true, chunks: 0, posts: 0, failures: 0 };
+  }
+  if (!postId) {
+    const publishedIds = published.map((post) => post.id);
+    const oldRows = await db.select({ refId: embeddings.refId }).from(embeddings).where(eq(embeddings.refType, "post"));
+    const stale = [...new Set(oldRows.map((row) => row.refId).filter((id) => !publishedIds.includes(id)))];
+    if (stale.length) await db.delete(embeddings).where(and(eq(embeddings.refType, "post"), inArray(embeddings.refId, stale)));
+  }
 
-  // 必须带 refType 条件：embeddings 表被文章和说说共用，同 id 会误删对方；
-  // 全量分支同样要先清旧数据，否则每按一次重建按钮向量行就翻一倍。
-  await db.delete(embeddings).where(
-    postId
-      ? and(eq(embeddings.refType, "post"), eq(embeddings.refId, postId))
-      : eq(embeddings.refType, "post"),
-  );
+  const [categoryRows, seriesRows, tagMap] = await Promise.all([
+    db.select().from(categories),
+    db.select().from(series),
+    getPostTagNames(published.map((post) => post.id)),
+  ]);
+  const categoryMap = new Map(categoryRows.map((item) => [item.id, item.name]));
+  const seriesMap = new Map(seriesRows.map((item) => [item.id, item.title]));
 
   let count = 0;
+  let failures = 0;
+  let lastError = "";
   for (const post of published) {
-    const chunks = chunkPost(post.title, post.content);
+    const chunks = chunkPostForEmbedding(
+      {
+        title: post.title,
+        slug: post.slug,
+        category: post.categoryId ? categoryMap.get(post.categoryId) : null,
+        series: post.seriesId ? seriesMap.get(post.seriesId) : null,
+        tags: tagMap.get(post.id) ?? [],
+        updatedAt: post.updatedAt,
+      },
+      post.content,
+    );
     if (!chunks.length) continue;
     try {
       const vectors = await embed(chunks);
-      await db.insert(embeddings).values(
-        chunks.map((chunk, i) => ({
-          refType: "post",
-          refId: post.id,
-          chunk,
-          vector: JSON.stringify(vectors[i]),
-        })),
-      );
+      db.$client.transaction(() => {
+        db.delete(embeddings).where(and(eq(embeddings.refType, "post"), eq(embeddings.refId, post.id))).run();
+        db.insert(embeddings).values(chunks.map((chunk, i) => ({ refType: "post", refId: post.id, chunk, vector: JSON.stringify(vectors[i]) }))).run();
+      })();
       count += chunks.length;
-    } catch {
-      // 单篇失败不阻塞整体
+    } catch (error) {
+      failures += 1;
+      lastError = error instanceof Error ? error.message : "向量生成失败";
     }
   }
-  return { ok: true as const, chunks: count, posts: published.length };
+  await writeIndexState("post", failures ? `${failures} 篇失败：${lastError}` : "");
+  if (failures === published.length && published.length > 0) return { error: lastError || "向量生成失败" };
+  return { ok: true as const, chunks: count, posts: published.length - failures, failures };
 }
 
 /** 为单条（或全部）说说重建向量索引：一条一个文档，批量一次 embed */
@@ -263,12 +376,25 @@ async function vectorSearch(query: string, topK = 3): Promise<RetrievedChunk[]> 
     .slice(0, topK);
 }
 
-/** 对外入口：优先向量，未配置/失败回落关键词 */
+/** 对外入口：向量与关键词并行，用倒数排名融合；任一不可用时自然降级。 */
 export async function retrieveContext(query: string, topK = 3) {
   if (embeddingConfigured()) {
     try {
-      const hits = await vectorSearch(query, topK);
-      if (hits.length) return { mode: "vector" as const, hits };
+      const [vectors, keywords] = await Promise.all([vectorSearch(query, topK * 2), keywordSearch(query, topK * 2)]);
+      if (vectors.length) {
+        const merged = new Map<string, { hit: RetrievedChunk; score: number }>();
+        const keyOf = (hit: RetrievedChunk) => hit.kind === "post" ? `post:${hit.postId}` : `moment:${hit.momentId}`;
+        vectors.forEach((hit, index) => merged.set(keyOf(hit), { hit, score: 1 / (60 + index) }));
+        keywords.forEach((hit, index) => {
+          const key = keyOf(hit);
+          const current = merged.get(key);
+          merged.set(key, { hit: current?.hit ?? hit, score: (current?.score ?? 0) + 1 / (60 + index) });
+        });
+        return {
+          mode: "hybrid" as const,
+          hits: [...merged.values()].sort((a, b) => b.score - a.score).slice(0, topK).map(({ hit }) => hit),
+        };
+      }
     } catch {
       // 回落
     }

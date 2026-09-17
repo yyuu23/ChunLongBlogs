@@ -125,7 +125,7 @@ export async function rebuildEmbeddingsAction() {
     if (!("ok" in momentsResult)) return { error: momentsResult.error };
     return {
       ok: true as const,
-      message: `已为 ${postsResult.posts} 篇文章、${momentsResult.moments} 条说说生成 ${postsResult.chunks + momentsResult.chunks} 个向量块`,
+      message: `已为 ${postsResult.posts} 篇文章、${momentsResult.moments} 条说说生成 ${postsResult.chunks + momentsResult.chunks} 个向量块${postsResult.failures ? `；${postsResult.failures} 篇失败并保留了旧索引` : ""}`,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "重建失败" };

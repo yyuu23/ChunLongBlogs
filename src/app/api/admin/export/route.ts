@@ -10,6 +10,9 @@ import {
   playlists,
   postTags,
   posts,
+  projectPosts,
+  projects,
+  series,
   siteConfigs,
   songs,
   tags,
@@ -21,7 +24,7 @@ export const dynamic = "force-dynamic";
 /**
  * 导出全部内容为 JSON 备份（GET，浏览器 <a download> 直接触发下载）。
  *
- * 范围：作者创作内容 + 站点配置（10 张表 + siteConfigs）。
+ * 范围：作者创作内容、系列、项目关联与站点配置。
  * 有意排除：admin_users（密码哈希，跨部署无意义且危险）、
  * visitors（访客游戏化数据，绑定匿名 UUID）、stars（访客留言，
  * 属"站点记忆"，整库迁移时本就在 db.sqlite 里）、embeddings（可在后台重建）。
@@ -35,8 +38,11 @@ export async function GET() {
   const [
     categoryRows,
     tagRows,
+    seriesRows,
     postRows,
     postTagRows,
+    projectRows,
+    projectPostRows,
     momentRows,
     friendRows,
     albumRows,
@@ -47,8 +53,11 @@ export async function GET() {
   ] = await Promise.all([
     db.select().from(categories),
     db.select().from(tags),
+    db.select().from(series),
     db.select().from(posts),
     db.select().from(postTags),
+    db.select().from(projects),
+    db.select().from(projectPosts),
     db.select().from(moments),
     db.select().from(friendLinks),
     db.select().from(albums),
@@ -59,13 +68,16 @@ export async function GET() {
   ]);
 
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     tables: {
       categories: categoryRows,
       tags: tagRows,
+      series: seriesRows,
       posts: postRows,
       postTags: postTagRows,
+      projects: projectRows,
+      projectPosts: projectPostRows,
       moments: momentRows,
       friendLinks: friendRows,
       albums: albumRows,

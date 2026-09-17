@@ -66,6 +66,23 @@ const chatImage = z
   .max(6_000_000)
   .refine((value) => /^data:image\/(?:jpeg|png|webp|gif)(?:;[^,]*)?;base64,/i.test(value));
 
+const contentContextSchema = z
+  .object({
+    kind: z.enum(["home", "post", "series", "project", "lab"]),
+    slug: z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/).optional(),
+  })
+  .strict();
+
+const guidePreferencesSchema = z
+  .object({
+    interests: z.array(z.string().trim().min(1).max(40)).max(6),
+    level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+    goal: z.string().trim().max(120).optional(),
+    updatedAt: z.number().int().positive(),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
+
 export const chatRequestSchema = z
   .object({
     messages: z
@@ -90,6 +107,9 @@ export const chatRequestSchema = z
       .string()
       .regex(/^[a-zA-Z0-9_-]{1,120}$/)
       .optional(),
+    context: contentContextSchema.optional(),
+    /** 仅在访客主动保存后由浏览器携带；服务端不持久化。 */
+    preferences: guidePreferencesSchema.optional(),
     memory: z.string().max(800).optional(),
     /** 长会话滚动摘要（客户端维护的 16 条窗口外压缩稿；按不可信数据包裹注入） */
     summary: z.string().max(800).optional(),

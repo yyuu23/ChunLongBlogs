@@ -9,6 +9,14 @@ import {
   getSiteStats,
   getTagsWithCount,
 } from "@/lib/posts";
+import {
+  getProjectBySlug,
+  getPublishedProjects,
+  getPublishedSeries,
+  getSeriesBySlug,
+  recommendContent,
+} from "@/lib/content-hub";
+import { LAB_DEMOS } from "@/lib/lab-demos";
 
 /**
  * AI 聊天的站内数据工具（OpenAI function calling）：
@@ -78,6 +86,74 @@ export const CHAT_TOOLS = [
       description:
         "查询站点统计：已发布文章数/总字数/总浏览、说说数、相册与照片数、分类和标签列表。适合「博客有多少篇文/规模如何」类问题。",
       parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_series",
+      description: "列出公开学习系列，包含简介、文章数量、预计总阅读时间与链接。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_series",
+      description: "读取一个公开学习系列的完整目录、推荐顺序、难度和预计阅读时间。",
+      parameters: {
+        type: "object",
+        properties: { slug: { type: "string", description: "系列 slug，可从 list_series 获得" } },
+        required: ["slug"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_projects",
+      description: "列出已发布的项目案例、技术栈、关联文章和演示入口。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_project",
+      description: "按 slug 读取一个已发布项目的背景、方案、复盘和关联内容。",
+      parameters: {
+        type: "object",
+        properties: { slug: { type: "string", description: "项目 slug，可从 list_projects 获得" } },
+        required: ["slug"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_lab_demos",
+      description: "列出实验室中可以直接体验的全部互动实验。",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recommend_content",
+      description: "根据兴趣、可用时间和基础，从已发布文章、系列、项目与实验中推荐最多 3 项内容。",
+      parameters: {
+        type: "object",
+        properties: {
+          keyword: { type: "string", description: "兴趣或主题关键词，可选" },
+          types: {
+            type: "array",
+            items: { type: "string", enum: ["post", "series", "project", "lab"] },
+            maxItems: 4,
+          },
+          maxMinutes: { type: "number", description: "可用时间（分钟），可选" },
+          difficulty: { type: "string", enum: ["beginner", "intermediate", "advanced"] },
+        },
+      },
     },
   },
   {
@@ -171,6 +247,12 @@ export const TOOL_LABELS: Record<string, string> = {
   list_moments: "查询最近说说",
   list_albums: "查询相册",
   site_stats: "查询站点统计",
+  list_series: "查询学习系列",
+  get_series: "读取系列目录",
+  list_projects: "查询项目作品",
+  get_project: "读取项目详情",
+  list_lab_demos: "查询互动实验",
+  recommend_content: "生成站内推荐",
   list_music: "查询音乐馆",
   web_search: "联网搜索",
 };
@@ -411,6 +493,116 @@ async function siteStats() {
   };
 }
 
+async function listSeries() {
+  const items = await getPublishedSeries();
+  return {
+    total: items.length,
+    series: items.map((item) => ({
+      title: item.title,
+      slug: item.slug,
+      url: `/series/${item.slug}`,
+      description: item.description,
+      postCount: item.postCount,
+      totalMinutes: item.totalMinutes,
+    })),
+  };
+}
+
+async function getSeries(args: Record<string, unknown>) {
+  const slug = cleanStr(args.slug, 128);
+  if (!slug || !/^[a-zA-Z0-9-_]+$/.test(slug)) return { error: "slug 格式不合法" };
+  const item = await getSeriesBySlug(slug);
+  if (!item) return { error: `没有找到已发布的系列「${slug}」` };
+  return {
+    title: item.title,
+    url: `/series/${item.slug}`,
+    description: item.description,
+    totalMinutes: item.totalMinutes,
+    posts: item.posts.map((post, index) => ({
+      order: index + 1,
+      title: post.title,
+      url: `/posts/${post.slug}`,
+      description: post.description,
+      difficulty: post.difficulty,
+      readingTimeMinutes: post.readingTime,
+    })),
+  };
+}
+
+async function listProjects() {
+  const items = await getPublishedProjects();
+  return {
+    total: items.length,
+    projects: items.map((item) => ({
+      title: item.title,
+      slug: item.slug,
+      url: `/projects/${item.slug}`,
+      summary: item.summary,
+      stage: item.stage,
+      techStack: item.techStack,
+      articleCount: item.posts.length,
+      labUrl: item.labSlug ? `/lab/${item.labSlug}` : undefined,
+    })),
+  };
+}
+
+async function getProject(args: Record<string, unknown>) {
+  const slug = cleanStr(args.slug, 128);
+  if (!slug || !/^[a-zA-Z0-9-_]+$/.test(slug)) return { error: "slug 格式不合法" };
+  const item = await getProjectBySlug(slug);
+  if (!item) return { error: `没有找到已发布的项目「${slug}」` };
+  return {
+    title: item.title,
+    url: `/projects/${item.slug}`,
+    summary: item.summary,
+    stage: item.stage,
+    content: item.content.slice(0, 6000),
+    techStack: item.techStack,
+    repository: item.repoUrl || undefined,
+    demo: item.demoUrl || undefined,
+    labUrl: item.labSlug ? `/lab/${item.labSlug}` : undefined,
+    posts: item.posts.map((post) => ({
+      title: post.title,
+      url: `/posts/${post.slug}`,
+      readingTimeMinutes: post.readingTime,
+    })),
+  };
+}
+
+function listLabDemos() {
+  return {
+    total: LAB_DEMOS.length,
+    demos: LAB_DEMOS.map((demo) => ({
+      title: `${demo.emoji} ${demo.name.zh}`,
+      url: `/lab/${demo.slug}`,
+      description: demo.desc.zh,
+    })),
+  };
+}
+
+async function recommendSiteContent(args: Record<string, unknown>) {
+  const allowedTypes = new Set(["post", "series", "project", "lab"] as const);
+  const types = Array.isArray(args.types)
+    ? args.types.filter((item): item is "post" | "series" | "project" | "lab" =>
+        typeof item === "string" && allowedTypes.has(item as "post" | "series" | "project" | "lab"),
+      )
+    : undefined;
+  const difficulty = ["beginner", "intermediate", "advanced"].includes(String(args.difficulty))
+    ? (args.difficulty as "beginner" | "intermediate" | "advanced")
+    : undefined;
+  const maxMinutes = typeof args.maxMinutes === "number" && Number.isFinite(args.maxMinutes)
+    ? Math.min(Math.max(Math.floor(args.maxMinutes), 1), 1440)
+    : undefined;
+  const items = await recommendContent({
+    keyword: cleanStr(args.keyword, 80),
+    types,
+    difficulty,
+    maxMinutes,
+    limit: 3,
+  });
+  return { returned: items.length, recommendations: items };
+}
+
 /**
  * 执行一次工具调用，结果序列化为 JSON 字符串（role:"tool" 消息的 content）。
  * 任何异常都收敛成 {error}——查询失败不该炸掉整轮对话。
@@ -431,8 +623,8 @@ export async function executeTool(
     }
   }
   try {
-    const result =
-      custom ? await executeCustomTool(custom, args)
+    const result = custom
+      ? await executeCustomTool(custom, args)
       : name === "list_posts"
         ? await listPosts(args)
         : name === "get_post"
@@ -441,11 +633,23 @@ export async function executeTool(
             ? await listMoments(args)
             : name === "list_albums"
               ? await listAlbums()
-              : name === "list_music"
-                ? await listMusic(args)
-                : name === "web_search"
-                  ? await webSearch(args)
-                  : await siteStats();
+              : name === "site_stats"
+                ? await siteStats()
+                : name === "list_series"
+                  ? await listSeries()
+                  : name === "get_series"
+                    ? await getSeries(args)
+                    : name === "list_projects"
+                      ? await listProjects()
+                      : name === "get_project"
+                        ? await getProject(args)
+                        : name === "list_lab_demos"
+                          ? listLabDemos()
+                          : name === "recommend_content"
+                            ? await recommendSiteContent(args)
+                            : name === "list_music"
+                              ? await listMusic(args)
+                              : await webSearch(args);
     return JSON.stringify(result);
   } catch (e) {
     return JSON.stringify({ error: e instanceof Error ? `查询失败：${e.message}` : "查询失败" });

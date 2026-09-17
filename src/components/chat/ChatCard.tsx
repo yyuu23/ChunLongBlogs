@@ -61,6 +61,16 @@ interface VsCardData {
   right: VsSide;
   verdict?: string;
 }
+interface RecommendationCardItem {
+  type: "post" | "series" | "project" | "lab";
+  title: string;
+  url: string;
+  description?: string;
+  reason?: string;
+  minutes?: number;
+  difficulty?: string;
+  cover?: string;
+}
 
 const str = (v: unknown, max = 300) =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
@@ -281,6 +291,48 @@ function VsCard({ left, right, verdict }: VsCardData) {
   );
 }
 
+const recommendationLabel: Record<RecommendationCardItem["type"], string> = {
+  post: "文章",
+  series: "系列",
+  project: "项目",
+  lab: "实验",
+};
+
+function RecommendationsCard({ items }: { items: RecommendationCardItem[] }) {
+  return (
+    <div className="my-2 grid gap-2">
+      {items.map((item) => (
+        <Link
+          key={`${item.type}:${item.url}`}
+          href={item.url}
+          className="glass-card glass-hover group flex min-w-0 gap-3 !rounded-xl p-3 transition-transform hover:-translate-y-0.5"
+        >
+          {item.cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.cover} alt="" loading="lazy" className="h-16 w-20 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <span className="flex h-16 w-20 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-xl">
+              {item.type === "post" ? "📄" : item.type === "series" ? "📚" : item.type === "project" ? "🧰" : "🧪"}
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[0.625rem] text-accent">
+                {recommendationLabel[item.type]}
+              </span>
+              {item.minutes !== undefined && <span className="text-[0.625rem] text-muted">约 {item.minutes} 分钟</span>}
+              {item.difficulty && <span className="text-[0.625rem] text-muted">{item.difficulty}</span>}
+            </span>
+            <span className="mt-1 block truncate text-sm font-semibold group-hover:text-accent">{item.title}</span>
+            {item.description && <span className="mt-0.5 line-clamp-1 block text-xs text-muted">{item.description}</span>}
+            {item.reason && <span className="mt-1 line-clamp-2 block text-[0.6875rem] leading-relaxed">{item.reason}</span>}
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- 入口：解析 JSON 并分发；异常一律降级 ---------- */
 
 function FallbackCode({ code }: { code: string }) {
@@ -315,6 +367,32 @@ export function ChatCardBlock({ code, streaming }: { code: string; streaming?: b
   const rawItems = Array.isArray(parsed.items) ? (parsed.items as unknown[]) : [];
 
   switch (parsed.type) {
+    case "recommendations": {
+      const allowed = new Set(["post", "series", "project", "lab"]);
+      const items = rawItems
+        .map((item) => item as Record<string, unknown>)
+        .filter((item) => {
+          const url = str(item.url, 240);
+          return (
+            str(item.title) &&
+            url &&
+            /^\/(?:posts|series|projects|lab)(?:\/|$)/.test(url) &&
+            allowed.has(String(item.type))
+          );
+        })
+        .slice(0, 3)
+        .map<RecommendationCardItem>((item) => ({
+          type: String(item.type) as RecommendationCardItem["type"],
+          title: str(item.title, 120)!,
+          url: str(item.url, 240)!,
+          description: str(item.description, 180),
+          reason: str(item.reason, 180),
+          minutes: num(item.minutes),
+          difficulty: str(item.difficulty, 20),
+          cover: str(item.cover, 500),
+        }));
+      return items.length ? <RecommendationsCard items={items} /> : <FallbackCode code={code} />;
+    }
     case "posts": {
       const items = rawItems
         .map((it) => it as Record<string, unknown>)

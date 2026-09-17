@@ -15,6 +15,7 @@ import {
   playlists,
   postTags,
   posts,
+  series,
   songs,
   tags,
 } from "../src/lib/db/schema";
@@ -39,11 +40,16 @@ async function main() {
     "songs",
     "playlists",
     "post_tags",
+    "embeddings",
+    "embedding_index_state",
+    "project_posts",
+    "projects",
     "photos",
     "albums",
     "friend_links",
     "moments",
     "posts",
+    "series",
     "tags",
     "categories",
     "site_configs",
@@ -77,6 +83,7 @@ async function main() {
   const dir = path.join(process.cwd(), "content/posts");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md"));
   const tagIds = new Map<string, number>();
+  const seriesIds = new Map<string, number>();
 
   for (const file of files) {
     const raw = fs.readFileSync(path.join(dir, file), "utf8");
@@ -84,6 +91,23 @@ async function main() {
     const slug = String(data.slug ?? slugify(String(data.title)));
     const date = data.date ? new Date(data.date) : new Date();
     const isDraft = Boolean(data.draft);
+    const seriesSlug = String(data.series ?? "").trim();
+    let seriesId: number | null = null;
+    if (seriesSlug) {
+      if (!seriesIds.has(seriesSlug)) {
+        const [item] = await db.insert(series).values({
+          title: String(data.seriesTitle ?? seriesSlug),
+          slug: seriesSlug,
+          description: String(data.seriesDescription ?? ""),
+          status: data.seriesPublished ? "published" : "draft",
+        }).returning();
+        seriesIds.set(seriesSlug, item.id);
+      }
+      seriesId = seriesIds.get(seriesSlug) ?? null;
+    }
+    const difficulty = ["beginner", "intermediate", "advanced"].includes(String(data.difficulty))
+      ? (String(data.difficulty) as "beginner" | "intermediate" | "advanced")
+      : null;
 
     const [post] = await db
       .insert(posts)
@@ -94,6 +118,9 @@ async function main() {
         content,
         cover: String(data.cover ?? ""),
         categoryId: catBySlug.get(String(data.category ?? "tech")) ?? null,
+        seriesId,
+        seriesOrder: Math.max(0, Number(data.seriesOrder) || 0),
+        difficulty,
         status: isDraft ? "draft" : "published",
         isPinned: Boolean(data.pinned),
         views: Math.floor(Math.random() * 400) + 40,

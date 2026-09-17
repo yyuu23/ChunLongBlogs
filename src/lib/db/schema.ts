@@ -24,6 +24,22 @@ export const tags = sqliteTable("tags", {
   slug: text("slug").notNull().unique(),
 });
 
+/**
+ * 单层文章系列：是后台可管理的逻辑阅读目录，不对应磁盘文件夹。
+ * draft 系列及其关系可以提前编排，只有 published 系列会出现在公开页面与 AI 工具中。
+ */
+export const series = sqliteTable("series", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  sort: integer("sort").notNull().default(0),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
 export const posts = sqliteTable("posts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
@@ -34,6 +50,11 @@ export const posts = sqliteTable("posts", {
   categoryId: integer("category_id").references(() => categories.id, {
     onDelete: "set null",
   }),
+  seriesId: integer("series_id").references(() => series.id, {
+    onDelete: "set null",
+  }),
+  seriesOrder: integer("series_order").notNull().default(0),
+  difficulty: text("difficulty", { enum: ["beginner", "intermediate", "advanced"] }),
   status: text("status", { enum: ["draft", "published", "scheduled"] }).notNull().default("draft"),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
   views: integer("views").notNull().default(0),
@@ -57,6 +78,43 @@ export const postTags = sqliteTable(
       .references(() => tags.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.postId, t.tagId] })],
+);
+
+/**
+ * 公开项目案例：正文使用 Markdown；techStack 是 string[] JSON。
+ * labSlug 只保存实验注册表中的 slug，不给静态实验反向加数据库外键。
+ */
+export const projects = sqliteTable("projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  summary: text("summary").notNull().default(""),
+  content: text("content").notNull().default(""),
+  cover: text("cover").notNull().default(""),
+  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  stage: text("stage", { enum: ["planned", "in_progress", "maintaining", "completed", "archived"] }).notNull().default("in_progress"),
+  techStack: text("tech_stack").notNull().default("[]"),
+  repoUrl: text("repo_url").notNull().default(""),
+  demoUrl: text("demo_url").notNull().default(""),
+  labSlug: text("lab_slug"),
+  sort: integer("sort").notNull().default(0),
+  startedAt: integer("started_at", ts),
+  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const projectPosts = sqliteTable(
+  "project_posts",
+  {
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    sort: integer("sort").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.postId] })],
 );
 
 export const moments = sqliteTable("moments", {
@@ -137,6 +195,14 @@ export const embeddings = sqliteTable("embeddings", {
   chunk: text("chunk").notNull(),
   vector: text("vector").notNull(), // JSON number[]
   createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+/** 最近一次向量索引任务状态：后台可见，不把失败藏在 fire-and-forget 中。 */
+export const embeddingIndexState = sqliteTable("embedding_index_state", {
+  source: text("source").primaryKey(),
+  lastRunAt: integer("last_run_at", ts).notNull(),
+  lastSuccessAt: integer("last_success_at", ts),
+  lastError: text("last_error").notNull().default(""),
 });
 
 /** 匿名访客的游戏化进度（等级/经验/统计），服务端永久保存 */

@@ -8,6 +8,8 @@ import { createMoodFilter } from "@/lib/moodStream";
 import { readDigest, noteTurn } from "@/lib/chatMemory";
 import type { AiProvider } from "@/lib/site";
 import type { ThinkingLevel } from "@/lib/llm-thinking";
+import { readGuidePreferences } from "@/lib/guide-preferences";
+import type { ContentContext } from "@/lib/content-types";
 
 /** 参考来源（与 /api/chat 的 related 同构） */
 export interface RelatedRef {
@@ -70,6 +72,14 @@ const MAX_PERSIST = 50;
 const uid = () =>
   crypto.randomUUID?.() ??
   `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+function contextFromPath(pathname: string | null): ContentContext {
+  if (!pathname || pathname === "/") return { kind: "home" };
+  const match = pathname.match(/^\/(posts|series|projects|lab)\/([^/]+)$/);
+  if (!match) return { kind: "home" };
+  const kind = match[1] === "posts" ? "post" : match[1] === "projects" ? "project" : match[1];
+  return { kind: kind as ContentContext["kind"], slug: decodeURIComponent(match[2]!).slice(0, 120) };
+}
 
 /** SSE 流里的事件负载 */
 interface SsePayload {
@@ -249,6 +259,8 @@ export function useChat({
               pathname && /^\/posts\/[^/]+$/.test(pathname)
                 ? decodeURIComponent(pathname.split("/")[2]!).slice(0, 120)
                 : undefined,
+            context: contextFromPath(pathname),
+            preferences: readGuidePreferences() ?? undefined,
             // 记忆小本本：本机 localStorage 的长期记忆注入（服务端按不可信数据包裹）
             memory: readDigest(),
             // 长会话滚动摘要（16 条窗口之外的更早对话压缩稿，同样按不可信数据包裹）

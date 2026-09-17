@@ -32,6 +32,7 @@ beforeAll(async () => {
   raw.exec(`
     CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, color TEXT NOT NULL DEFAULT '#6366f1', created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000));
     CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, slug TEXT NOT NULL UNIQUE);
+    CREATE TABLE series (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, description TEXT NOT NULL DEFAULT '', cover TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', sort INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000), updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000));
     CREATE TABLE posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -40,6 +41,9 @@ beforeAll(async () => {
       content TEXT NOT NULL DEFAULT '',
       cover TEXT NOT NULL DEFAULT '',
       category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+      series_id INTEGER REFERENCES series(id) ON DELETE SET NULL,
+      series_order INTEGER NOT NULL DEFAULT 0,
+      difficulty TEXT,
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','scheduled')),
       is_pinned INTEGER NOT NULL DEFAULT 0,
       views INTEGER NOT NULL DEFAULT 0,

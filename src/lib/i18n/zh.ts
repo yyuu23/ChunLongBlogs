@@ -131,6 +131,17 @@ export const zh = {
     pagePrev: "上一页",
     pageNext: "下一页",
   },
+  series: {
+    label: "文章系列", progress: "第 {current} / {total} 篇", minutes: "共 {n} 分钟", posts: "{n} 篇文章",
+    directory: "系列目录", prev: "系列上一篇", next: "系列下一篇",
+    difficultyBeginner: "入门", difficultyIntermediate: "进阶", difficultyAdvanced: "深入",
+  },
+  projects: {
+    title: "项目与作品", subtitle: "问题、方案、取舍与复盘", viewAll: "查看全部项目",
+    related: "相关项目", relatedPosts: "实现与复盘文章", repository: "查看源码",
+    demo: "在线演示", lab: "打开实验", empty: "项目案例正在整理中", timeline: "成长时间线",
+    stage: { planned: "计划中", in_progress: "进行中", maintaining: "维护中", completed: "已完成", archived: "已归档" },
+  },
   time: {
     justNow: "刚刚",
     minutesAgo: "{n} 分钟前",
@@ -337,6 +348,7 @@ export const zh = {
     affinityTitle: "与看板娘的好感度：聊天、摸头、每日来访都会慢慢提升",
     affinityProgress: "好感度 {cur} / {next}",
   },
+  difficulty: { beginner: "入门", intermediate: "进阶", advanced: "高级" },
   chatPage: {
     title: "AI 助手",
     subtitle: "站内问答 · 技术闲聊 · 生活陪伴",
@@ -367,6 +379,21 @@ export const zh = {
     yesterday: "昨天",
     earlier: "更早",
     deleteSessionAria: "删除该对话",
+    guideTitle: "让 AI 带你逛本站",
+    guidePrefillHint: "点击只会填入输入框，由你确认后发送。",
+    guideStarters: [
+      "帮我找一篇适合现在看的文章",
+      "根据我的基础推荐一个学习系列",
+      "推荐一个可以体验的互动实验",
+    ],
+    preferencesTitle: "记住我的导览偏好（可选）",
+    preferencesSaved: "已记住偏好，可展开查看或修改",
+    preferencesInterests: "兴趣，如 AI、前端",
+    preferencesLevel: "当前基础",
+    preferencesGoal: "学习目标",
+    preferencesPrivacy: "仅保存在当前浏览器，30 天后自动过期，不建立服务端画像。",
+    preferencesSave: "保存 30 天",
+    preferencesClear: "一键清除",
     suggestions: [
       "这个博客用了什么技术栈？",
       "最近写了什么说说？",

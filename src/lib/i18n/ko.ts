@@ -132,6 +132,17 @@ export const ko: Dictionary = {
     pagePrev: "이전 페이지",
     pageNext: "다음 페이지",
   },
+  series: {
+    label: "글 시리즈", progress: "{current} / {total}번째 글", minutes: "총 {n}분", posts: "글 {n}개",
+    directory: "시리즈 목차", prev: "시리즈 이전 글", next: "시리즈 다음 글",
+    difficultyBeginner: "입문", difficultyIntermediate: "중급", difficultyAdvanced: "심화",
+  },
+  projects: {
+    title: "프로젝트", subtitle: "문제, 선택, 결과와 회고", viewAll: "모든 프로젝트 보기",
+    related: "관련 프로젝트", relatedPosts: "구현 및 회고 글", repository: "소스 보기",
+    demo: "라이브 데모", lab: "실험 열기", empty: "프로젝트 사례를 정리하고 있어요", timeline: "성장 타임라인",
+    stage: { planned: "계획 중", in_progress: "진행 중", maintaining: "유지보수 중", completed: "완료", archived: "보관됨" },
+  },
   time: {
     justNow: "방금",
     minutesAgo: "{n}분 전",
@@ -338,6 +349,7 @@ export const ko: Dictionary = {
     affinityTitle: "마스코트와의 호감도: 대화, 머리 쓰다듬기, 매일 방문이 도움이 돼요",
     affinityProgress: "호감도 {cur} / {next}",
   },
+  difficulty: { beginner: "입문", intermediate: "중급", advanced: "고급" },
   chatPage: {
     title: "AI 어시스턴트",
     subtitle: "사이트 Q&A · 기술 얘기 · 일상 상담",
@@ -368,6 +380,21 @@ export const ko: Dictionary = {
     yesterday: "어제",
     earlier: "그 전",
     deleteSessionAria: "대화 삭제",
+    guideTitle: "AI와 함께 사이트 둘러보기",
+    guidePrefillHint: "클릭하면 입력란만 채우며, 전송 여부는 직접 확인합니다.",
+    guideStarters: [
+      "지금 읽기 좋은 글을 찾아줘",
+      "내 수준에 맞는 학습 시리즈를 추천해줘",
+      "직접 체험할 수 있는 인터랙티브 실험을 추천해줘",
+    ],
+    preferencesTitle: "안내 취향 기억하기(선택)",
+    preferencesSaved: "취향 저장됨 — 펼쳐서 확인하거나 수정할 수 있어요",
+    preferencesInterests: "관심사(예: AI, 프런트엔드)",
+    preferencesLevel: "현재 수준",
+    preferencesGoal: "학습 목표",
+    preferencesPrivacy: "이 브라우저에만 30일간 저장하며 서버 방문자 프로필을 만들지 않습니다.",
+    preferencesSave: "30일 저장",
+    preferencesClear: "지우기",
     suggestions: [
       "이 블로그 기술 스택은?",
       "최근 머먼트 있어?",

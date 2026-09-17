@@ -132,6 +132,17 @@ export const en: Dictionary = {
     pagePrev: "Previous page",
     pageNext: "Next page",
   },
+  series: {
+    label: "Series", progress: "Part {current} of {total}", minutes: "{n} min total", posts: "{n} posts",
+    directory: "Series contents", prev: "Previous in series", next: "Next in series",
+    difficultyBeginner: "Beginner", difficultyIntermediate: "Intermediate", difficultyAdvanced: "Advanced",
+  },
+  projects: {
+    title: "Projects", subtitle: "Problems, decisions, results, and retrospectives", viewAll: "View all projects",
+    related: "Related projects", relatedPosts: "Implementation notes", repository: "Source code",
+    demo: "Live demo", lab: "Open experiment", empty: "Project case studies are being prepared", timeline: "Growth timeline",
+    stage: { planned: "Planned", in_progress: "In progress", maintaining: "Maintaining", completed: "Completed", archived: "Archived" },
+  },
   time: {
     justNow: "Just now",
     minutesAgo: "{n} minute ago | {n} minutes ago",
@@ -338,6 +349,7 @@ export const en: Dictionary = {
     affinityTitle: "Affinity with the mascot: chatting, head pats and daily visits all help",
     affinityProgress: "Affinity {cur} / {next}",
   },
+  difficulty: { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" },
   chatPage: {
     title: "AI Assistant",
     subtitle: "Site Q&A · Tech talk · Life companionship",
@@ -368,6 +380,21 @@ export const en: Dictionary = {
     yesterday: "Yesterday",
     earlier: "Earlier",
     deleteSessionAria: "Delete conversation",
+    guideTitle: "Explore this site with AI",
+    guidePrefillHint: "A click only fills the input; you decide whether to send it.",
+    guideStarters: [
+      "Find me an article that fits the time I have now",
+      "Recommend a learning series for my current level",
+      "Recommend an interactive experiment I can try",
+    ],
+    preferencesTitle: "Remember my guide preferences (optional)",
+    preferencesSaved: "Preferences saved — expand to view or edit",
+    preferencesInterests: "Interests, e.g. AI, frontend",
+    preferencesLevel: "Current level",
+    preferencesGoal: "Learning goal",
+    preferencesPrivacy: "Stored only in this browser for 30 days; no server-side visitor profile is created.",
+    preferencesSave: "Save for 30 days",
+    preferencesClear: "Clear",
     suggestions: [
       "What's this blog's tech stack?",
       "Any recent moments?",

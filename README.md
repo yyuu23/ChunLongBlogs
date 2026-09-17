@@ -42,7 +42,7 @@
 | 框架 | Next.js 16（App Router）· React 19 · TypeScript |
 | 样式动效 | Tailwind CSS v4 · framer-motion · lucide-react |
 | 数据库 | SQLite（better-sqlite3）+ Drizzle ORM —— 无需安装数据库服务 |
-| 认证 | jose JWT 双会话：管理员账密（bcryptjs）+ GitHub 访客 OAuth |
+| 认证 | jose JWT：管理员账密（bcryptjs）+ GitHub 访客 OAuth + 签名匿名访客会话 |
 | Markdown | unified/remark/rehype · Shiki 高亮 · KaTeX · rehype-pretty-code |
 | 3D / 视觉 | three.js + @react-three/fiber/drei · pixi.js + Live2D 看板娘 |
 | 编辑器 | @uiw/react-codemirror（后台写作） |
@@ -73,6 +73,7 @@ npm run dev                 # http://localhost:3000
 | `AUTH_SECRET` | ✅ | JWT 签名密钥，生产必须换随机长串 |
 | `SITE_URL` | ✅ | 站点对外地址（RSS / SEO） |
 | `DATABASE_PATH` | ✅ | SQLite 文件路径，默认 `data/db.sqlite` |
+| `TRUST_PROXY` | 生产反代必填 | Nginx 反代部署设为 `1`；应用端口直接暴露公网时设为 `0` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | GitHub 访客登录；**留空则登录/评论入口自动隐藏**，游客点赞仍可用 |
 | `DEEPSEEK_API_KEY` / `GLM_API_KEY` / `QWEN_API_KEY`（及对应 `*_BASE` / `*_MODEL`） | — | AI 助手，任意一家即可；也可用 `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` 接任意 OpenAI 兼容服务 |
 | `SEARCH_API_KEY` 或 `TAVILY_API_KEY` | — | AI 助手联网搜索工具 |
@@ -80,6 +81,12 @@ npm run dev                 # http://localhost:3000
 | `CHAT_RATE_LIMIT` / `CHAT_DAILY_LIMIT` | — | 聊天成本护栏 |
 
 完整注释见 [.env.example](./.env.example)。
+
+匿名点赞、浏览量、积分、留声星和漂流瓶使用一年有效的 `cl_visitor` HttpOnly
+签名 Cookie 识别访客；旧版 localStorage `visitorId` 仅在首次升级时迁移，已有有效
+Cookie 后请求体中的 `visitorId` 不再具有身份决定权。公共写接口的同源校验、请求体
+上限、限流策略和反向代理要求见
+[公共写接口安全与运维](./docs/PUBLIC_WRITE_SECURITY.md)。
 
 ## 换成自己的站（个性化指南）
 
@@ -114,15 +121,15 @@ npm run dev                 # http://localhost:3000
 
 ```
 ├─ src/app/(site)/       # 前台页面：首页/文章/说说/相册/归档/友链/关于/音乐馆/AI 聊天/实验室
-├─ src/app/admin/        # 管理后台：仪表盘/文章/评论/统计/站点设置/AI 配置…
+├─ src/app/admin/        # 管理后台；actions/ 按文章、分类、社区、设置、AI 等业务域拆分
 ├─ src/app/api/          # API：评论/点赞/GitHub OAuth/AI 聊天/上传/动态 OG 图…
 ├─ src/components/       # 组件（admin/home/posts/effects/mascot/lab 等）
-├─ src/lib/              # site.ts 站点配置 · db/schema.ts（22 张表）· auth · llm · rag · i18n
+├─ src/lib/              # 站点配置 · db/schema.ts（23 张表）· public-write · auth · llm · rag · i18n
 ├─ content/posts/        # 种子演示文章（db:seed 读取）
 ├─ data/                 # SQLite 数据库（gitignore，永不入库）
 ├─ deploy/               # pm2 ecosystem + nginx 模板
 ├─ scripts/              # seed / 资源生成 / 服务器备份与部署脚本
-└─ .github/workflows/    # CI（typecheck + test）+ 生产部署
+└─ .github/workflows/    # CI（素材记录校验 + lint + typecheck + test）+ 生产部署
 ```
 
 ## 开发与测试
@@ -131,11 +138,14 @@ npm run dev                 # http://localhost:3000
 npm run typecheck   # TypeScript 类型检查
 npm test            # vitest（含评论/点赞 API 集成测试，自带临时库）
 npm run lint        # ESLint（Next/TypeScript/依赖方向）
+npm run lint:fix    # 显式修复可自动修复的 lint 问题
+npm run assets:check # 校验已纳管第三方素材的来源、许可和文件映射
 npm run check       # 素材记录 + lint + 类型检查 + 测试
 npm run assets      # 重新生成演示音频等占位资源
 ```
 
-push 与 PR 会触发 [CI](./.github/workflows/ci.yml) 自动跑类型检查和测试。
+push 与 PR 会触发 [CI](./.github/workflows/ci.yml)，依次执行素材记录校验、lint、
+类型检查和测试；正式构建仍由生产部署流水线执行。
 
 ## License
 

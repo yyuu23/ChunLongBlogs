@@ -61,8 +61,11 @@
 
 ### 拖拽顺序持久化
 
-`localStorage cl-bottle-order`。匿名站点的身份本身就是 localStorage 的
-visitorId——换浏览器时身份（连同瓶子）一起重置，摆法放服务端无额外收益。
+瓶架顺序保存在 `localStorage cl-bottle-order`。瓶子的服务端属主以一年有效的
+`cl_visitor` HttpOnly 签名 Cookie 为准；旧版 localStorage `visitorId` 只会在首次
+升级且没有有效 Cookie 时迁移，用于保留原有瓶子、经验和积分。换浏览器或浏览器
+配置文件时 Cookie 与本地排序都不会自动携带，因此身份和摆法仍会一起重置；瓶架
+排序无需额外写入服务端。
 
 ## 6. 音效（Web Audio 全合成，零音频文件）
 
@@ -73,7 +76,8 @@ visitorId——换浏览器时身份（连同瓶子）一起重置，摆法放�
 ## 7. 开瓶仪式（不可逆）
 
 故事卡「开瓶」→ 瓶塞弹飞 + 金色光粒升腾（CSS）+ "啵"声 → `POST /api/bottles/open`
-（属主校验 + `WHERE opened_at IS NULL` 原子更新，重复开幂等）。
+（签名身份属主校验 + `WHERE opened_at IS NULL` 原子更新，重复开幂等；请求体伪造
+其他 `visitorId` 不能打开别人的瓶子）。
 开瓶后：架上液体剩四成、**节气瓶的站长信笺可读**。
 
 ## 8. 节气瓶中信

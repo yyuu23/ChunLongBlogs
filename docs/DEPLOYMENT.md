@@ -83,8 +83,8 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 | 10 | Backup server runtime data | tar 备份数据库 + 上传目录，清理只留 30 份 | 3s |
 | 11 | Rsync build artifacts | 增量传输全部产物（`--delete-after`：删旧文件在传输完成后） | 37s（增量） |
 | 12 | Finalize | 校验产物完整 → `db:push` 同步表结构 → `pm2 restart`（首次自动 `pm2 start`） | 9s |
-| 13 | Smoke test (app) | 在服务器本地 curl `127.0.0.1:3002`，并验证 robots.txt 里烘入了正式域名 | 4s |
-| 14 | Smoke test (public URL) | curl 公网地址；**带 continue-on-error**，备案期间失败不阻断（注意：日志里显示 OK 是假象，见 §4.6） | — |
+| 13 | Smoke test (app) | 在服务器本地验证首页与 robots.txt；从 sitemap 选取真实已发布文章，检查中/英/日/韩四种 URL、正文标记、可解析 JSON-LD，并确认本次请求没有客户端 Hook/服务端组件错误日志 | 数秒 |
+| 14 | Smoke test (public URL) | curl 公网地址；**带 continue-on-error**，备案期间失败不阻断（注意：日志里显示 OK 是假象，见 §4.3“坑 6”） | — |
 
 安全设计：pm2 restart 严格排在 rsync 成功之后——传输中断或任何一步失败都会
 立即中止，线上继续跑旧版本，重跑 workflow 即自愈。
@@ -133,17 +133,24 @@ GitHub Actions runner（免费 ubuntu-latest，2核7GB，用完即销毁）
 2. 阿里云安全组放行 80/443 入方向（备案期只开了 8080）
 3. 服务器 nginx 换用 `chunlongblog.cn.conf`（`listen 80`），reload 后验证 `http://chunlongblog.cn` 返回 200（备案数据同步到阿里云有分钟到小时级延迟，仍 403 先等同步）
 4. `certbot --nginx -d chunlongblog.cn -d www.chunlongblog.cn` 签 HTTPS 证书（自动补 443 与跳转）
-5. nginx `X-Forwarded-Proto` 由 `$scheme` 改回固定 `https` 后再 reload——**必须先 certbot 后固定**，顺序反了会在纯 HTTP 下发 Secure cookie 导致无法登录
-6. 若开 Cloudflare 橙云代理：SSL/TLS 模式从 Flexible 升为 **Full (strict)**
-7. SITE_URL 双路径同步（见下）→ `pm2 restart chunlong-blog` → 触发一次部署 workflow
-8. 后台「站点设置」填 ICP 备案号（页脚自动渲染并链接 beian.miit.gov.cn）
-9. 上线 30 天内到 beian.gov.cn 完成公安备案
-10. 收尾：安全组关 8080；`Smoke test (public URL)` 转绿
+5. nginx 保持模板中的 `X-Real-IP $remote_addr` 和 `X-Forwarded-For $remote_addr`：必须覆盖客户端自带转发头，不能改成追加式 `$proxy_add_x_forwarded_for`
+6. nginx `X-Forwarded-Proto` 由 `$scheme` 改回固定 `https` 后再 reload——**必须先 certbot 后固定**，顺序反了会在纯 HTTP 下发 Secure cookie 导致无法登录
+7. 服务器 `.env` 明确设置 `TRUST_PROXY=1`；应用端口若直接暴露公网则必须为 `0`
+8. 若开 Cloudflare 橙云代理：SSL/TLS 模式从 Flexible 升为 **Full (strict)**
+9. SITE_URL 双路径同步（见下）→ `pm2 restart chunlong-blog` → 触发一次部署 workflow
+10. 后台「站点设置」填 ICP 备案号（页脚自动渲染并链接 beian.miit.gov.cn）
+11. 上线 30 天内到 beian.gov.cn 完成公安备案
+12. 收尾：安全组关 8080；`Smoke test (public URL)` 转绿
 
 **SITE_URL 是双路径的，改域名时两处同步**：
 GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metadata）
 + 服务器 `/opt/chunlong-blog/.env` 的 `SITE_URL`（运行期，供 sitemap.xml / feed 读取），
 都改为 `https://chunlongblog.cn`。
+
+`TRUST_PROXY=1` 只表示应用可以读取反代写入的客户端 IP，不会自动让任意转发头可信。
+因此它必须与仓库 Nginx 模板的“覆盖式”头配置一起使用；否则攻击者可以伪造 IP，
+绕过公共写接口的 IP 配额。完整安全模型见
+[PUBLIC_WRITE_SECURITY.md](./PUBLIC_WRITE_SECURITY.md)。
 
 ---
 
@@ -266,6 +273,9 @@ GitHub Environment 的 `SITE_URL` 变量（构建期，烘入 robots.txt / metad
 
 首次上线本功能时数据库有新表（github_users / comments / post_likes）：部署流水线本来就含 `db:push`，正常发版即可，无需手工操作。
 
+公共写接口加固还增加了 `write_quota_counters` 表，用于保存跨 PM2 重启的日额度
+和全站 AI 额度。它同样由 `db:push` 自动创建，不需要回填；过期计数由应用低频清理。
+
 ### 5.2 应急：Actions 不可用时的手工部署
 
 GitHub Actions 整体故障时的替代路径：在自己电脑上（Git Bash / WSL，需有 rsync 和
@@ -324,7 +334,7 @@ cd /opt/chunlong-blog && node -e 'const b=require("bcryptjs");const db=require("
 | --- | --- |
 | 部署目标 IP / 端口 / 用户 / 私钥 / 主机公钥 | GitHub 仓库 Settings → Environments → **production** 的 5 个 secrets（私钥为 base64 单行格式） |
 | 构建期 SITE_URL | 同上页的 Environment variables → `SITE_URL` |
-| 运行期密钥（管理员账号、AUTH_SECRET、SITE_URL 等） | 服务器 `/opt/chunlong-blog/.env`（600 权限，仅 deploy 用户） |
+| 运行期密钥（管理员账号、AUTH_SECRET、SITE_URL、`TRUST_PROXY=1` 等） | 服务器 `/opt/chunlong-blog/.env`（600 权限，仅 deploy 用户） |
 | 部署密钥对（本机留档） | `~/.ssh/chunlong_blog_deploy`（私钥）/ `.pub`（公钥，已装在服务器 deploy 用户的 authorized_keys） |
 | nginx 配置 | 服务器 `/etc/nginx/sites-available/chunlongblog.cn.conf`；仓库模板 `deploy/nginx/chunlongblog.cn.conf`（两者保持同步） |
 | 数据库 | 服务器 `/opt/chunlong-blog/data/db.sqlite`（单文件） |
@@ -338,5 +348,6 @@ cd /opt/chunlong-blog && node -e 'const b=require("bcryptjs");const db=require("
 ## 7. 相关文档
 
 - [GITHUB_ACTIONS_DEPLOY.md](./GITHUB_ACTIONS_DEPLOY.md) —— 从零搭建这套部署的完整参考（服务器初始化、密钥生成、GitHub 配置、安全边界）
+- [PUBLIC_WRITE_SECURITY.md](./PUBLIC_WRITE_SECURITY.md) —— 匿名身份、公共写接口校验、配额与可信反代要求
 - [deploy/nginx/chunlongblog.cn.conf](../deploy/nginx/chunlongblog.cn.conf) —— nginx 模板，顶部注释含域名切换的操作顺序
 - [ROADMAP.md](./ROADMAP.md) —— 功能差距清单与后续开发方向

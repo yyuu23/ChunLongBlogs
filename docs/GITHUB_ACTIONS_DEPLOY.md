@@ -114,7 +114,13 @@ nano /opt/chunlong-blog/.env
 
 # 必填项：
 # ADMIN_USERNAME / ADMIN_PASSWORD / AUTH_SECRET / SITE_URL / DATABASE_PATH=data/db.sqlite
+# Nginx 反代部署还必须显式设置：TRUST_PROXY=1
 ```
+
+`TRUST_PROXY=1` 只能用于可信反代。Nginx 必须按仓库模板把 `X-Real-IP` 和
+`X-Forwarded-For` 都覆盖为 `$remote_addr`，不能保留或追加浏览器自带的
+`X-Forwarded-For`；应用端口直接暴露公网时改为 `TRUST_PROXY=0`。详见
+[公共写接口安全与运维](./PUBLIC_WRITE_SECURITY.md)。
 
 ```text
 2. 到 GitHub 仓库 → Actions → Deploy production → Run workflow 手动跑一次。
@@ -202,6 +208,10 @@ ssh-keyscan -p SSH端口 -t ed25519 服务器IP
 2. **运行期**（服务器 `/opt/chunlong-blog/.env` 的 `SITE_URL`）：
    `sitemap.xml` 和 `/feed` 是动态路由，运行时读取。
 
+应用级冒烟测试还会从 sitemap 选择一篇真实已发布文章，验证四种语言 URL 均返回
+200、正文标记存在、JSON-LD 可以解析，并检查本次请求新增的 PM2 错误日志里没有
+客户端 Hook 被服务端组件调用等错误。公网 URL 的可达性仍是独立的软检查。
+
 可选：为 `production` 开启 Required reviewers。这样每次发布前需要在 GitHub 手动批准。
 同时建议给 `main` 开启分支保护，避免未经检查的提交直接取得生产服务器上的部署权限。
 
@@ -214,6 +224,9 @@ git push origin main
 ```
 
 也可以进入 `Actions -> Deploy production -> Run workflow` 手动部署。
+
+真实部署的收尾步骤会执行 `db:push`。除业务表外，它会创建公共写接口使用的
+`write_quota_counters` 持久配额表；不需要手工建表或回填已有访客数据。
 
 **Dry-run 验证**：手动 Run workflow 时勾选 `dry_run`，只会执行
 `rsync --dry-run --itemize-changes` 列出将要传输/删除的文件，不写入服务器、
@@ -290,7 +303,8 @@ http://<SERVER_IP>:8080
 
 备案期间 workflow 的 `Smoke test (public URL)` 步骤会失败，但它带
 `continue-on-error`，不会阻断部署——应用是否健康由 `Smoke test (app)`
-（服务器本地 `127.0.0.1:3002`）负责判定。
+（服务器本地 `127.0.0.1:3002`）负责判定。后者不仅检查首页和 robots.txt，
+还会对 sitemap 中的真实文章执行四语言、正文、JSON-LD 与服务端 Hook 错误检查。
 
 ## 9. 回退与回滚
 

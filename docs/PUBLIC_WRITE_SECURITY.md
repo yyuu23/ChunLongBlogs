@@ -138,7 +138,8 @@ npm run build
 8. 当前访客不能打开他人的瓶子，也不能借请求体 ID 操作他人的点赞状态；
 9. Nginx 外网请求的日志与配额使用真实来源 IP，而不是客户端伪造的转发头。
 
-相关自动化测试位于 `src/lib/__tests__/public-write-*.test.ts` 及各 API 集成测试。
+请求解析与身份规则测试位于 `tests/unit/public-write.test.ts`，持久配额及各公共 API
+回归位于 `tests/integration/`。
 生产文章页健康检查由 `scripts/smoke-article.mjs` 和部署 workflow 负责，详见
 [DEPLOYMENT.md](./DEPLOYMENT.md)。
 

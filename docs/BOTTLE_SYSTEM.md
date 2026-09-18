@@ -1,7 +1,7 @@
 # 漂流瓶系统设计说明
 
 > 核心理念：**瓶子是"那一天"的容器**。瓶型/材质/瓶塞/瓶内风景全部由瓶子落库时的身份
-> （kind + refKey + id）推导（`src/lib/bottle-style.ts`），零迁移，老瓶子自动获得形态。
+> （kind + refKey + id）推导（`src/lib/bottles/style.ts`），零迁移，老瓶子自动获得形态。
 > 唯一的新列是 `opened_at`（开瓶不可逆）。
 
 ## 1. 瓶型图鉴（8 型）
@@ -83,7 +83,7 @@
 ## 8. 节气瓶中信
 
 `/admin/settings` →「节气瓶中信」textarea，每行 `节气key | 语录`
-（key 见 `lib/festivals.ts`，如 `solar-dongzhi`、`lunar-moon-2026`）。
+（key 见 `src/lib/seasonal/festivals.ts`，如 `solar-dongzhi`、`lunar-moon-2026`）。
 存进站点配置 `festivalQuotes`，lab 页服务端透传，开瓶后展示「📖 站长的信笺」。
 
 ## 9. 瓶子投影

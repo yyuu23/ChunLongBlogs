@@ -98,7 +98,7 @@ Cookie 后请求体中的 `visitorId` 不再具有身份决定权。公共写接
 
 | 位置 | 内容 |
 | --- | --- |
-| [src/lib/site.ts](./src/lib/site.ts) | 站名、作者名、GitHub 主页、联系邮箱、横幅问候、关于页默认文案、GLM 预设描述（`DEFAULT_SITE_CONFIG`） |
+| [src/lib/site/defaults.ts](./src/lib/site/defaults.ts) / [repository.ts](./src/lib/site/repository.ts) | 站名、作者名、GitHub 主页、联系邮箱、横幅问候、关于页默认文案、GLM 预设描述；前者保存兜底值，后者负责数据库读取与合并 |
 | [src/components/lab/planetConfig.ts](./src/components/lab/planetConfig.ts) | 实验室"项目"星球链接 |
 | [src/app/api/chat/route.ts](./src/app/api/chat/route.ts) | AI 聊天兜底人设与开源仓库提示 |
 | [src/components/admin/LoginForm.tsx](./src/components/admin/LoginForm.tsx) | 登录页标题 |
@@ -123,17 +123,27 @@ Cookie 后请求体中的 `visitorId` 不再具有身份决定权。公共写接
 ## 项目结构
 
 ```
-├─ src/app/(site)/       # 前台页面：首页/文章/系列/项目/说说/相册/归档/友链/关于/音乐馆/AI 聊天/实验室
-├─ src/app/admin/        # 管理后台；actions/ 按文章、分类、社区、设置、AI 等业务域拆分
+├─ src/app/(site)/       # 公开站点路由组；括号不进入 URL，layout 只包装公开页面
+├─ src/app/admin/(panel) # 登录后的后台路由组；同样不会产生 /panel 路径
 ├─ src/app/api/          # API：评论/点赞/GitHub OAuth/AI 聊天/上传/动态 OG 图…
-├─ src/components/       # 组件（admin/home/posts/effects/mascot/lab 等）
-├─ src/lib/              # 站点配置 · db/schema.ts · content-hub · public-write · auth · llm · rag · i18n
-├─ content/posts/        # 种子演示文章（db:seed 读取）
+├─ src/components/       # 展示与交互组件，按 admin/chat/home/posts/lab 等领域组织
+├─ src/lib/              # 业务层：ai/chat/content/auth/analytics/engagement/lab/music 等
+│  ├─ content/rag/       # Markdown 切块、向量索引、混合检索和相关文章
+│  ├─ chat/tools/        # AI 工具定义、标签、领域处理器和统一调度
+│  ├─ db/                # Drizzle 连接与 schema
+│  └─ shared/            # 不依赖具体业务的日志、限流、剪贴板和通用函数
+├─ tests/unit/           # 可脱离路由和真实数据库运行的纯逻辑测试
+├─ tests/integration/    # API、SQLite、配额、定时发布和 Markdown 导入测试
+├─ content/posts/        # 种子/单篇导入的 Markdown 源；线上展示仍以 SQLite 为准
 ├─ data/                 # SQLite 数据库（gitignore，永不入库）
 ├─ deploy/               # pm2 ecosystem + nginx 模板
-├─ scripts/              # seed / 资源生成 / 服务器备份与部署脚本
+├─ scripts/              # seed / 单篇导入 / 资源生成 / 服务器备份与部署脚本
 └─ .github/workflows/    # CI（素材记录校验 + lint + typecheck + test）+ 生产部署
 ```
+
+`(site)` 和 `(panel)` 是 Next.js App Router 的路由组，只用于共享布局和组织代码；
+例如 `src/app/(site)/posts/page.tsx` 的地址仍是 `/posts`。完整的依赖方向、领域职责和
+服务端/客户端边界见 [架构与目录说明](./docs/ARCHITECTURE.md)。
 
 ## 开发与测试
 

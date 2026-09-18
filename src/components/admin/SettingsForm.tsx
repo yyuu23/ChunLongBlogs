@@ -293,7 +293,7 @@ export function SettingsForm({ initial, embeddingStatus }: { initial: SiteConfig
         <label className={`${label} sm:col-span-2`}>
           <span className="text-xs font-medium text-slate-500">
             节气/节日当天来访的访客会封一只瓶——开瓶后能读到对应的一句话。每行一条：节气 key | 语录
-            （key 见 lib/festivals.ts，如 solar-dongzhi、lunar-moon-2026；留空即不写信）
+            （key 见 src/lib/seasonal/festivals.ts，如 solar-dongzhi、lunar-moon-2026；留空即不写信）
           </span>
           <textarea
             rows={4}

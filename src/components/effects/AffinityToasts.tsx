@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Heart } from "lucide-react";
-import { fetchProgress, type PlayerProgress } from "@/lib/track";
+import { fetchProgress, type PlayerProgress } from "@/lib/engagement/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { AFFINITY_LEVELS, affinityOf } from "@/lib/affinity";
+import { AFFINITY_LEVELS, affinityOf } from "@/lib/engagement/affinity";
 import { pick } from "@/lib/i18n/config";
 
 const SEEN_KEY = "cl-aff-seen"; // 上次已知等级（number）

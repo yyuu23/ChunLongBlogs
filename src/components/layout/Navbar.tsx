@@ -11,7 +11,7 @@ import { useT } from "@/components/providers/LocaleProvider";
 import { LogoEgg } from "@/components/effects/LogoEgg";
 import { CalendarPopover } from "@/components/layout/CalendarPopover";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 /** 路由 → 词典 key（label 经 t() 现场翻译） */
 const LINKS = [

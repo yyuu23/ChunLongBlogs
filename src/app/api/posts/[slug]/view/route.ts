@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, sql, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { posts } from "@/lib/db/schema";
-import { clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/shared/rate-limit";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { burstQuota, persistentQuota } from "@/lib/public-write/quota";

@@ -5,8 +5,8 @@ import { Loader2, MessageCircle, Reply, Trash2 } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useGithubUser, useLoginUrl } from "@/components/comments/useGithubUser";
 import { GithubIcon } from "@/components/comments/GithubIcon";
-import { getVisitorId } from "@/lib/track";
-import { cn, relativeTime } from "@/lib/utils";
+import { getVisitorId } from "@/lib/engagement/track";
+import { cn, relativeTime } from "@/lib/shared/utils";
 
 export interface CommentItem {
   id: number;

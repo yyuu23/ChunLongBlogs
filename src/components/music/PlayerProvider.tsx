@@ -11,11 +11,11 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 import { Heart, Play, Pause, ChevronDown, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Volume2, VolumeX } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
-import type { PlayerSong, PlayMode } from "@/lib/music-types";
+import { isFavorite, toggleFavorite, subscribeFavorites } from "@/lib/music/favorites";
+import type { PlayerSong, PlayMode } from "@/lib/music/types";
 import {
   loadPlayMode,
   loadVolumePreference,
@@ -23,9 +23,9 @@ import {
   saveMutedPreference,
   savePlayMode,
   saveVolumePreference,
-} from "@/lib/music-preferences";
+} from "@/lib/music/preferences";
 
-export type { PlayerSong, PlayMode } from "@/lib/music-types";
+export type { PlayerSong, PlayMode } from "@/lib/music/types";
 
 
 interface PlayerCtx {

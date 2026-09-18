@@ -4,7 +4,7 @@ import Image from "next/image";
 import { RefreshCw } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useWallpaper } from "@/components/providers/WallpaperProvider";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 import { SettingSlider } from "@/components/layout/SettingSlider";
 
 /**

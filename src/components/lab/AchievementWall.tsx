@@ -9,8 +9,8 @@ import {
   achievementProgress,
   type AchievementCategory,
   type AchievementDef,
-} from "@/lib/achievements";
-import type { PlayerProgress } from "@/lib/track";
+} from "@/lib/engagement/achievements";
+import type { PlayerProgress } from "@/lib/engagement/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { pick, type Locale } from "@/lib/i18n/config";
 

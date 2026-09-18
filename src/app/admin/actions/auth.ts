@@ -6,8 +6,8 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { adminUsers } from "@/lib/db/schema";
-import { createSession, destroySession } from "@/lib/auth";
-import { dailyCount, rateLimit } from "@/lib/rateLimit";
+import { createSession, destroySession } from "@/lib/auth/admin-session";
+import { dailyCount, rateLimit } from "@/lib/shared/rate-limit";
 
 export async function loginAction(_prev: string | null, formData: FormData): Promise<string | null> {
   const username = String(formData.get("username") ?? "").trim();

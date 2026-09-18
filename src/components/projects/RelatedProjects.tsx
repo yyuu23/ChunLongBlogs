@@ -1,5 +1,5 @@
 import { Blocks } from "lucide-react";
-import type { PublicProject } from "@/lib/content-hub";
+import type { PublicProject } from "@/lib/content/types";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 
 export function RelatedProjects({ items, heading }: { items: PublicProject[]; heading: string }) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Sakura, Fireflies, Leaves, Snow } from "@/components/effects/Particles";
-import type { ActiveParticle } from "@/lib/particle-theme";
+import type { ActiveParticle } from "@/lib/seasonal/particle-theme";
 
 /**
  * 瓶子投影仪：故事卡「投影到夜空」派发 cl-bottle-project 事件后，

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPublishedPosts } from "@/lib/posts";
-import { semanticPostSearch } from "@/lib/rag";
+import { getPublishedPosts } from "@/lib/content/posts";
+import { semanticPostSearch } from "@/lib/content/rag/related";
 
 export const dynamic = "force-dynamic";
 

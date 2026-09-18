@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { bottles } from "@/lib/db/schema";
-import { clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/shared/rate-limit";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { readJson } from "@/lib/public-write/json";

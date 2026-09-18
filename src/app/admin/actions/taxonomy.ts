@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, tags } from "@/lib/db/schema";
 import { guardAdminAction, revalidateSite } from "@/lib/admin/action-utils";
-import { slugify } from "@/lib/utils";
+import { slugify } from "@/lib/shared/utils";
 
 export async function saveCategory(input: { id?: number; name: string; color?: string }) {
   await guardAdminAction();

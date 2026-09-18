@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/shared/clipboard";
 
 /* lucide 的 Copy / Check / X 图标（正文是注入的 HTML 字符串，这里只能用内联 SVG） */
 const SVG_ATTRS =

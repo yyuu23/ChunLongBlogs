@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useGithubUser, useLoginUrl } from "@/components/comments/useGithubUser";
-import { getVisitorId, trackEvent } from "@/lib/track";
-import { cn } from "@/lib/utils";
+import { getVisitorId, trackEvent } from "@/lib/engagement/track";
+import { cn } from "@/lib/shared/utils";
 
 interface Liker {
   login: string;

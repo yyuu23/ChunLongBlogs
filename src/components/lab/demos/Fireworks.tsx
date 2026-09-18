@@ -13,7 +13,7 @@ import {
   fwSetTimbre,
   fwSetVolume,
   type FwTimbre,
-} from "@/lib/fireworks-audio";
+} from "@/lib/lab/fireworks-audio";
 
 /**
  * 烟花实验（/lab/fireworks）：全屏夜空画布，点击/触摸发射烟花——

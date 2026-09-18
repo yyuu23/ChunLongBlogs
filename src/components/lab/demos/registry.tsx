@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /**

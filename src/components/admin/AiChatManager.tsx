@@ -3,9 +3,9 @@
 import { useState, useTransition, useRef } from "react";
 import { Bot, BrainCog, Loader2, Plus, RotateCcw, Sparkles, Trash2, Undo2, Wrench } from "lucide-react";
 import { saveAiChat } from "@/app/admin/actions/ai-chat";
-import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site";
-import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
-import { EFFORT_COST_DEFAULTS, creditsCfg } from "@/lib/credits";
+import type { AiChatChoice, AiChatConfig, AiCustomTool, AiProvider } from "@/lib/site/types";
+import { thinkingSpec, type ThinkingLevel } from "@/lib/ai/thinking";
+import { EFFORT_COST_DEFAULTS, creditsCfg } from "@/lib/engagement/credits";
 import { budgetYuanToCredits, suggestModelCredits } from "@/lib/admin/ai-pricing";
 
 const input =

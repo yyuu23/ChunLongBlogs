@@ -1,7 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession } from "@/lib/auth/admin-session";
 
 export async function guardAdminAction() {
   const session = await getSession();

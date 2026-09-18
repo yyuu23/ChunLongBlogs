@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { resolveParticleTheme, type ActiveParticle } from "@/lib/particle-theme";
+import { resolveParticleTheme, type ActiveParticle } from "@/lib/seasonal/particle-theme";
 import { Sakura, Fireflies, Leaves, Snow } from "./Particles";
 
 const LAYERS: Record<string, (props: { count?: number }) => React.ReactNode> = {

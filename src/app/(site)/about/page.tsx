@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Blocks, UserRound } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
-import { renderMarkdown, markdownCacheKey } from "@/lib/markdown";
-import { getSiteConfig } from "@/lib/site";
+import { renderMarkdown, markdownCacheKey } from "@/lib/content/markdown";
+import { getSiteConfig } from "@/lib/site/repository";
 import { getT } from "@/lib/i18n/server";
-import { getPublishedProjects } from "@/lib/content-hub";
+import { getPublishedProjects } from "@/lib/content/projects";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 
 export const dynamic = "force-dynamic";

@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { githubUsers, postLikes } from "@/lib/db/schema";
-import { createUserSession } from "@/lib/authUser";
-import { callbackUrl, readOAuthState, requestOrigin, safeReturnTo } from "@/lib/githubOAuth";
-import { logError } from "@/lib/logger";
+import { createUserSession } from "@/lib/auth/github-user";
+import { callbackUrl, readOAuthState, requestOrigin, safeReturnTo } from "@/lib/auth/github-oauth";
+import { logError } from "@/lib/shared/logger";
 
 interface GithubProfile {
   id?: number;

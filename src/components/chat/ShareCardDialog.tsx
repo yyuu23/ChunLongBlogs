@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, X } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { downloadBlob, wrapCanvasText, type ExportMsg } from "@/lib/chatExport";
+import { downloadBlob, wrapCanvasText, type ExportMsg } from "@/lib/chat/export";
 
 const W = 1080;
 const PADDING = 64;

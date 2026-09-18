@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AiProvider } from "@/lib/site";
-import type { ThinkingLevel } from "@/lib/llm-thinking";
+import type { AiProvider } from "@/lib/site/types";
+import type { ThinkingLevel } from "@/lib/ai/thinking";
 import { useT } from "@/components/providers/LocaleProvider";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { BrandLogo } from "./BrandLogo";

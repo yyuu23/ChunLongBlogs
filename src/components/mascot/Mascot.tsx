@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 /** 加载本地 Cubism2 core 脚本（幂等） */
 async function loadCore() {

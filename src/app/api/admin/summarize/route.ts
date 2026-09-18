@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { summarizeContent } from "@/lib/ai";
-import { incrStat } from "@/lib/stats";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { summarizeContent } from "@/lib/ai/completions";
+import { incrStat } from "@/lib/analytics/stats";
 
 export const dynamic = "force-dynamic";
 
 /**
  * AI 生成文章摘要（后台专用）：编辑器"AI 生成摘要"按钮调用。
- * 核心逻辑在 @/lib/aiSummary（与批量补摘要共用），这里只做鉴权/限流/入参校验。
+ * 核心逻辑在 @/lib/ai/completionsSummary（与批量补摘要共用），这里只做鉴权/限流/入参校验。
  */
 export async function POST(request: Request) {
   if (!(await requireAdminApi())) {

@@ -3,8 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
-import { requireAdminApi } from "@/lib/auth";
-import { logError } from "@/lib/logger";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { logError } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 

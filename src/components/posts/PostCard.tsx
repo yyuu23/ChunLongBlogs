@@ -7,8 +7,8 @@ import { CalendarDays, Eye, Clock3 } from "lucide-react";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { AutoCover } from "@/components/posts/AutoCover";
 import { useT } from "@/components/providers/LocaleProvider";
-import type { PostListItem } from "@/lib/posts";
-import { formatDate } from "@/lib/utils";
+import type { PostListItem } from "@/lib/content/posts";
+import { formatDate } from "@/lib/shared/utils";
 
 /**
  * 文章卡片：3D 倾斜 + 光标眩光（grid 竖版 / list 横版两种形态）

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TocItem } from "@/lib/markdown";
+import type { TocItem } from "@/lib/content/markdown";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /** 文章目录：滚动高亮当前章节 + 平滑滚动定位 */

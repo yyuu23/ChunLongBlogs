@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mergeBottleOrder, reorderBottleIds } from "@/lib/bottle-order";
+import { mergeBottleOrder, reorderBottleIds } from "@/lib/bottles/order";
 
 const ORDER_KEY = "cl-bottle-order";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AiProvider } from "@/lib/site";
+import type { AiProvider } from "@/lib/site/types";
 
 /**
  * 供应商品牌标：优先 public/assets/logos/<provider>.png（官方素材），

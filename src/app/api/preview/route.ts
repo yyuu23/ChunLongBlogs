@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { renderMarkdown } from "@/lib/markdown";
-import { requireAdminApi } from "@/lib/auth";
+import { renderMarkdown } from "@/lib/content/markdown";
+import { requireAdminApi } from "@/lib/auth/admin-session";
 
 export const dynamic = "force-dynamic";
 

@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { trackEvent, getVisitorId } from "@/lib/track";
+import { trackEvent, getVisitorId } from "@/lib/engagement/track";
 import { useT } from "@/components/providers/LocaleProvider";
-import { createMoodFilter } from "@/lib/moodStream";
-import { readDigest, noteTurn } from "@/lib/chatMemory";
-import type { AiProvider } from "@/lib/site";
-import type { ThinkingLevel } from "@/lib/llm-thinking";
-import { readGuidePreferences } from "@/lib/guide-preferences";
-import type { ContentContext } from "@/lib/content-types";
+import { createMoodFilter } from "@/lib/chat/mood-stream";
+import { readDigest, noteTurn } from "@/lib/chat/memory";
+import type { AiProvider } from "@/lib/site/types";
+import type { ThinkingLevel } from "@/lib/ai/thinking";
+import { readGuidePreferences } from "@/lib/chat/guide-preferences";
+import type { ContentContext } from "@/lib/content/types";
 
 /** 参考来源（与 /api/chat 的 related 同构） */
 export interface RelatedRef {

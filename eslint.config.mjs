@@ -49,5 +49,36 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ["src/lib/shared/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/admin/*", "@/lib/admin/**",
+                "@/lib/ai/*", "@/lib/ai/**",
+                "@/lib/analytics/*", "@/lib/analytics/**",
+                "@/lib/auth/*", "@/lib/auth/**",
+                "@/lib/bottles/*", "@/lib/bottles/**",
+                "@/lib/chat/*", "@/lib/chat/**",
+                "@/lib/content/*", "@/lib/content/**",
+                "@/lib/engagement/*", "@/lib/engagement/**",
+                "@/lib/lab/*", "@/lib/lab/**",
+                "@/lib/music/*", "@/lib/music/**",
+                "@/lib/public-write/*", "@/lib/public-write/**",
+                "@/lib/seasonal/*", "@/lib/seasonal/**",
+                "@/lib/site/*", "@/lib/site/**",
+                "@/lib/db", "@/lib/db/*", "@/lib/db/**",
+              ],
+              message: "src/lib/shared is foundational and must not depend on business domains or database code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   globalIgnores([".next/**", "coverage/**", "out/**", "build/**", "public/**"]),
 ]);

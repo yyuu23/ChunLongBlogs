@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { fetchProgress, type PlayerProgress } from "@/lib/track";
-import { AFFINITY_LEVELS, affinityOf } from "@/lib/affinity";
+import { fetchProgress, type PlayerProgress } from "@/lib/engagement/track";
+import { AFFINITY_LEVELS, affinityOf } from "@/lib/engagement/affinity";
 import { pick } from "@/lib/i18n/config";
 import { readAffinityCache } from "@/components/effects/AffinityToasts";
 

@@ -2,10 +2,10 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import sharp from "sharp";
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { incrStat } from "@/lib/stats";
-import { cogviewConfigured, genImage } from "@/lib/ai-image";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { incrStat } from "@/lib/analytics/stats";
+import { cogviewConfigured, genImage } from "@/lib/ai/image";
 
 export const dynamic = "force-dynamic";
 

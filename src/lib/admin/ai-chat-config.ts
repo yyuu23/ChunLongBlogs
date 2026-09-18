@@ -1,6 +1,6 @@
-import { resolveProviderModel } from "@/lib/llm";
-import { thinkingSpec, type ThinkingLevel } from "@/lib/llm-thinking";
-import type { AiChatConfig } from "@/lib/site";
+import { resolveProviderModel } from "@/lib/ai/provider";
+import { thinkingSpec, type ThinkingLevel } from "@/lib/ai/thinking";
+import type { AiChatConfig } from "@/lib/site/types";
 
 const AI_PROVIDERS = new Set(["deepseek", "glm", "qwen"]);
 const TOOL_NAMES = new Set([

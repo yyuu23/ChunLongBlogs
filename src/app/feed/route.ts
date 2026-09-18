@@ -1,6 +1,6 @@
-import { getPublishedPosts, getPostBySlug } from "@/lib/posts";
-import { renderMarkdown } from "@/lib/markdown";
-import { getSiteConfig } from "@/lib/site";
+import { getPublishedPosts, getPostBySlug } from "@/lib/content/posts";
+import { renderMarkdown } from "@/lib/content/markdown";
+import { getSiteConfig } from "@/lib/site/repository";
 
 export const dynamic = "force-dynamic";
 

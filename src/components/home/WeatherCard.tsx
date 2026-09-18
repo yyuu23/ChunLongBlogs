@@ -1,7 +1,7 @@
 "use client";
 
 import { useT } from "@/components/providers/LocaleProvider";
-import { useWeather, describeByBucket, uvKey, aqiInfo, makeSuggestion } from "@/lib/weather";
+import { useWeather, describeByBucket, uvKey, aqiInfo, makeSuggestion } from "@/lib/seasonal/weather";
 
 /** 天气小组件：数据走 useWeather（与小屋窗共用一套请求/缓存），失败静默隐藏 */
 export function WeatherCard() {

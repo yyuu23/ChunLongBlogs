@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { clientIp } from "@/lib/rateLimit";
-import { getLlmRequest, resolveAiChatChoice } from "@/lib/llm";
-import { getSiteConfig } from "@/lib/site";
+import { clientIp } from "@/lib/shared/rate-limit";
+import { getLlmRequest, resolveAiChatChoice } from "@/lib/ai/provider";
+import { getSiteConfig } from "@/lib/site/repository";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { readJson } from "@/lib/public-write/json";

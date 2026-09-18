@@ -5,7 +5,7 @@ import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { GithubIcon, BilibiliIcon, GiteeIcon } from "@/components/ui/BrandIcons";
 import { db } from "@/lib/db";
 import { friendLinks } from "@/lib/db/schema";
-import { getSiteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/site/repository";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

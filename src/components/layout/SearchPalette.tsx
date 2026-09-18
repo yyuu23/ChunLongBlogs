@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, CornerDownLeft, Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 interface Hit {
   title: string;

@@ -7,7 +7,7 @@ import { Float, OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { pick } from "@/lib/i18n/config";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 import {
   PLANETS,
   BELT,

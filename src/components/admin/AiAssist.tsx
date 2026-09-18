@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { StateEffect } from "@codemirror/state";
 import { Copy, CornerDownLeft, Loader2, Replace, Sparkles, Square, Wand2, X } from "lucide-react";
-import { ASSIST_ACTION_LABEL, type AssistAction } from "@/lib/ai-assist";
+import { ASSIST_ACTION_LABEL, type AssistAction } from "@/lib/ai/assist";
 
 /**
  * 写作助手（选区 AI 工具箱 + 续写），挂在 PostEditor 的编辑器容器内：

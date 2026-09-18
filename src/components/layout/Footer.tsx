@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Rss, Lock, Heart } from "lucide-react";
-import type { SiteConfig } from "@/lib/site";
+import type { SiteConfig } from "@/lib/site/types";
 import { getT } from "@/lib/i18n/server";
 
 export async function Footer({ config }: { config: SiteConfig }) {

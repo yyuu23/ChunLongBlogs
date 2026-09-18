@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, postTags, posts, series, tags } from "@/lib/db/schema";
-import { cogviewConfigured } from "@/lib/ai-image";
+import { cogviewConfigured } from "@/lib/ai/image";
 import { PostEditor } from "@/components/admin/PostEditor";
 
 export const dynamic = "force-dynamic";

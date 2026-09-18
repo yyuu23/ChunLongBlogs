@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Flame, Send } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { bsChime } from "@/lib/bottle-audio";
-import { rand } from "@/lib/demo-utils";
+import { bsChime } from "@/lib/bottles/audio";
+import { rand } from "@/lib/lab/demo-utils";
 
 /**
  * 孔明灯实验（/lab/lanterns）：写一句愿望，放一盏灯。

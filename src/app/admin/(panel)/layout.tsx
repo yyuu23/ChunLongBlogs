@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { requireAdmin } from "@/lib/auth";
-import { getSiteConfig } from "@/lib/site";
+import { requireAdmin } from "@/lib/auth/admin-session";
+import { getSiteConfig } from "@/lib/site/repository";
 import { AdminShell } from "@/components/admin/AdminShell";
 
 export const dynamic = "force-dynamic";

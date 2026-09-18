@@ -10,7 +10,7 @@ import {
   saveSessions,
   titleOf,
   type ChatSessionMeta,
-} from "@/lib/chatSessions";
+} from "@/lib/chat/sessions";
 
 export function useChatSessionIndex(onBeforeSwitch: () => void) {
   const [activeId, setActiveId] = useState(() => lastActiveId() ?? newSessionId());

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { ACHIEVEMENTS, type AchievementDef } from "@/lib/achievements";
-import { fetchProgress, type PlayerProgress } from "@/lib/track";
+import { ACHIEVEMENTS, type AchievementDef } from "@/lib/engagement/achievements";
+import { fetchProgress, type PlayerProgress } from "@/lib/engagement/track";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { pick } from "@/lib/i18n/config";
 import { tierStyle } from "@/components/lab/AchievementWall";

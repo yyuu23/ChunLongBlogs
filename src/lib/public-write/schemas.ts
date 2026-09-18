@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { XP_EVENTS } from "@/lib/achievements";
+import { XP_EVENTS } from "@/lib/engagement/achievements";
 
 const bottleTheme = z.enum(["sakura", "firefly", "leaf", "snow"]);
 

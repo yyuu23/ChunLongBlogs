@@ -19,8 +19,9 @@ import {
   songs,
   tags,
 } from "../src/lib/db/schema";
-import { countWords, readingTimeMinutes, excerpt, slugify } from "../src/lib/utils";
-import { DEFAULT_SITE_CONFIG, saveSiteConfig } from "../src/lib/site";
+import { countWords, readingTimeMinutes, excerpt, slugify } from "../src/lib/shared/utils";
+import { DEFAULT_SITE_CONFIG } from "../src/lib/site/defaults";
+import { saveSiteConfig } from "../src/lib/site/repository";
 
 if (fs.existsSync(".env")) {
   for (const line of fs.readFileSync(".env", "utf8").split(/\r?\n/)) {

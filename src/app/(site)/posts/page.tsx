@@ -5,7 +5,7 @@ import { PageTransition } from "@/components/effects/PageTransition";
 import { PostCard } from "@/components/posts/PostCard";
 import { ViewSwitch } from "@/components/posts/ViewSwitch";
 import { Pagination } from "@/components/posts/Pagination";
-import { getCategoriesWithCount, getPublishedPosts, getTagsWithCount } from "@/lib/posts";
+import { getCategoriesWithCount, getPublishedPosts, getTagsWithCount } from "@/lib/content/posts";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

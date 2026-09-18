@@ -5,11 +5,11 @@ import { motion } from "framer-motion";
 import { Play, Music2, Clock3, ListMusic, Heart, Headphones } from "lucide-react";
 import { usePlayer, type PlayerSong } from "@/components/music/PlayerProvider";
 import { useT, useLocale } from "@/components/providers/LocaleProvider";
-import { loadFavorites, toggleFavorite, subscribeFavorites } from "@/lib/favorites";
-import { parseLrc } from "@/lib/lrc";
-import { fetchProgress, type PlayerProgress } from "@/lib/track";
-import { achievementProgress } from "@/lib/achievements";
-import { MUSIC } from "@/lib/achievements-data";
+import { loadFavorites, toggleFavorite, subscribeFavorites } from "@/lib/music/favorites";
+import { parseLrc } from "@/lib/music/lyrics";
+import { fetchProgress, type PlayerProgress } from "@/lib/engagement/track";
+import { achievementProgress } from "@/lib/engagement/achievements";
+import { MUSIC } from "@/lib/engagement/achievement-definitions";
 import { pick } from "@/lib/i18n/config";
 
 export interface MusicPlaylist {

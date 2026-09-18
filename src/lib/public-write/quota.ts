@@ -1,5 +1,7 @@
+import "server-only";
+
 import { db } from "@/lib/db";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
 import { identityDigest } from "./identity";
 
 export interface QuotaResult {

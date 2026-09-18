@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { FadeIn } from "@/components/effects/PageTransition";
-import { getArchive } from "@/lib/posts";
-import { formatDate } from "@/lib/utils";
+import { getArchive } from "@/lib/content/posts";
+import { formatDate } from "@/lib/shared/utils";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

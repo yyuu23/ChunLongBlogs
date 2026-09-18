@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { albums, comments, friendLinks, githubUsers, moments, photos, posts } from "@/lib/db/schema";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/shared/utils";
 
 export const dynamic = "force-dynamic";
 

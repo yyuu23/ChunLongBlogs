@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { polishMoment, polishPost } from "@/lib/ai";
-import { incrStat } from "@/lib/stats";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { polishMoment, polishPost } from "@/lib/ai/completions";
+import { incrStat } from "@/lib/analytics/stats";
 
 export const dynamic = "force-dynamic";
 

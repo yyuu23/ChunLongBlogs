@@ -26,7 +26,7 @@ export async function saveMoment(input: {
   revalidateSite();
   if (momentId) {
     try {
-      const { rebuildMomentEmbeddings } = await import("@/lib/rag");
+      const { rebuildMomentEmbeddings } = await import("@/lib/content/rag/indexing");
       void rebuildMomentEmbeddings(momentId).catch(() => {});
     } catch {}
   }
@@ -37,7 +37,7 @@ export async function deleteMoment(id: number) {
   await guardAdminAction();
   await db.delete(moments).where(eq(moments.id, id));
   try {
-    const { deleteEmbeddings } = await import("@/lib/rag");
+    const { deleteEmbeddings } = await import("@/lib/content/rag/indexing");
     await deleteEmbeddings("moment", id);
   } catch {}
   revalidateSite();

@@ -20,8 +20,8 @@ export interface EffectFlags {
 }
 
 /** 粒子主题模式：类型统一定义在 lib/particle-theme（auto/season 的展开逻辑也在那里） */
-export type { ParticleTheme } from "@/lib/particle-theme";
-import type { ParticleTheme } from "@/lib/particle-theme";
+export type { ParticleTheme } from "@/lib/seasonal/particle-theme";
+import type { ParticleTheme } from "@/lib/seasonal/particle-theme";
 
 export const PARTICLE_THEMES: { key: ParticleTheme; label: string; emoji: string }[] = [
   { key: "auto", label: "日夜自动", emoji: "🌗" },

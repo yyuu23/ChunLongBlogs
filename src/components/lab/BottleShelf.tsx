@@ -6,11 +6,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, Wine, X } from "lucide-react";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { getVisitorId } from "@/lib/track";
-import { ACHIEVEMENTS } from "@/lib/achievements";
-import { festivalByKey, isYearEndWindow } from "@/lib/festivals";
-import { bottleStyleOf, type BottleStyle } from "@/lib/bottle-style";
-import { bsChime, bsPickup, bsPutdown, bsPop, bsSlosh } from "@/lib/bottle-audio";
+import { getVisitorId } from "@/lib/engagement/track";
+import { ACHIEVEMENTS } from "@/lib/engagement/achievements";
+import { festivalByKey, isYearEndWindow } from "@/lib/seasonal/festivals";
+import { bottleStyleOf, type BottleStyle } from "@/lib/bottles/style";
+import { bsChime, bsPickup, bsPutdown, bsPop, bsSlosh } from "@/lib/bottles/audio";
 import { DATE_LOCALE, pick } from "@/lib/i18n/config";
 import { useBottleOrder } from "@/components/lab/bottles/useBottleOrder";
 

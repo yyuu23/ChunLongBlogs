@@ -5,11 +5,11 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { posts, projectPosts, projects, series } from "@/lib/db/schema";
 import { guardAdminAction, revalidateSite } from "@/lib/admin/action-utils";
-import { chatLLM } from "@/lib/ai";
-import { getPostTagNames } from "@/lib/content-hub";
-import type { SeriesProposal } from "@/lib/content-types";
-import { slugify } from "@/lib/utils";
-import { LAB_DEMOS } from "@/lib/lab-demos";
+import { chatLLM } from "@/lib/ai/completions";
+import { getPostTagNames } from "@/lib/content/posts";
+import type { SeriesProposal } from "@/lib/content/types";
+import { slugify } from "@/lib/shared/utils";
+import { LAB_DEMOS } from "@/lib/lab/catalog";
 
 const seriesInputSchema = z
   .object({

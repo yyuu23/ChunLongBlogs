@@ -1,7 +1,9 @@
+import "server-only";
+
 import { createHmac, randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { NextResponse } from "next/server";
-import { sessionSecret } from "@/lib/auth";
+import { sessionSecret } from "@/lib/auth/admin-session";
 
 const COOKIE_NAME = "cl_visitor";
 const ISSUER = "chunlong-blog";

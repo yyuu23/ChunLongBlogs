@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { EffectProvider } from "@/components/providers/EffectProvider";
 import { AccentProvider } from "@/components/providers/AccentProvider";
 import { LocaleProvider } from "@/components/providers/LocaleProvider";
-import { getSiteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/site/repository";
 import { getLocale } from "@/lib/i18n/server";
 import { HTML_LANG } from "@/lib/i18n/config";
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Blocks } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { ProjectCard } from "@/components/projects/ProjectCard";
-import { getPublishedProjects } from "@/lib/content-hub";
+import { getPublishedProjects } from "@/lib/content/projects";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

@@ -1,5 +1,5 @@
-import { llmConfigured } from "@/lib/ai";
-import { buildAdminStatsPayload } from "@/lib/adminStats";
+import { llmConfigured } from "@/lib/ai/completions";
+import { buildAdminStatsPayload } from "@/lib/analytics/admin-stats";
 import { StatsDashboard, type StatsPayload } from "@/components/admin/StatsDashboard";
 
 export const dynamic = "force-dynamic";

@@ -3,7 +3,7 @@
  * 合并式更新 —— 只覆盖背景相关字段，保留后台改过的其他设置。
  * 运行：npx tsx scripts/apply-anime-bg.ts
  */
-import { getSiteConfig, saveSiteConfig } from "../src/lib/site";
+import { getSiteConfig, saveSiteConfig } from "../src/lib/site/repository";
 
 async function main() {
   const config = await getSiteConfig();

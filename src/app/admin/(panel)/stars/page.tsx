@@ -2,7 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stars } from "@/lib/db/schema";
 import { StarsManager, type AdminStarItem } from "@/components/admin/StarsManager";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/shared/utils";
 
 export const dynamic = "force-dynamic";
 

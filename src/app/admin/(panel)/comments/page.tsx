@@ -2,7 +2,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { comments, githubUsers, moments, posts } from "@/lib/db/schema";
 import { CommentsManager, type AdminCommentItem } from "@/components/admin/CommentsManager";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/shared/utils";
 
 export const dynamic = "force-dynamic";
 

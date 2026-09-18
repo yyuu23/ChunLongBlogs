@@ -1,6 +1,6 @@
-import { getSiteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/site/repository";
 import { SettingsForm } from "@/components/admin/SettingsForm";
-import { getEmbeddingIndexStatus } from "@/lib/rag";
+import { getEmbeddingIndexStatus } from "@/lib/content/rag/indexing";
 
 export const dynamic = "force-dynamic";
 

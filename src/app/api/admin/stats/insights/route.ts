@@ -1,9 +1,9 @@
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { incrStat } from "@/lib/stats";
-import { llmConfigured } from "@/lib/ai";
-import { buildAdminStatsPayload } from "@/lib/adminStats";
-import { generateInsights } from "@/lib/ai-insights";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { incrStat } from "@/lib/analytics/stats";
+import { llmConfigured } from "@/lib/ai/completions";
+import { buildAdminStatsPayload } from "@/lib/analytics/admin-stats";
+import { generateInsights } from "@/lib/ai/insights";
 
 export const dynamic = "force-dynamic";
 

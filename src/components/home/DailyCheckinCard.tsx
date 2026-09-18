@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarCheck, Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { getVisitorId, trackEvent } from "@/lib/track";
-import { XP_RULES } from "@/lib/achievements";
+import { getVisitorId, trackEvent } from "@/lib/engagement/track";
+import { XP_RULES } from "@/lib/engagement/achievements";
 
 /** 今日运势等级（与 i18n key 对应） */
 const LUCK_TIERS = ["best", "good", "mid", "bad"] as const;

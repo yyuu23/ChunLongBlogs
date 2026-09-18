@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import type { DayKind } from "@/lib/holidays";
+import type { DayKind } from "@/lib/seasonal/holidays";
 import { useLocale, useT } from "@/components/providers/LocaleProvider";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 interface MonthHolidays {
   [dateKey: string]: { kind: DayKind; name?: string };

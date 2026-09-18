@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { DemoShell } from "@/components/lab/demos/registry";
-import { labDemoBySlug } from "@/lib/lab-demos";
+import { labDemoBySlug } from "@/lib/lab/catalog";
 import { pick } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 

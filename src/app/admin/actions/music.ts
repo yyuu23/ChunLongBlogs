@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { playlists, songs } from "@/lib/db/schema";
 import { guardAdminAction, revalidateSite } from "@/lib/admin/action-utils";
-import { fetchNeteaseLyrics, loadNeteasePlaylist, neteaseIdFromUrl } from "@/lib/netease";
+import { fetchNeteaseLyrics, loadNeteasePlaylist, neteaseIdFromUrl } from "@/lib/music/netease";
 
 export async function savePlaylist(input: { id?: number; title: string; description: string; cover: string }) {
   await guardAdminAction();

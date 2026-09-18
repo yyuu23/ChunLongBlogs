@@ -4,13 +4,13 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BrainCog, Check, ChevronDown } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import type { AiProvider } from "@/lib/site";
-import type { ThinkingLevel } from "@/lib/llm-thinking";
+import type { AiProvider } from "@/lib/site/types";
+import type { ThinkingLevel } from "@/lib/ai/thinking";
 import { BrandLogo } from "./BrandLogo";
 import { PersonaFull, preheatPersona } from "./PersonaArt";
 import { CreditIcon } from "./CreditIcon";
-import { fetchProgress } from "@/lib/track";
-import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/credits";
+import { fetchProgress } from "@/lib/engagement/track";
+import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/engagement/credits";
 
 /**
  * 模型与思考强度选择器（/chat 页）：

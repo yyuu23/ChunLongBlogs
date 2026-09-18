@@ -7,7 +7,7 @@ import {
   callbackUrl,
   saveOAuthState,
   safeReturnTo,
-} from "@/lib/githubOAuth";
+} from "@/lib/auth/github-oauth";
 
 const UNCONFIGURED_HTML = `<!doctype html><html lang="zh"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

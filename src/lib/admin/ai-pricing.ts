@@ -1,4 +1,4 @@
-import type { AiChatChoice } from "@/lib/site";
+import type { AiChatChoice } from "@/lib/site/types";
 
 export function budgetYuanToCredits(value: unknown): number | null {
   const yuan = Number(value);

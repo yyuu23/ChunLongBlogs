@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { BookOpenText, Clock3, ChevronRight } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { AutoCover } from "@/components/posts/AutoCover";
-import { getSeriesBySlug } from "@/lib/content-hub";
+import { getSeriesBySlug } from "@/lib/content/series";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getSiteConfig } from "@/lib/site";
-import { retrieveContext } from "@/lib/rag";
-import { clientIp } from "@/lib/rateLimit";
+import { getSiteConfig } from "@/lib/site/repository";
+import { retrieveContext } from "@/lib/content/rag/retrieval";
+import { clientIp } from "@/lib/shared/rate-limit";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
-import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chatPolicy";
-import { getChatTools, executeTool, toolCallSummary, toolLabelOf, searchApiKey } from "@/lib/chatTools";
-import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/llm";
-import { levelThinks, type ThinkingLevel } from "@/lib/llm-thinking";
-import { incrStat } from "@/lib/stats";
-import { stripMood } from "@/lib/moodStream";
-import { affinityOf, affinityTonePrompt } from "@/lib/affinity";
-import { creditsCfg, isPeakApplied, messageCost } from "@/lib/credits";
-import { spendCredits, refundCredits, ensureDailyCredits } from "@/lib/credits-server";
-import { logError } from "@/lib/logger";
+import { TOPIC_BOUNDARY, PROMPT_GUARD, MOOD_PROTOCOL, pageContextPrompt, timeTonePrompt } from "@/lib/chat/policy";
+import { getChatTools, searchApiKey } from "@/lib/chat/tools/definitions";
+import { executeTool } from "@/lib/chat/tools/execute";
+import { toolCallSummary, toolLabelOf } from "@/lib/chat/tools/labels";
+import { getLlmRequest, resolveAiChatChoice, LLM_NOT_CONFIGURED_MSG } from "@/lib/ai/provider";
+import { levelThinks, type ThinkingLevel } from "@/lib/ai/thinking";
+import { incrStat } from "@/lib/analytics/stats";
+import { stripMood } from "@/lib/chat/mood-stream";
+import { affinityOf, affinityTonePrompt } from "@/lib/engagement/affinity";
+import { creditsCfg, isPeakApplied, messageCost } from "@/lib/engagement/credits";
+import { spendCredits, refundCredits, ensureDailyCredits } from "@/lib/engagement/credits-server";
+import { logError } from "@/lib/shared/logger";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { readJson } from "@/lib/public-write/json";
@@ -259,10 +261,10 @@ export async function POST(request: Request) {
     if (!body.articleSlug || typeof body.page !== "string") return "";
     if (!body.page.startsWith(`/posts/${body.articleSlug}`)) return "";
     try {
-      const { getPostBySlug } = await import("@/lib/posts");
+      const { getPostBySlug } = await import("@/lib/content/posts");
       const post = await getPostBySlug(body.articleSlug);
       if (!post || post.status !== "published") return "";
-      const { articleContextBlock } = await import("@/lib/chatPolicy");
+      const { articleContextBlock } = await import("@/lib/chat/policy");
       return articleContextBlock(post.title, post.slug, post.content.slice(0, 3000));
     } catch {
       return "";

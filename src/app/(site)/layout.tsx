@@ -14,12 +14,12 @@ import { VisitMilestone } from "@/components/effects/VisitMilestone";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
-import { ChatWidget } from "@/components/mascot/ChatWidget";
+import { FloatingChatWidget } from "@/components/chat/FloatingChatWidget";
 import { ProactiveChat } from "@/components/mascot/ProactiveChat";
 import { SearchPalette } from "@/components/layout/SearchPalette";
 import { WallpaperProvider } from "@/components/providers/WallpaperProvider";
-import { VisitBeacon } from "@/components/VisitBeacon";
-import { getSiteConfig } from "@/lib/site";
+import { VisitBeacon } from "@/components/analytics/VisitBeacon";
+import { getSiteConfig } from "@/lib/site/repository";
 
 /** 公开站点布局：背景三明治 + 粒子 + 导航 + 页脚 */
 export default async function SiteLayout({ children }: { children: ReactNode }) {
@@ -60,7 +60,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <MobileTabBar />
       <FloatingTools />
       <Mascot />
-      <ChatWidget />
+      <FloatingChatWidget />
       <ProactiveChat />
       <AchievementToasts />
       {/* 好感度升级 toast（与成就 toast 错位列）：升级时看板娘同步庆祝 */}

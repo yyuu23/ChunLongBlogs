@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { ChatPageClient } from "@/components/chat/ChatPageClient";
 import { getT } from "@/lib/i18n/server";
-import { getSiteConfig } from "@/lib/site";
-import { providerAvailable, resolveAiChatChoice, resolveProviderModel } from "@/lib/llm";
-import { thinkingSpec } from "@/lib/llm-thinking";
-import { CHOICE_COST_DEFAULTS, creditsCfg, effortCostOf, peakMultiplierOf } from "@/lib/credits";
+import { getSiteConfig } from "@/lib/site/repository";
+import { providerAvailable, resolveAiChatChoice, resolveProviderModel } from "@/lib/ai/provider";
+import { thinkingSpec } from "@/lib/ai/thinking";
+import { CHOICE_COST_DEFAULTS, creditsCfg, effortCostOf, peakMultiplierOf } from "@/lib/engagement/credits";
 
 export const dynamic = "force-dynamic";
 

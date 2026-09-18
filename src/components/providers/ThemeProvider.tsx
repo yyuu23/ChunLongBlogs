@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 /** 用户意图三态；theme 是实际生效值（system 按系统偏好解析） */
 export type ThemeMode = "light" | "dark" | "system";

@@ -1,8 +1,8 @@
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { incrStat } from "@/lib/stats";
-import { ASSIST_ACTION_LABEL, buildAssistMessages, validateAssistParams } from "@/lib/ai-assist";
-import { bufferedChatLLM, streamChatLLM } from "@/lib/ai-stream";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { incrStat } from "@/lib/analytics/stats";
+import { ASSIST_ACTION_LABEL, buildAssistMessages, validateAssistParams } from "@/lib/ai/assist";
+import { bufferedChatLLM, streamChatLLM } from "@/lib/ai/stream";
 
 export const dynamic = "force-dynamic";
 

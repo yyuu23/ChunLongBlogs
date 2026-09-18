@@ -1,10 +1,10 @@
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdminApi } from "@/lib/auth";
-import { chatLLM } from "@/lib/ai";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { chatLLM } from "@/lib/ai/completions";
 import { db } from "@/lib/db";
 import { posts } from "@/lib/db/schema";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
 
 export const dynamic = "force-dynamic";
 

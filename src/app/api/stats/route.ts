@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { clientIp } from "@/lib/rateLimit";
-import { incrStat, markVisit, type VisitMilestone } from "@/lib/stats";
-import { checkScheduledPosts } from "@/lib/scheduled";
+import { clientIp } from "@/lib/shared/rate-limit";
+import { incrStat, markVisit, type VisitMilestone } from "@/lib/analytics/stats";
+import { checkScheduledPosts } from "@/lib/content/scheduled";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { readJson } from "@/lib/public-write/json";

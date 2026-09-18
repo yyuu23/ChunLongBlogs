@@ -4,8 +4,8 @@ import type { Metadata } from "next";
 import { ArrowLeft, ExternalLink, FlaskConical, Layers3 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/BrandIcons";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
-import { getProjectBySlug } from "@/lib/content-hub";
-import { renderMarkdown, markdownCacheKey } from "@/lib/markdown";
+import { getProjectBySlug } from "@/lib/content/projects";
+import { renderMarkdown, markdownCacheKey } from "@/lib/content/markdown";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

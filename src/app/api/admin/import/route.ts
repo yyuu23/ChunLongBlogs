@@ -17,8 +17,8 @@ import {
   songs,
   tags,
 } from "@/lib/db/schema";
-import { requireAdminApi } from "@/lib/auth";
-import { excerpt } from "@/lib/utils";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { excerpt } from "@/lib/shared/utils";
 
 export const dynamic = "force-dynamic";
 

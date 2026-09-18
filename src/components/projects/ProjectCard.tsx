@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, FlaskConical } from "lucide-react";
-import type { PublicProject } from "@/lib/content-hub";
+import type { PublicProject } from "@/lib/content/types";
 import { getT } from "@/lib/i18n/server";
 
 export async function ProjectCard({ project }: { project: PublicProject }) {

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Home } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { usePlayer } from "@/components/music/PlayerProvider";
-import { useWeather, isRainy, isSnowy } from "@/lib/weather";
-import { timeBucket, type TimeBucket } from "@/lib/timeOfDay";
+import { useWeather, isRainy, isSnowy } from "@/lib/seasonal/weather";
+import { timeBucket, type TimeBucket } from "@/lib/seasonal/time-of-day";
 
 /** 天空渐变:夜晚 > 雨 > 雪 > 阴 > 按时段;shell(首帧)用中性白天,保证 hydration 恒定 */
 function skyGradient(night: boolean, phase: TimeBucket | "shell", rainy: boolean, snowy: boolean, overcast: boolean) {

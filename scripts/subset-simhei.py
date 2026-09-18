@@ -2,7 +2,7 @@
 """把 assets-src/fonts/simhei.ttf 子集化为 simhei-subset.ttf（OG 分享图专用）。
 
 字符集 = GB2312 全部（一二级汉字 + 符号区）+ ASCII + 常用标点，
-同时导出实际覆盖的码位清单到 src/lib/og-subset-glyphs.json，
+同时导出实际覆盖的码位清单到 src/app/api/og/[slug]/og-subset-glyphs.json，
 供 /api/og 路由检测"标题含子集外字符"时回退全量字体。
 
 运行：python scripts/subset-simhei.py（依赖 pip install fonttools）
@@ -16,7 +16,7 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets-src/fonts/simhei.ttf"
 OUT = ROOT / "assets-src/fonts/simhei-subset.ttf"
-GLYPH_JSON = ROOT / "src/lib/og-subset-glyphs.json"
+GLYPH_JSON = ROOT / "src/app/api/og/[slug]/og-subset-glyphs.json"
 
 chars = set()
 

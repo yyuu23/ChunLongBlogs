@@ -1,6 +1,6 @@
 import { Megaphone } from "lucide-react";
-import { currentSolarTerm, seasonOf } from "@/lib/solar-terms";
-import { festivalOf, isYearEndWindow } from "@/lib/festivals";
+import { currentSolarTerm, seasonOf } from "@/lib/seasonal/solar-terms";
+import { festivalOf, isYearEndWindow } from "@/lib/seasonal/festivals";
 import { pick, DATE_LOCALE } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 

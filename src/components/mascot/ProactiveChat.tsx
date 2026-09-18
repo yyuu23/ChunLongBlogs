@@ -4,12 +4,12 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useEffects } from "@/components/providers/EffectProvider";
 import { useLocale } from "@/components/providers/LocaleProvider";
-import { festivalOf, isYearEndWindow } from "@/lib/festivals";
+import { festivalOf, isYearEndWindow } from "@/lib/seasonal/festivals";
 import { pick } from "@/lib/i18n/config";
 import { readAffinityCache } from "@/components/effects/AffinityToasts";
-import { useWeather } from "@/lib/weather";
-import { readDigest } from "@/lib/chatMemory";
-import { getVisitorId } from "@/lib/track";
+import { useWeather } from "@/lib/seasonal/weather";
+import { readDigest } from "@/lib/chat/memory";
+import { getVisitorId } from "@/lib/engagement/track";
 
 /**
  * 主动搭话时机检测：读完文章 / 深夜来访 / 页面久留 / 进入实验室与音乐馆。

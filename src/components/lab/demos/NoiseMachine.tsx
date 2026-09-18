@@ -14,8 +14,8 @@ import {
   noiseStop,
   noiseStopAll,
   type NoiseChannelId,
-} from "@/lib/noise-audio";
-import { accentColor } from "@/lib/demo-utils";
+} from "@/lib/lab/noise-audio";
+import { accentColor } from "@/lib/lab/demo-utils";
 
 /**
  * 白噪音机（/lab/noise）：点上几个场景，调出自己的专注背景音。

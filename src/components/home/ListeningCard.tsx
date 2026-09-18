@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Headphones } from "lucide-react";
 import { LazyImage } from "@/components/effects/Typewriter";
-import { relativeTime } from "@/lib/utils";
+import { relativeTime } from "@/lib/shared/utils";
 import type { Locale } from "@/lib/i18n/config";
 import type { T } from "@/lib/i18n/server";
 

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Quote, RefreshCw } from "lucide-react";
-import { QUOTES, type Quote as QuoteItem } from "@/lib/quotes";
+import { QUOTES, type Quote as QuoteItem } from "@/lib/content/quotes";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /** 本地随机一条（避开当前条目） */

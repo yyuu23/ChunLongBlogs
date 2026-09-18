@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { pickAutoCoverStyle } from "@/components/posts/AutoCover";
-import { getPostBySlug } from "@/lib/posts";
-import subsetGlyphs from "@/lib/og-subset-glyphs.json";
+import { getPostBySlug } from "@/lib/content/posts";
+import subsetGlyphs from "./og-subset-glyphs.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

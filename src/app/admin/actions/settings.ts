@@ -1,12 +1,13 @@
 "use server";
 
 import { asc, eq, sql } from "drizzle-orm";
-import { llmConfigured, summarizeContent, suggestTags } from "@/lib/ai";
+import { llmConfigured, summarizeContent, suggestTags } from "@/lib/ai/completions";
 import { guardAdminAction, revalidateSite } from "@/lib/admin/action-utils";
 import { db } from "@/lib/db";
 import { posts, postTags, tags } from "@/lib/db/schema";
-import { saveSiteConfig, type SiteConfig } from "@/lib/site";
-import { slugify } from "@/lib/utils";
+import { saveSiteConfig } from "@/lib/site/repository";
+import type { SiteConfig } from "@/lib/site/types";
+import { slugify } from "@/lib/shared/utils";
 
 export async function backfillSummariesAction() {
   await guardAdminAction();
@@ -112,9 +113,10 @@ export async function backfillTagsAction() {
 
 export async function rebuildEmbeddingsAction() {
   await guardAdminAction();
-  const { rebuildPostEmbeddings, rebuildMomentEmbeddings, embeddingConfigured } = await import(
-    "@/lib/rag"
+  const { rebuildPostEmbeddings, rebuildMomentEmbeddings } = await import(
+    "@/lib/content/rag/indexing"
   );
+  const { embeddingConfigured } = await import("@/lib/content/rag/embedding");
   if (!embeddingConfigured()) {
     return { error: "未配置 EMBEDDING_API_KEY（当前问答走关键词检索，功能可用但语义匹配较弱）" };
   }

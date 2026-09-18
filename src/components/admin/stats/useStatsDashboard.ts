@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AdminStatsPayload } from "@/lib/adminStats";
+import type { AdminStatsPayload } from "@/lib/analytics/admin-stats";
 
 type Insight = { text: string; generatedAt: string };
 

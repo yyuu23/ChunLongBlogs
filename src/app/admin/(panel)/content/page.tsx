@@ -2,7 +2,7 @@ import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { posts, projectPosts, projects, series } from "@/lib/db/schema";
 import { ContentManager } from "@/components/admin/ContentManager";
-import { LAB_DEMOS } from "@/lib/lab-demos";
+import { LAB_DEMOS } from "@/lib/lab/catalog";
 
 export const dynamic = "force-dynamic";
 

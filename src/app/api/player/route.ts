@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
-import { incrStat, touchSongPlayed } from "@/lib/stats";
+import { incrStat, touchSongPlayed } from "@/lib/analytics/stats";
 import { getLocale } from "@/lib/i18n/server";
-import { getSiteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/site/repository";
 import {
   EMPTY_STATS,
   XP_RULES,
@@ -15,13 +15,13 @@ import {
   unlockedAchievements,
   type PlayerStats,
   type XpEvent,
-} from "@/lib/achievements";
-import { creditsCfg } from "@/lib/credits";
-import { ensureDailyCredits } from "@/lib/credits-server";
-import { logError } from "@/lib/logger";
-import { grantBottle, themeFromMeta } from "@/lib/bottles";
-import { festivalOf, isYearEndWindow } from "@/lib/festivals";
-import { clientIp } from "@/lib/rateLimit";
+} from "@/lib/engagement/achievements";
+import { creditsCfg } from "@/lib/engagement/credits";
+import { ensureDailyCredits } from "@/lib/engagement/credits-server";
+import { logError } from "@/lib/shared/logger";
+import { grantBottle, themeFromMeta } from "@/lib/bottles/repository";
+import { festivalOf, isYearEndWindow } from "@/lib/seasonal/festivals";
+import { clientIp } from "@/lib/shared/rate-limit";
 import { assertSameOrigin, publicWriteErrorResponse, quotaResponse } from "@/lib/public-write/guard";
 import { attachAnonymousVisitorCookie, resolveAnonymousVisitor } from "@/lib/public-write/identity";
 import { readJson } from "@/lib/public-write/json";

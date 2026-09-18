@@ -1,5 +1,7 @@
-import { getSiteConfig, DEFAULT_SITE_CONFIG, type AiProvider } from "@/lib/site";
-import { providerAvailable, envProvider, resolveProviderModel } from "@/lib/llm";
+import { DEFAULT_SITE_CONFIG } from "@/lib/site/defaults";
+import { getSiteConfig } from "@/lib/site/repository";
+import type { AiProvider } from "@/lib/site/types";
+import { providerAvailable, envProvider, resolveProviderModel } from "@/lib/ai/provider";
 import { AiChatManager } from "@/components/admin/AiChatManager";
 
 export const dynamic = "force-dynamic";

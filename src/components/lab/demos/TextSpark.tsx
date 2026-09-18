@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { useEffects } from "@/components/providers/EffectProvider";
-import { fwBoom, fwCrackle, fwLaunch } from "@/lib/fireworks-audio";
-import { accentColor, parseRgb, rand, shift } from "@/lib/demo-utils";
+import { fwBoom, fwCrackle, fwLaunch } from "@/lib/lab/fireworks-audio";
+import { accentColor, parseRgb, rand, shift } from "@/lib/lab/demo-utils";
 
 /**
  * 粒子文字实验（/lab/text-spark）：写一句话，粒子先聚合成字形，再炸成烟花。

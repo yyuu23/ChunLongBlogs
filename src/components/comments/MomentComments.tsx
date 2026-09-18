@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { Comments } from "@/components/comments/Comments";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 /** 说说卡片的折叠评论区：默认收起，点开才拉评论（一页几十条说说时省请求） */
 export function MomentComments({ momentId }: { momentId: number }) {

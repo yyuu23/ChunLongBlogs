@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { accentColor, parseRgb, rand } from "@/lib/demo-utils";
+import { accentColor, parseRgb, rand } from "@/lib/lab/demo-utils";
 import { FLUID_FRAGMENT_SHADERS, FLUID_VERTEX_SHADER } from "./fluid-shaders";
 
 /**

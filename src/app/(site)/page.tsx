@@ -15,8 +15,8 @@ import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { db } from "@/lib/db";
 import { albums, photos, songs, stars } from "@/lib/db/schema";
-import { getSiteConfig } from "@/lib/site";
-import { getPublishedPosts, getSiteStats } from "@/lib/posts";
+import { getSiteConfig } from "@/lib/site/repository";
+import { getPublishedPosts, getSiteStats } from "@/lib/content/posts";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

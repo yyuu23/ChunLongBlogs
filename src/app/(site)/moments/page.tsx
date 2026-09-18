@@ -6,7 +6,7 @@ import { LazyImage } from "@/components/effects/Typewriter";
 import { MomentComments } from "@/components/comments/MomentComments";
 import { db } from "@/lib/db";
 import { moments as momentsTable } from "@/lib/db/schema";
-import { relativeTime, formatDateTime } from "@/lib/utils";
+import { relativeTime, formatDateTime } from "@/lib/shared/utils";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

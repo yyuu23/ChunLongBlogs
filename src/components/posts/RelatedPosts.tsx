@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { AutoCover } from "@/components/posts/AutoCover";
-import type { RelatedPostItem } from "@/lib/rag";
+import type { RelatedPostItem } from "@/lib/content/rag/related";
 import { DATE_LOCALE, type Locale } from "@/lib/i18n/config";
 
 /**

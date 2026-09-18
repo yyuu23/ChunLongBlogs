@@ -1,7 +1,7 @@
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { categories, series, tags } from "@/lib/db/schema";
-import { cogviewConfigured } from "@/lib/ai-image";
+import { cogviewConfigured } from "@/lib/ai/image";
 import { PostEditor } from "@/components/admin/PostEditor";
 
 export const dynamic = "force-dynamic";

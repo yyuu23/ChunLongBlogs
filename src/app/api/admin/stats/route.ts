@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth";
-import { ZipBuilder } from "@/lib/zipStore";
-import { buildAdminStatsPayload } from "@/lib/adminStats";
-import { localDay } from "@/lib/stats";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { ZipBuilder } from "@/lib/analytics/zip-store";
+import { buildAdminStatsPayload } from "@/lib/analytics/admin-stats";
+import { localDay } from "@/lib/analytics/stats";
 
 export const dynamic = "force-dynamic";
 

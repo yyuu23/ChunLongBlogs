@@ -1,6 +1,6 @@
 "use client";
 
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 import {
   createContext,
   useCallback,

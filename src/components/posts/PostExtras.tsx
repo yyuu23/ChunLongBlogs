@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Eye } from "lucide-react";
-import { getVisitorId, trackEvent } from "@/lib/track";
+import { getVisitorId, trackEvent } from "@/lib/engagement/track";
 import { useT } from "@/components/providers/LocaleProvider";
 
 /** 阅读量上报 + 展示（同一会话对同一文章只计一次） */

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useT } from "@/components/providers/LocaleProvider";
-import { accentColor, rand } from "@/lib/demo-utils";
+import { accentColor, rand } from "@/lib/lab/demo-utils";
 
 /**
  * 代码雨实验（/lab/matrix）：黑客帝国风列式字符雨。

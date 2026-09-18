@@ -4,7 +4,7 @@
  * 云端发布请优先用后台「文章 → 从内容目录导入」按钮；此脚本供本地/ssh 场景使用。
  * 用法：npx tsx scripts/import-posts.ts
  */
-import { importPostsFromContentDir } from "../src/lib/post-import";
+import { importPostsFromContentDir } from "../src/lib/content/import-markdown";
 
 async function main() {
   const results = await importPostsFromContentDir();

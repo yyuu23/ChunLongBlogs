@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tags as tagsTable } from "@/lib/db/schema";
-import { requireAdminApi } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { suggestTags } from "@/lib/ai";
-import { incrStat } from "@/lib/stats";
+import { requireAdminApi } from "@/lib/auth/admin-session";
+import { clientIp, rateLimit } from "@/lib/shared/rate-limit";
+import { suggestTags } from "@/lib/ai/completions";
+import { incrStat } from "@/lib/analytics/stats";
 
 export const dynamic = "force-dynamic";
 

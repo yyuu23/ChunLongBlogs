@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Mail, Link2, Rss } from "lucide-react";
 import { GithubIcon, BilibiliIcon, GiteeIcon } from "@/components/ui/BrandIcons";
-import type { SocialLink } from "@/lib/site";
+import type { SocialLink } from "@/lib/site/types";
 import { useEffect, useRef, useState } from "react";
 
 function SocialIcon({ platform }: { platform: string }) {

@@ -7,8 +7,8 @@ import {
   clearGuidePreferences,
   readGuidePreferences,
   saveGuidePreferences,
-} from "@/lib/guide-preferences";
-import type { GuidePreferences } from "@/lib/content-types";
+} from "@/lib/chat/guide-preferences";
+import type { GuidePreferences } from "@/lib/content/types";
 
 export function GuideStarters({
   compact = false,

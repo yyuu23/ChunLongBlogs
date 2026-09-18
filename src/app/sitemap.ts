@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { posts, projects, series } from "@/lib/db/schema";
-import { LAB_DEMOS } from "@/lib/lab-demos";
+import { LAB_DEMOS } from "@/lib/lab/catalog";
 
 export const dynamic = "force-dynamic";
 

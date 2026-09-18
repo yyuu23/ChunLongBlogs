@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BarChart3, Download, FileJson, FileSpreadsheet, FileText, Heart, Loader2, MessageSquareText, Music2, Sparkles } from "lucide-react";
 import { useStatsDashboard } from "@/components/admin/stats/useStatsDashboard";
-import type { AdminStatsPayload } from "@/lib/adminStats";
+import type { AdminStatsPayload } from "@/lib/analytics/admin-stats";
 
 /**
  * Admin 数据统计面板：概览卡 + 流量趋势（PV 柱 / UV 线）+ AI 使用（环形/条形/工具）

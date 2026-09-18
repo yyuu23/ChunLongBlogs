@@ -12,7 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, HTML_LANG, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 import { DICTIONARIES, translate, translateList, type T, type TArr } from "@/lib/i18n";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 export type { T, TArr } from "@/lib/i18n";
 

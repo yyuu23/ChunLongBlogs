@@ -6,9 +6,9 @@ import { LabClient } from "@/components/lab/LabClient";
 import type { MomentItem, StarItem } from "@/components/lab/LabScene";
 import { db } from "@/lib/db";
 import { moments, posts, songs, stars } from "@/lib/db/schema";
-import { festivalOf, festivalTintOf } from "@/lib/festivals";
-import { formatDate } from "@/lib/utils";
-import { getSiteConfig } from "@/lib/site";
+import { festivalOf, festivalTintOf } from "@/lib/seasonal/festivals";
+import { formatDate } from "@/lib/shared/utils";
+import { getSiteConfig } from "@/lib/site/repository";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";

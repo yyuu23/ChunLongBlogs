@@ -27,7 +27,7 @@ import { AutoCover } from "@/components/posts/AutoCover";
 import { LazyImage } from "@/components/effects/Typewriter";
 import { OverwriteConfirm } from "@/components/admin/post-editor/OverwriteConfirm";
 import { usePostSchedule } from "@/components/admin/post-editor/usePostSchedule";
-import { countWords, slugify } from "@/lib/utils";
+import { countWords, slugify } from "@/lib/shared/utils";
 
 export interface EditorPostData {
   id?: number;

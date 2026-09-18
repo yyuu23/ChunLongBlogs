@@ -5,8 +5,8 @@ import { db } from "@/lib/db";
 import { postTags, posts, tags } from "@/lib/db/schema";
 import { guardAdminAction, revalidateSite } from "@/lib/admin/action-utils";
 import type { PostInput } from "@/lib/admin/post-types";
-import { importMarkdownPost, importPostsFromContentDir, type ImportResult } from "@/lib/post-import";
-import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/utils";
+import { importMarkdownPost, importPostsFromContentDir, type ImportResult } from "@/lib/content/import-markdown";
+import { countWords, excerpt, readingTimeMinutes, slugify } from "@/lib/shared/utils";
 
 export async function savePost(input: PostInput) {
   await guardAdminAction();
@@ -66,7 +66,7 @@ export async function savePost(input: PostInput) {
   revalidateSite();
   if (input.status === "published") {
     try {
-      const { rebuildPostEmbeddings } = await import("@/lib/rag");
+      const { rebuildPostEmbeddings } = await import("@/lib/content/rag/indexing");
       void rebuildPostEmbeddings(postId).catch(() => {});
     } catch {}
   }
@@ -77,7 +77,7 @@ export async function deletePost(id: number) {
   await guardAdminAction();
   await db.delete(posts).where(eq(posts.id, id));
   try {
-    const { deleteEmbeddings } = await import("@/lib/rag");
+    const { deleteEmbeddings } = await import("@/lib/content/rag/indexing");
     await deleteEmbeddings("post", id);
   } catch {}
   revalidateSite();
@@ -121,12 +121,12 @@ export async function setPostStatus(id: number, status: "draft" | "published" | 
     .where(eq(posts.id, id));
   if (status === "published") {
     try {
-      const { rebuildPostEmbeddings } = await import("@/lib/rag");
+      const { rebuildPostEmbeddings } = await import("@/lib/content/rag/indexing");
       void rebuildPostEmbeddings(id).catch(() => {});
     } catch {}
   } else {
     try {
-      const { deleteEmbeddings } = await import("@/lib/rag");
+      const { deleteEmbeddings } = await import("@/lib/content/rag/indexing");
       await deleteEmbeddings("post", id);
     } catch {}
   }
@@ -139,7 +139,7 @@ export async function deletePostsByIds(ids: number[]) {
   await db.delete(postTags).where(inArray(postTags.postId, ids));
   await db.delete(posts).where(inArray(posts.id, ids));
   try {
-    const { deleteEmbeddings } = await import("@/lib/rag");
+    const { deleteEmbeddings } = await import("@/lib/content/rag/indexing");
     await Promise.all(ids.map((id) => deleteEmbeddings("post", id)));
   } catch {}
   revalidateSite();

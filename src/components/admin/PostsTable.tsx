@@ -10,8 +10,8 @@ import {
   setPostStatus,
   togglePostPin,
 } from "@/app/admin/actions/posts";
-import type { ImportResult } from "@/lib/post-import";
-import { formatDateTime } from "@/lib/utils";
+import type { ImportResult } from "@/lib/content/import-markdown";
+import { formatDateTime } from "@/lib/shared/utils";
 
 export interface AdminPostRow {
   id: number;

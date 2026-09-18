@@ -2,7 +2,7 @@
 
 import { useAccent } from "@/components/providers/AccentProvider";
 import { useT } from "@/components/providers/LocaleProvider";
-import { trackEvent } from "@/lib/track";
+import { trackEvent } from "@/lib/engagement/track";
 
 /**
  * 360° 色相滑杆：轨道本身就是色相刻度（彩虹渐变），拖动即写 --custom-hue

@@ -23,7 +23,7 @@ import {
   saveSeries,
   suggestSeriesOrganization,
 } from "@/app/admin/actions/content";
-import type { SeriesProposal } from "@/lib/content-types";
+import type { SeriesProposal } from "@/lib/content/types";
 
 type SeriesRow = {
   id: number;

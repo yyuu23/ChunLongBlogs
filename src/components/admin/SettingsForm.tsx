@@ -10,9 +10,9 @@ import {
   backfillTagsAction,
 } from "@/app/admin/actions/settings";
 import { UploadButton } from "@/components/admin/UploadButton";
-import { parseFestivalQuotes, stringifyFestivalQuotes } from "@/lib/festival-quotes";
-import type { SiteConfig } from "@/lib/site";
-import type { EmbeddingIndexStatus } from "@/lib/rag";
+import { parseFestivalQuotes, stringifyFestivalQuotes } from "@/lib/seasonal/festival-quotes";
+import type { SiteConfig } from "@/lib/site/types";
+import type { EmbeddingIndexStatus } from "@/lib/content/rag/indexing";
 
 const label = "flex flex-col gap-1.5";
 const input =

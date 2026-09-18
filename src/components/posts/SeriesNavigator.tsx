@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BookOpenText, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
-import type { getSeriesForPost } from "@/lib/content-hub";
+import type { getSeriesForPost } from "@/lib/content/series";
 
 type SeriesNav = NonNullable<Awaited<ReturnType<typeof getSeriesForPost>>>;
 

@@ -31,7 +31,15 @@ fi
 # --force：跳过交互式确认（SSH 管道无 TTY，遇到"加非空列"等语句时
 # 交互模式会直接报错退出，导致迁移没执行、新代码查新列全部 500）。
 # 本仓库的变更是加列/加表类安全操作，--force 自动确认即可。
-npx drizzle-kit push --force
+#
+# 已知怪癖兜底：drizzle-kit 的 SQLite push 在补建唯一索引时可能对同一个
+# CREATE UNIQUE INDEX 连发两条，首跑报 "index ... already exists"——但缺失
+# 的语句已经落库（本地已验证：首跑补好缺失索引后报错，数据无损，二跑
+# No changes detected）。因此失败时重试一次；连续两次失败才是真问题。
+if ! npx drizzle-kit push --force; then
+  echo "::warning::db:push 首跑失败（drizzle-kit 重复建索引怪癖），自动重试一次…"
+  npx drizzle-kit push --force
+fi
 
 # 管理员兜底：admin_users 为空时按 .env 创建，让首次部署完即可登录后台。
 # 只在表空时插入——已有任何账号（包括用户改过密码后）绝不改动、绝不覆盖。

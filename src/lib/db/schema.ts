@@ -1,71 +1,96 @@
 import { sqliteTable, text, integer, primaryKey, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
+/* 唯一约束一律用「显式命名的 uniqueIndex」而非列级 .unique()：
+ * 历史库的表定义里没有内联 UNIQUE，唯一性由独立索引（<表>_<列>_unique 命名）承担。
+ * 列级 .unique() 会让 drizzle-kit push 认为约束缺失而反复 CREATE UNIQUE INDEX，
+ * 与存量同名索引冲突导致部署的 db:push 报 "index ... already exists"。 */
+
 const ts = { withTimezone: false, mode: "timestamp_ms" } as const;
 
-export const adminUsers = sqliteTable("admin_users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const adminUsers = sqliteTable(
+  "admin_users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("admin_users_username_unique").on(t.username)],
+);
 
-export const categories = sqliteTable("categories", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  color: text("color").notNull().default("#6366f1"),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const categories = sqliteTable(
+  "categories",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    color: text("color").notNull().default("#6366f1"),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("categories_slug_unique").on(t.slug)],
+);
 
-export const tags = sqliteTable("tags", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique(),
-  slug: text("slug").notNull().unique(),
-});
+export const tags = sqliteTable(
+  "tags",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+  },
+  (t) => [uniqueIndex("tags_name_unique").on(t.name), uniqueIndex("tags_slug_unique").on(t.slug)],
+);
 
 /**
  * 单层文章系列：是后台可管理的逻辑阅读目录，不对应磁盘文件夹。
  * draft 系列及其关系可以提前编排，只有 published 系列会出现在公开页面与 AI 工具中。
  */
-export const series = sqliteTable("series", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
-  description: text("description").notNull().default(""),
-  cover: text("cover").notNull().default(""),
-  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
-  sort: integer("sort").notNull().default(0),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const series = sqliteTable(
+  "series",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description").notNull().default(""),
+    cover: text("cover").notNull().default(""),
+    status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+    sort: integer("sort").notNull().default(0),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("series_slug_unique").on(t.slug)],
+);
 
-export const posts = sqliteTable("posts", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
-  description: text("description").notNull().default(""),
-  content: text("content").notNull().default(""),
-  cover: text("cover").notNull().default(""),
-  categoryId: integer("category_id").references(() => categories.id, {
-    onDelete: "set null",
-  }),
-  seriesId: integer("series_id").references(() => series.id, {
-    onDelete: "set null",
-  }),
-  seriesOrder: integer("series_order").notNull().default(0),
-  difficulty: text("difficulty", { enum: ["beginner", "intermediate", "advanced"] }),
-  status: text("status", { enum: ["draft", "published", "scheduled"] }).notNull().default("draft"),
-  isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
-  views: integer("views").notNull().default(0),
-  /* 反范式点赞计数（同 views）：like/unlike 事务内原子增减，列表页免 join post_likes */
-  likes: integer("likes").notNull().default(0),
-  wordCount: integer("word_count").notNull().default(0),
-  readingTime: integer("reading_time").notNull().default(1),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-  publishedAt: integer("published_at", ts),
-});
+export const posts = sqliteTable(
+  "posts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description").notNull().default(""),
+    content: text("content").notNull().default(""),
+    cover: text("cover").notNull().default(""),
+    categoryId: integer("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    seriesId: integer("series_id").references(() => series.id, {
+      onDelete: "set null",
+    }),
+    seriesOrder: integer("series_order").notNull().default(0),
+    difficulty: text("difficulty", { enum: ["beginner", "intermediate", "advanced"] }),
+    status: text("status", { enum: ["draft", "published", "scheduled"] }).notNull().default("draft"),
+    isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
+    views: integer("views").notNull().default(0),
+    /* 反范式点赞计数（同 views）：like/unlike 事务内原子增减，列表页免 join post_likes */
+    likes: integer("likes").notNull().default(0),
+    wordCount: integer("word_count").notNull().default(0),
+    readingTime: integer("reading_time").notNull().default(1),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+    publishedAt: integer("published_at", ts),
+  },
+  (t) => [uniqueIndex("posts_slug_unique").on(t.slug)],
+);
 
 export const postTags = sqliteTable(
   "post_tags",
@@ -84,24 +109,28 @@ export const postTags = sqliteTable(
  * 公开项目案例：正文使用 Markdown；techStack 是 string[] JSON。
  * labSlug 只保存实验注册表中的 slug，不给静态实验反向加数据库外键。
  */
-export const projects = sqliteTable("projects", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
-  summary: text("summary").notNull().default(""),
-  content: text("content").notNull().default(""),
-  cover: text("cover").notNull().default(""),
-  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
-  stage: text("stage", { enum: ["planned", "in_progress", "maintaining", "completed", "archived"] }).notNull().default("in_progress"),
-  techStack: text("tech_stack").notNull().default("[]"),
-  repoUrl: text("repo_url").notNull().default(""),
-  demoUrl: text("demo_url").notNull().default(""),
-  labSlug: text("lab_slug"),
-  sort: integer("sort").notNull().default(0),
-  startedAt: integer("started_at", ts),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    summary: text("summary").notNull().default(""),
+    content: text("content").notNull().default(""),
+    cover: text("cover").notNull().default(""),
+    status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+    stage: text("stage", { enum: ["planned", "in_progress", "maintaining", "completed", "archived"] }).notNull().default("in_progress"),
+    techStack: text("tech_stack").notNull().default("[]"),
+    repoUrl: text("repo_url").notNull().default(""),
+    demoUrl: text("demo_url").notNull().default(""),
+    labSlug: text("lab_slug"),
+    sort: integer("sort").notNull().default(0),
+    startedAt: integer("started_at", ts),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("projects_slug_unique").on(t.slug)],
+);
 
 export const projectPosts = sqliteTable(
   "project_posts",
@@ -315,14 +344,18 @@ export const writeQuotaCounters = sqliteTable(
  * GitHub 访客身份（OAuth 登录后 upsert）：只存公开资料，不存 access_token。
  * login/avatarUrl 每次登录刷新，评论与点赞的头像列表都从这里取。
  */
-export const githubUsers = sqliteTable("github_users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  githubId: integer("github_id").notNull().unique(),
-  login: text("login").notNull(),
-  avatarUrl: text("avatar_url").notNull().default(""),
-  bio: text("bio").notNull().default(""),
-  createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
-});
+export const githubUsers = sqliteTable(
+  "github_users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    githubId: integer("github_id").notNull(),
+    login: text("login").notNull(),
+    avatarUrl: text("avatar_url").notNull().default(""),
+    bio: text("bio").notNull().default(""),
+    createdAt: integer("created_at", ts).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [uniqueIndex("github_users_github_id_unique").on(t.githubId)],
+);
 
 /**
  * 原生评论（文章/说说共用）：必须 GitHub 登录，githubUserId 非空。

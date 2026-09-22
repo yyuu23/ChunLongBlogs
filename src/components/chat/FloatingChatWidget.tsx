@@ -42,7 +42,8 @@ export function FloatingChatWidget() {
   // 看板娘被用户关闭时左下空无一物，按钮回贴底，别悬在半空
   const mascotOff = hydrated && !effects.mascot;
 
-  /* 全局打开通道：文章伴读条/划词问 AI/搜索空态经 cl-open-chat 唤起（prefill 预填不自动发）。
+  /* 全局打开通道：搜索空态等经 cl-open-chat 唤起（prefill 预填不自动发）。
+   * 文章页的伴读条/划词改走 cl-open-article-chat 由内联伴读面板接收，不再唤起本窗。
    * /chat 页 no-op（那边有自己的输入框）。 */
   useEffect(() => {
     const onOpen = (e: Event) => {

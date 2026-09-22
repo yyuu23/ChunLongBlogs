@@ -10,6 +10,48 @@ import {
 } from "@/lib/chat/guide-preferences";
 import type { GuidePreferences } from "@/lib/content/types";
 
+const STARTER_COUNT = 3;
+const SEED_KEY = "cl-guide-starter-seed";
+
+/** mulberry32：同一颗种子给出同一串随机数 */
+function mulberry32(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 从问题池里随机抽 3 条。种子存在 sessionStorage：同一会话内 /chat 页与悬浮窗
+ * 展示同一批（种子相同、洗牌确定），刷新页面换一批；sessionStorage 不可用时退化为固定取前 3。
+ */
+function pickStarters(pool: string[]): string[] {
+  if (pool.length <= STARTER_COUNT) return pool;
+  let seed = 42;
+  try {
+    const existing = sessionStorage.getItem(SEED_KEY);
+    if (existing && Number.isFinite(Number(existing))) {
+      seed = Number(existing);
+    } else {
+      seed = Math.floor(Math.random() * 0xffffffff);
+      sessionStorage.setItem(SEED_KEY, String(seed));
+    }
+  } catch {
+    // 隐私模式等场景下 sessionStorage 可能被禁用，保持固定种子即可
+  }
+  const rand = mulberry32(seed);
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  return shuffled.slice(0, STARTER_COUNT);
+}
+
 export function GuideStarters({
   compact = false,
   onSelect,
@@ -19,7 +61,7 @@ export function GuideStarters({
 }) {
   const t = useT();
   const { tArr } = useLocale();
-  const questions = tArr("chatPage.guideStarters").slice(0, 3);
+  const questions = pickStarters(tArr("chatPage.guideStarters"));
   const [saved, setSaved] = useState<GuidePreferences | null>(null);
   const [interests, setInterests] = useState("");
   const [level, setLevel] = useState<GuidePreferences["level"]>();

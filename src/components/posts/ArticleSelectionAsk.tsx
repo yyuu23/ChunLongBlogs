@@ -8,7 +8,8 @@ const MIN_CHARS = 8;
 
 /**
  * 划词问 AI（文章页）：正文里选中 ≥8 字 → 选区上方浮现"问猫这段"浮条 →
- * 点击唤起悬浮聊天窗，预填"关于《文章》里这段：「引文」——"（不自动发）。
+ * 点击唤起文章页内联伴读面板（cl-open-article-chat）并预填
+ * "关于《文章》里这段：「引文」——"（模板可能要改，不自动发）。
  * 选区与文章上下文由 AI 侧的 articleSlug 全文注入兜底。滚轮/resize/短选区隐藏。
  */
 export function ArticleSelectionAsk({ title }: { title: string }) {
@@ -61,7 +62,7 @@ export function ArticleSelectionAsk({ title }: { title: string }) {
     setBar(null);
     window.getSelection()?.removeAllRanges();
     window.dispatchEvent(
-      new CustomEvent("cl-open-chat", {
+      new CustomEvent("cl-open-article-chat", {
         detail: { prefill: t("posts.askQuoteTemplate", { title, quote }) },
       }),
     );

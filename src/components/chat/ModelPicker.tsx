@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BrainCog, Check, ChevronDown } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
-import type { AiProvider } from "@/lib/site/types";
 import type { ThinkingLevel } from "@/lib/ai/thinking";
+import { type AiChoicesPublic, type PickerChoice } from "@/lib/ai/choices";
 import { BrandLogo } from "./BrandLogo";
 import { PersonaFull, preheatPersona } from "./PersonaArt";
 import { CreditIcon } from "./CreditIcon";
@@ -13,7 +13,7 @@ import { fetchProgress } from "@/lib/engagement/track";
 import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/engagement/credits";
 
 /**
- * 模型与思考强度选择器（/chat 页）：
+ * 模型与思考强度选择器（/chat 页与文章伴读面板）：
  * - 触发胶囊显示当前 logo + 模型名 + 档位；点开玻璃弹窗
  * - 弹窗左侧模型列表（真实模型 id），右侧当前模型拟人立绘（低/高思考两版随档位切换）
  * - 思考强度滑条按该模型真实档位渲染刻度（不同模型档位数不同）
@@ -21,30 +21,7 @@ import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/engagement/credits";
  *   悬浮窗共用 useChat，自动跟随同一选择
  */
 
-export interface PickerChoice {
-  id: string;
-  label: string;
-  provider: AiProvider;
-  /** 服务端解析后的真实模型名（展示用） */
-  model: string;
-  /** 该模型支持的思考档位（弱→强） */
-  levels: ThinkingLevel[];
-  /** 每条消息基准积分（✦） */
-  cost: number;
-  /** 各档位实际积分价（档位 id → 分） */
-  levelCosts: Record<string, number>;
-  /** 限时促销展示（划线原价；until 过期自动隐藏） */
-  promo?: { originalCost?: number; label?: string; until?: string };
-}
-
-export interface AiChoicesPublic {
-  allow: boolean;
-  defaultChoice: string;
-  defaultEffort: string;
-  choices: PickerChoice[];
-  /** 积分体系：enabled=false 时选择器不显示价格元素 */
-  credits: { enabled: boolean; dailyGrant: number; peakMultiplier?: number };
-}
+export type { AiChoicesPublic, PickerChoice };
 
 export const MODEL_STORAGE_KEY = "cl-chat-model";
 export const PROVIDER_STORAGE_KEY = "cl-chat-provider";

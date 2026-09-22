@@ -14,7 +14,7 @@ import { ImmersiveToggle } from "@/components/posts/ImmersiveToggle";
 import { RelatedPosts } from "@/components/posts/RelatedPosts";
 import { SeriesNavigator } from "@/components/posts/SeriesNavigator";
 import { RelatedProjects } from "@/components/projects/RelatedProjects";
-import { ArticleAskBar } from "@/components/posts/ArticleAskBar";
+import { ArticleChatPanel } from "@/components/posts/ArticleChatPanel";
 import { ArticleSelectionAsk } from "@/components/posts/ArticleSelectionAsk";
 import { getPostBySlug, getNeighborPosts } from "@/lib/content/posts";
 import { relatedPosts } from "@/lib/content/rag/related";
@@ -22,6 +22,7 @@ import { getProjectsForPost } from "@/lib/content/projects";
 import { getSeriesForPost } from "@/lib/content/series";
 import { renderMarkdown, extractToc, markdownCacheKey } from "@/lib/content/markdown";
 import { getSiteConfig } from "@/lib/site/repository";
+import { buildAiChoicesPublic } from "@/lib/ai/choices";
 import { formatDate } from "@/lib/shared/utils";
 import { getT } from "@/lib/i18n/server";
 
@@ -225,9 +226,9 @@ export default async function PostDetailPage({ params }: PageProps) {
               </FadeIn>
             )}
 
-            {/* AI 伴读：读完即问——唤起悬浮聊天窗预填（文章全文由服务端注入 AI 上下文） */}
+            {/* AI 伴读：原地展开的聊天面板（文章全文由服务端注入 AI 上下文） */}
             <FadeIn delay={0.06}>
-              <ArticleAskBar />
+              <ArticleChatPanel slug={post.slug} aiChoices={buildAiChoicesPublic(config.aiChat)} />
             </FadeIn>
 
             {/* 相关阅读（embedding 相似度推荐） */}

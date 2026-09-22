@@ -119,7 +119,16 @@ export function ContentManager({
   const postById = useMemo(() => new Map(posts.map((post) => [post.id, post])), [posts]);
 
   const editSeries = (item: SeriesRow) => {
-    setSeriesDraft(item);
+    // 白名单拷贝：行对象一旦混入 schema 之外的键，服务端 .strict() 校验会静默拒绝
+    setSeriesDraft({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      description: item.description,
+      cover: item.cover,
+      status: item.status,
+      sort: item.sort,
+    });
     setSeriesPostIds(
       posts
         .filter((post) => post.seriesId === item.id)
@@ -140,9 +149,20 @@ export function ContentManager({
     });
   };
 
-  const saveSeriesDraft = () => {
+  /** 统一的 action 执行器：异常（如登录过期、网络错误）也必须反馈，不能静默 */
+  const runAction = (fn: () => Promise<void>) => {
     setMessage("");
     startTransition(async () => {
+      try {
+        await fn();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "操作失败，请重试");
+      }
+    });
+  };
+
+  const saveSeriesDraft = () => {
+    runAction(async () => {
       const result = await saveSeries(seriesDraft);
       if (!("ok" in result) || !result.ok || !result.id) {
         setMessage(result.error ?? "系列保存失败");
@@ -164,8 +184,7 @@ export function ContentManager({
   };
 
   const runAiOrganize = () => {
-    setMessage("");
-    startTransition(async () => {
+    runAction(async () => {
       const result = await suggestSeriesOrganization();
       if (!("ok" in result)) {
         setMessage(result.error);
@@ -183,8 +202,7 @@ export function ContentManager({
 
   const applyProposal = () => {
     if (!proposal) return;
-    setMessage("");
-    startTransition(async () => {
+    runAction(async () => {
       const result = await applySeriesProposal(proposal);
       if (!("ok" in result)) {
         setMessage(result.error);
@@ -206,8 +224,7 @@ export function ContentManager({
   };
 
   const saveProjectDraft = () => {
-    setMessage("");
-    startTransition(async () => {
+    runAction(async () => {
       const result = await saveProject({
         ...projectDraft,
         startedAt: projectDraft.startedAt || null,
@@ -272,13 +289,13 @@ export function ContentManager({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!confirm(`删除系列「${item.title}」？文章只会解除关联，不会被删除。`)) return;
-                        startTransition(async () => {
-                          await deleteSeries(item.id);
-                          router.refresh();
-                        });
-                      }}
+                    onClick={() => {
+                      if (!confirm(`删除系列「${item.title}」？文章只会解除关联，不会被删除。`)) return;
+                      runAction(async () => {
+                        await deleteSeries(item.id);
+                        router.refresh();
+                      });
+                    }}
                       className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                       title="删除"
                     >
@@ -354,6 +371,7 @@ export function ContentManager({
             <button type="button" onClick={saveSeriesDraft} disabled={pending || !seriesDraft.title.trim()} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} 保存系列
             </button>
+            {message && <p className="text-center text-xs text-slate-500">{message}</p>}
           </section>
         </div>
       ) : (
@@ -366,7 +384,7 @@ export function ContentManager({
                   <span className={`rounded-full px-2 py-0.5 text-[11px] ${item.status === "published" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>{item.status === "published" ? "已发布" : "草稿"}</span>
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.title}</p><p className="truncate text-xs text-slate-400">{({ planned: "计划中", in_progress: "进行中", maintaining: "维护中", completed: "已完成", archived: "已归档" } as const)[item.stage]} · {item.postIds.length} 篇文章 · {item.labSlug ? "已关联实验" : "无实验"}</p></div>
                   <button type="button" onClick={() => editProject(item)} className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500"><Pencil className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => { if (confirm(`删除项目「${item.title}」？`)) startTransition(async () => { await deleteProject(item.id); router.refresh(); }); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => { if (confirm(`删除项目「${item.title}」？`)) runAction(async () => { await deleteProject(item.id); router.refresh(); }); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
                 </li>
               ))}
               {!projects.length && <li className="px-5 py-8 text-center text-sm text-slate-400">还没有项目案例</li>}
@@ -403,6 +421,7 @@ export function ContentManager({
               </div>
             </div>
             <button type="button" onClick={saveProjectDraft} disabled={pending || !projectDraft.title.trim()} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} 保存项目</button>
+            {message && <p className="text-center text-xs text-slate-500">{message}</p>}
           </section>
         </div>
       )}

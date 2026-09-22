@@ -8,7 +8,19 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminContentPage() {
   const [seriesRows, postRows, projectRows, relationRows] = await Promise.all([
-    db.select().from(series).orderBy(asc(series.sort), asc(series.id)),
+    // 只取编辑表单需要的列：整行会带 createdAt/updatedAt，进草稿后会被服务端 .strict() 校验拒掉
+    db
+      .select({
+        id: series.id,
+        title: series.title,
+        slug: series.slug,
+        description: series.description,
+        cover: series.cover,
+        status: series.status,
+        sort: series.sort,
+      })
+      .from(series)
+      .orderBy(asc(series.sort), asc(series.id)),
     db
       .select({
         id: posts.id,
@@ -20,7 +32,25 @@ export default async function AdminContentPage() {
       })
       .from(posts)
       .orderBy(asc(posts.createdAt)),
-    db.select().from(projects).orderBy(asc(projects.sort), asc(projects.id)),
+    db
+      .select({
+        id: projects.id,
+        title: projects.title,
+        slug: projects.slug,
+        summary: projects.summary,
+        content: projects.content,
+        cover: projects.cover,
+        status: projects.status,
+        stage: projects.stage,
+        techStack: projects.techStack,
+        repoUrl: projects.repoUrl,
+        demoUrl: projects.demoUrl,
+        labSlug: projects.labSlug,
+        sort: projects.sort,
+        startedAt: projects.startedAt,
+      })
+      .from(projects)
+      .orderBy(asc(projects.sort), asc(projects.id)),
     db.select().from(projectPosts).orderBy(asc(projectPosts.sort)),
   ]);
 

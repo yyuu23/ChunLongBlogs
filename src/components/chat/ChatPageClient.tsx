@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent as RDragEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent as RDragEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -44,7 +44,6 @@ import { useChatSessionIndex } from "./useChatSessionIndex";
 import { SUMMARY_WINDOW, clearSummary, readSummary, shouldSummarize, summarizeOverflow } from "@/lib/chat/summary";
 import { buildChatMarkdown, downloadBlob } from "@/lib/chat/export";
 import { ShareCardDialog } from "./ShareCardDialog";
-import { GuideStarters } from "./GuideStarters";
 
 export function ChatPageClient({
   aiChoices,
@@ -194,18 +193,28 @@ export function ChatPageClient({
   };
 
   const onlyWelcome = messages.length === 1 && messages[0]!.role === "assistant";
-  // 对话进行中常驻的小提示：从"还没问过的"里按用户轮次确定性轮换 3 枚。
-  // asked 由 messages 派生 —— 天然覆盖历史恢复/会话切换/编辑重生成三种场景
+  /* 预设气泡：每轮从「还没问过的」里随机抽一批——同一轮内稳定不闪跳，新一轮换一批。
+   * asked 由用户消息内容派生（流式更新只动 assistant 消息，askedKey 不变，气泡不跳），
+   * 天然覆盖历史恢复/会话切换/编辑重生成；全问完放开整池重来。
+   * 空会话铺开 6 条承担引导（导览区已下线），对话中单行 3 条。 */
   const pool = tArr("chatPage.suggestions");
+  const poolKey = pool.join("\u0000");
   const turnCount = messages.filter((m) => m.role === "user").length;
-  const asked = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
-  const freshPool = pool.filter((s) => !asked.has(s));
-  const source = freshPool.length >= 3 ? freshPool : pool; // 全问完则允许重新轮换
-  const quickAsks = onlyWelcome
-    ? []
-    : [0, 1, 2]
-        .map((i) => source[(turnCount * 3 + i) % source.length] ?? "")
-        .filter(Boolean);
+  const askedKey = messages.filter((m) => m.role === "user").map((m) => m.content).join("\u0000");
+  const quickAsks = useMemo(() => {
+    const items = poolKey.split("\u0000").filter(Boolean);
+    const asked = new Set(askedKey ? askedKey.split("\u0000") : []);
+    const fresh = items.filter((s) => !asked.has(s));
+    const source = fresh.length >= 3 ? fresh : items;
+    const count = onlyWelcome ? 6 : 3;
+    // 无放回随机抽样（部分 Fisher–Yates）：前 count 位即结果
+    const copy = [...source];
+    for (let i = 0; i < count && i < copy.length; i++) {
+      const j = i + Math.floor(Math.random() * (copy.length - i));
+      [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+    }
+    return copy.slice(0, count);
+  }, [poolKey, askedKey, turnCount, onlyWelcome]);
 
   const sidebar = (
     <SessionSidebar
@@ -358,23 +367,20 @@ export function ChatPageClient({
               );
             })}
 
-            {/* 空会话：快捷问题（大版） */}
-            {onlyWelcome && (
-              <div className="pt-2">
-                <GuideStarters
-                  onSelect={(question) => {
-                    setInput(question);
-                    window.setTimeout(() => taRef.current?.focus(), 0);
-                  }}
-                />
-              </div>
-            )}
+            {/* 空会话的引导由输入区上方的预设气泡承担（quickAsks 空态铺开）；
+                原「让 AI 带你逛本站」导览区已下线，组件保留在 GuideStarters.tsx 备用 */}
             <div ref={endRef} />
           </div>
 
-          {/* 对话进行中的常驻小提示（首轮后不再裸奔） */}
+          {/* 对话进行中的常驻小提示（首轮后不再裸奔）；空会话铺开 6 条作为引导 */}
           {quickAsks.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              className={
+                onlyWelcome
+                  ? "flex flex-wrap gap-2 px-3 py-2"
+                  : "flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              }
+            >
               {quickAsks.map((s) => (
                 <button
                   key={s}

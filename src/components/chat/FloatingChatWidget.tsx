@@ -13,7 +13,6 @@ import { PersonaAvatar } from "@/components/chat/PersonaArt";
 import { ChatStatusLine, statusPhaseOf } from "@/components/chat/ChatStatusLine";
 import { attachImage, type AttachedImage } from "@/lib/chat/image-attachment";
 import { ImageLightbox, type LightboxState } from "@/components/chat/ImageLightbox";
-import { GuideStarters } from "@/components/chat/GuideStarters";
 
 /**
  * AI 聊天助手：悬浮在看板娘上方的小按钮 + 聊天面板
@@ -227,15 +226,7 @@ export function FloatingChatWidget() {
                   )}
                 </div>
               ))}
-              {messages.length === 1 && messages[0]?.role === "assistant" && (
-                <GuideStarters
-                  compact
-                  onSelect={(question) => {
-                    setInput(question);
-                    window.setTimeout(() => inputRef.current?.focus(), 0);
-                  }}
-                />
-              )}
+              {/* 欢迎态的「让 AI 带你逛本站」导览区已下线（组件保留在 GuideStarters.tsx 备用） */}
             </div>
 
             <div className="border-t border-[var(--glass-border)] p-2.5">

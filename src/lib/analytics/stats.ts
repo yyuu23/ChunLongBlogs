@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { moments, posts, songs, statsDaily, visitorDays } from "@/lib/db/schema";
+import { dateKey } from "@/lib/shared/date-key";
 
 /**
  * 站点行为统计（按天聚合，无原始流水）：
@@ -11,12 +12,10 @@ import { moments, posts, songs, statsDaily, visitorDays } from "@/lib/db/schema"
  * - 各聚合查询（trafficSeries / metricTop / aiCalls 等）供 admin 面板与导出复用
  */
 
-/** 本地时区当日 YYYY-MM-DD（日界跟随服务器时区，与访客直觉一致） */
+/** 当日 YYYY-MM-DD（北京时间业务日，与其他「按天」口径统一；
+ *  曾经跟随服务器时区，UTC 机器上会把凌晨流量记到前一天） */
 export function localDay(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return dateKey(d);
 }
 
 export async function incrStat(metric: string, key = "", n = 1): Promise<void> {

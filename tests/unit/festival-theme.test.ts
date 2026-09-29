@@ -17,6 +17,13 @@ describe("festival 视觉联动映射", () => {
     expect(festivalTintOf(spring!)).toBe("#ff8f5e");
   });
 
+  it("春节凌晨边界：北京 0-8 点（UTC 前一天深夜）仍是春节当天", () => {
+    // 2026-02-17 01:30（北京）= 2026-02-16T17:30Z；旧 UTC 口径会误判成 2-16（无节日）
+    expect(festivalOf(new Date("2026-02-16T17:30:00Z"))?.key).toBe("lunar-spring-2026");
+    // 对照：北京 2-16 白天确实不是春节
+    expect(festivalOf(new Date("2026-02-16T04:00:00Z"))).toBeNull();
+  });
+
   it("七夕 → firefly + 鹊桥粉；中秋 → leaf + 月华银白", () => {
     const qixi = festivalOf(new Date("2026-08-19T12:00:00"));
     expect(qixi?.key).toBe("lunar-qixi-2026");

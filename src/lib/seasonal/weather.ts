@@ -36,7 +36,9 @@ export type WeatherBucket =
   | "snowShowers"
   | "thunder";
 
-const CACHE_KEY = "cl-weather-v3";
+// v4：晨雨判定改用响应自带"当地今天"（旧版按访客 UTC 日期匹配当地时间串，
+// 北京 0-8 点会错查前一天的降水），升 key 让旧缓存一次性失效
+const CACHE_KEY = "cl-weather-v4";
 const TTL = 30 * 60 * 1000;
 
 /** WMO weather_code → 图标 + 语义分桶（分桶名即词典键，语言无关） */
@@ -57,6 +59,20 @@ export function describe(code: number): { emoji: string; bucket: WeatherBucket }
 export const isRainy = (b: WeatherBucket) =>
   b === "rain" || b === "showers" || b === "thunder" || b === "drizzle";
 export const isSnowy = (b: WeatherBucket) => b === "snow" || b === "snowShowers";
+
+/** 今晨（当地时间 6-11 点）降水概率 > 40%？
+ *  纯函数便于单测。times/probs 是 open-meteo timezone=auto 的逐时序列
+ *  （天气地点当地时间字符串），todayLocal 必须取同一口径的"当地今天"——
+ *  不能用 new Date() 换算（取决于访客时区，北京 0-8 点会错查前一天）。 */
+export function computeMorningRain(times: string[], probs: number[], todayLocal: string): boolean {
+  for (let i = 0; i < times.length; i++) {
+    if (times[i]?.startsWith(todayLocal)) {
+      const h = Number(times[i]?.slice(11, 13));
+      if (h >= 6 && h <= 11 && (probs[i] ?? 0) > 40) return true;
+    }
+  }
+  return false;
+}
 
 export function uvKey(uv: number) {
   if (uv < 3) return "low";
@@ -231,20 +247,12 @@ export function loadWeather(): Promise<WeatherState | null> {
         };
       };
 
-      // 今晨（6-11 点）降水概率 > 40%？
-      let morningRain = false;
+      // 今晨（6-11 点）降水概率 > 40%？"今天"必须取响应同口径的当地日期
+      // （timezone=auto 下 daily.time[0] 即天气地点的今天；缺 daily 时退回首时段日期）
       const times = wx.hourly?.time ?? [];
       const probs = wx.hourly?.precipitation_probability ?? [];
-      const todayStr = new Date().toISOString().slice(0, 10);
-      for (let i = 0; i < times.length; i++) {
-        if (times[i]?.startsWith(todayStr)) {
-          const h = Number(times[i]?.slice(11, 13));
-          if (h >= 6 && h <= 11 && (probs[i] ?? 0) > 40) {
-            morningRain = true;
-            break;
-          }
-        }
-      }
+      const todayLocal = daily?.time?.[0] ?? times[0]?.slice(0, 10) ?? "";
+      const morningRain = computeMorningRain(times, probs, todayLocal);
 
       const uv = Math.round((daily?.uv_index_max?.[0] ?? 0) * 10) / 10;
       const data: WeatherState = {

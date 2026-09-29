@@ -4,6 +4,7 @@ import { sql, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { visitors } from "@/lib/db/schema";
 import { levelOf } from "@/lib/engagement/achievements";
+import { dateKey } from "@/lib/shared/date-key";
 
 /**
  * AI 积分（✦）服务端余额操作（禁止客户端引入——依赖 better-sqlite3）。
@@ -19,7 +20,7 @@ function dailyAmount(dailyGrant: number, levelBonusPerLevel: number, xp: number)
  *  种子 stats 与 player 路由新访客首见的结果一致（含今日 __visit 标记），
  *  但不带 __credits 标记——之后 ensureDailyCredits 仍会正常补上当日重置。 */
 async function ensureVisitorRow(vid: string): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
   const seed = JSON.stringify({
     affinityPoints: 3,
     visitDays: 1,
@@ -45,7 +46,7 @@ export async function ensureDailyCredits(
   dailyGrant: number,
   levelBonusPerLevel: number,
 ): Promise<{ reset: boolean; balance: number }> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
   const newAmount = dailyAmount(dailyGrant, levelBonusPerLevel, 0);
   const seed = JSON.stringify({
     affinityPoints: 3,

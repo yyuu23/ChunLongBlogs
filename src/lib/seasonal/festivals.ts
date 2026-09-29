@@ -4,6 +4,7 @@
  * 农历节日按年写死（key 带年份，每年各发新瓶），过期后需要续表。
  */
 import { type LText } from "@/lib/i18n/config";
+import { dateKey } from "@/lib/shared/date-key";
 
 export interface FestivalDef {
   /** 稳定 key：节气不带年份（每个节气终其一瓶），农历节日带年份（每年新瓶） */
@@ -86,14 +87,12 @@ const LUNAR_MAP = new Map(LUNAR.map((f) => [f.date, f]));
 const TERM_MAP = new Map(SOLAR_TERMS.map((f) => [f.date, f]));
 const BY_KEY = new Map(FESTIVALS.map((f) => [f.key, f]));
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** 这一天是节气或农历节日吗？（农历优先;按服务器本地日期） */
+/** 这一天是节气或农历节日吗？（农历优先；按北京时间业务日判定——
+ *  农历节日表以北京日期写死，曾经农历用 UTC、节气用服务器本地，
+ *  春节当天凌晨 0-8 点会判成除夕，现统一走 dateKey 单一口径） */
 export function festivalOf(date: Date): FestivalDef | null {
-  const md = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return LUNAR_MAP.get(date.toISOString().slice(0, 10)) ?? TERM_MAP.get(md) ?? null;
+  const key = dateKey(date);
+  return LUNAR_MAP.get(key) ?? TERM_MAP.get(key.slice(5)) ?? null;
 }
 
 /** 按 key 反查（客户端解析瓶子的节日名） */
@@ -156,7 +155,8 @@ export function festivalTintOf(f: FestivalDef): string {
   return LUNAR_TINT[lunarStem(f.key)] ?? SEASON_PARTICLE_TINT.firefly;
 }
 
-/** 年末开瓶夜窗口：12 月 25–31 日（七日窗口，任意一天来访都能领跨年瓶） */
+/** 年末开瓶夜窗口：12 月 25–31 日（七日窗口，任意一天来访都能领跨年瓶；
+ *  北京时间口径，与 festivalOf 的发瓶判定一致） */
 export function isYearEndWindow(date = new Date()): boolean {
-  return date.getMonth() === 11 && date.getDate() >= 25;
+  return dateKey(date).slice(5) >= "12-25";
 }

@@ -19,6 +19,7 @@ import {
 import { creditsCfg } from "@/lib/engagement/credits";
 import { ensureDailyCredits } from "@/lib/engagement/credits-server";
 import { logError } from "@/lib/shared/logger";
+import { dateKey } from "@/lib/shared/date-key";
 import { grantBottle, themeFromMeta } from "@/lib/bottles/repository";
 import { festivalOf, isYearEndWindow } from "@/lib/seasonal/festivals";
 import { clientIp } from "@/lib/shared/rate-limit";
@@ -35,14 +36,18 @@ interface DayCounter {
   counts: Record<string, number>;
 }
 
+/** 当日计数器的日界：北京时间业务日（dateKey）。曾经用 UTC 切日导致
+ *  北京 0-8 点仍算"昨天"，签到/单日上限/积分标记都要早 8 点才刷新。 */
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return dateKey();
 }
 
-/** 本地时区的日期差（按天算，不看时分秒） */
+/** 北京时间业务日之间的天数差（b - a，按天算不看时分秒）。
+ *  与 today() 同口径——若这里仍用本地日期，UTC 服务器上会出现
+ *  "日 key 已换新但 diff=0"的错位，每日首见好感被重复发放。 */
 function daysBetween(a: Date, b: Date) {
-  const A = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-  const B = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  const A = Date.parse(dateKey(a) + "T00:00:00+08:00");
+  const B = Date.parse(dateKey(b) + "T00:00:00+08:00");
   return Math.round((B - A) / 86_400_000);
 }
 
@@ -58,6 +63,8 @@ function touchVisit(stats: PlayerStats, daily: DayCounter, lastSeen: Date | null
   stats.affinityPoints += 3; // 每日首见：好感 +3（去重由 __visit 保证）
 
   const now = new Date();
+  // 夜/晨访的小时判定用服务器本地时刻：pm2 env 已设 TZ=Asia/Shanghai，
+  // 即使个别环境漏配，也只是时段统计轻微偏移，不影响上面的日界口径。
   const h = now.getHours();
   if (h < 5) stats.nightVisits += 1;
   else if (h < 8) stats.dawnVisits += 1;
@@ -312,7 +319,7 @@ export async function POST(request: Request) {
       if (fest) await grantBottle(visitorId, "festival", fest.key, theme);
       // 年末开瓶夜（12/25–12/31）：窗口内任意一天首见 → 跨年纪念瓶（refKey=年份，一年一只）
       if (isYearEndWindow()) {
-        await grantBottle(visitorId, "newyear", String(new Date().getFullYear()), theme);
+        await grantBottle(visitorId, "newyear", dateKey().slice(0, 4), theme);
       }
     }
     // 本次新解锁的成就逐个封瓶（纪念瓶）

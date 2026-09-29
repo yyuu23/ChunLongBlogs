@@ -16,6 +16,9 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT,
+        // 统一进程时区：兜底代码里残留的本地时间调用（夜/晨访判定、限流日界）。
+        // 生效方式：pm2 restart <name> --update-env（不带该参数会沿用旧 env）
+        TZ: "Asia/Shanghai",
       },
       // 2GB 机器的护栏：RSS 超 600M 自动重启；Node 堆上限 768M（护栏先触发）
       max_memory_restart: "600M",

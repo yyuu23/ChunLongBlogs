@@ -1,3 +1,5 @@
+import { dateKey } from "@/lib/shared/date-key";
+
 export interface PostEmbeddingMeta {
   title: string;
   slug: string;
@@ -20,7 +22,7 @@ export function chunkPostForEmbedding(meta: PostEmbeddingMeta, content: string):
     meta.series ? `系列：${meta.series}` : "",
     meta.category ? `分类：${meta.category}` : "",
     meta.tags?.length ? `标签：${meta.tags.join("、")}` : "",
-    meta.updatedAt ? `更新：${meta.updatedAt.toISOString().slice(0, 10)}` : "",
+    meta.updatedAt ? `更新：${dateKey(meta.updatedAt)}` : "",
   ].filter(Boolean).join("｜");
   const flush = () => {
     const body = current.join("\n\n").trim();

@@ -6,4 +6,7 @@ export const cleanLimit = (value: unknown, fallback: number, max: number): numbe
   return Math.min(Math.max(number, 1), max);
 };
 
-export const dayOf = (date: Date | null | undefined) => date ? date.toISOString().slice(0, 10) : null;
+import { dateKey } from "@/lib/shared/date-key";
+
+/** AI 工具参数里的日期展示（北京时间业务日——受众为中文用户，UTC 会在凌晨差一天） */
+export const dayOf = (date: Date | null | undefined) => date ? dateKey(date) : null;

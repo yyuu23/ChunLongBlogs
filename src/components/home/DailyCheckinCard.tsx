@@ -5,6 +5,7 @@ import { CalendarCheck, Sparkles } from "lucide-react";
 import { useT } from "@/components/providers/LocaleProvider";
 import { getVisitorId, trackEvent } from "@/lib/engagement/track";
 import { XP_RULES } from "@/lib/engagement/achievements";
+import { dateKey } from "@/lib/shared/date-key";
 
 /** 今日运势等级（与 i18n key 对应） */
 const LUCK_TIERS = ["best", "good", "mid", "bad"] as const;
@@ -22,7 +23,9 @@ function dailyHash(seed: string): number {
   return h;
 }
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+// 与服务端 DAILY_CAPS 同口径（北京时间业务日）：否则凌晨 0-8 点本地显示
+// "未签到"可再点一次，但服务端经验只发一天，白点
+const todayKey = () => dateKey();
 const checkedStorageKey = () => `cl-checked-in-${todayKey()}`;
 
 /**

@@ -40,6 +40,8 @@ export function clientIp(req: Request): string {
 
 /** 每日计数器（内存，按服务器本地日期分桶）——防脚本低频长跑刷爆 API 账单。
  *  与 rateLimit 的区别：限流挡"快"，这里挡"久"。
+ *  日界跟随服务器本地时区（pm2 env 已设 TZ=Asia/Shanghai 兜底）：
+ *  限流桶切日偶尔偏移一小时无业务影响，不强行换成 dateKey 口径。
  *  pm2 重启清零可接受（重启后从 0 重新累计，只损失当日已计额度，不会超卖）。
  *  Map 无限增长防护：超过 1000 个 key 时清扫过期日期桶。 */
 const dayCounters = new Map<string, { d: string; n: number }>();

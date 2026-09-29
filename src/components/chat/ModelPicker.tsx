@@ -11,6 +11,7 @@ import { PersonaFull, preheatPersona } from "./PersonaArt";
 import { CreditIcon } from "./CreditIcon";
 import { fetchProgress } from "@/lib/engagement/track";
 import { isDeepSeekPeakNow, peakMultiplierOf } from "@/lib/engagement/credits";
+import { dateKey } from "@/lib/shared/date-key";
 
 /**
  * 模型与思考强度选择器（/chat 页与文章伴读面板）：
@@ -113,7 +114,7 @@ export function ModelPicker({ aiChoices }: { aiChoices: AiChoicesPublic }) {
   const isDeepSeekSel = choice?.provider === "deepseek";
   const peakActive = peakTime && isDeepSeekSel;
   const peakMult = peakMultiplierOf(aiChoices as unknown as Parameters<typeof peakMultiplierOf>[0]);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = dateKey(); // 促销截止比较用北京时间业务日（与服务端口径一致）
   /** 行显示价：
    *  - 每行按它自己的记忆档位显示价格（选中行跟随滑条，未选中行静止在它上次选的档位）
    *  - DeepSeek 行在高峰时段一律 ×高峰倍率（无论是否选中——高峰期它的真实成本就是双倍） */

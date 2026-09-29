@@ -24,6 +24,7 @@ import {
   suggestSeriesOrganization,
 } from "@/app/admin/actions/content";
 import type { SeriesProposal } from "@/lib/content/types";
+import { dateKey } from "@/lib/shared/date-key";
 
 type SeriesRow = {
   id: number;
@@ -402,7 +403,7 @@ export function ContentManager({
               <label className="space-y-1 text-xs text-slate-500">仓库地址<input className={input} value={projectDraft.repoUrl} onChange={(e) => setProjectDraft({ ...projectDraft, repoUrl: e.target.value })} /></label>
               <label className="space-y-1 text-xs text-slate-500">演示地址<input className={input} value={projectDraft.demoUrl} onChange={(e) => setProjectDraft({ ...projectDraft, demoUrl: e.target.value })} /></label>
               <label className="space-y-1 text-xs text-slate-500">关联实验<select className={input} value={projectDraft.labSlug ?? ""} onChange={(e) => setProjectDraft({ ...projectDraft, labSlug: e.target.value || null })}><option value="">不关联</option>{labDemos.map((demo) => <option key={demo.slug} value={demo.slug}>{demo.label}</option>)}</select></label>
-              <label className="space-y-1 text-xs text-slate-500">开始时间<input type="date" className={input} value={projectDraft.startedAt.slice(0, 10)} onChange={(e) => setProjectDraft({ ...projectDraft, startedAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : "" })} /></label>
+              <label className="space-y-1 text-xs text-slate-500">开始时间<input type="date" className={input} value={projectDraft.startedAt ? dateKey(new Date(projectDraft.startedAt)) : ""} onChange={(e) => setProjectDraft({ ...projectDraft, startedAt: e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : "" })} /></label>
               <label className="space-y-1 text-xs text-slate-500">状态<select className={input} value={projectDraft.status} onChange={(e) => setProjectDraft({ ...projectDraft, status: e.target.value as ProjectDraft["status"] })}><option value="draft">草稿</option><option value="published">发布</option></select></label>
               <label className="space-y-1 text-xs text-slate-500">项目阶段<select className={input} value={projectDraft.stage} onChange={(e) => setProjectDraft({ ...projectDraft, stage: e.target.value as ProjectDraft["stage"] })}><option value="planned">计划中</option><option value="in_progress">进行中</option><option value="maintaining">维护中</option><option value="completed">已完成</option><option value="archived">已归档</option></select></label>
               <label className="space-y-1 text-xs text-slate-500">排序<input type="number" min={0} className={input} value={projectDraft.sort} onChange={(e) => setProjectDraft({ ...projectDraft, sort: Number(e.target.value) || 0 })} /></label>

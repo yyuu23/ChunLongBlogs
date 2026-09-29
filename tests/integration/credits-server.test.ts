@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { dateKey } from "@/lib/shared/date-key";
 
 /**
  * 积分服务端集成测试（临时库）。
@@ -12,7 +13,9 @@ import Database from "better-sqlite3";
  */
 
 const DAY = 86_400_000;
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+// 与服务端同一业务日口径（北京时间）。此前用 UTC：在北京 0-8 点窗口
+// （UTC 前一天 16-24 点）标记值与服务端写入值差一天，测试会随机失败
+const iso = (d: Date) => dateKey(d);
 const yesterday = () => iso(new Date(Date.now() - DAY));
 
 let api: typeof import("@/lib/engagement/credits-server");

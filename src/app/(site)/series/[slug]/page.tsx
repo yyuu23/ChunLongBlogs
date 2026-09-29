@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { BookOpenText, Clock3, ChevronRight } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { AutoCover } from "@/components/posts/AutoCover";
@@ -9,10 +9,20 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  const [{ slug }, { alternates }] = await Promise.all([params, parent]);
   const item = await getSeriesBySlug(slug);
-  return item ? { title: item.title, description: item.description } : { title: "Series" };
+  // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+  return item
+    ? {
+        title: item.title,
+        description: item.description,
+        alternates: { canonical: `/series/${slug}`, types: alternates?.types ?? undefined },
+      }
+    : { title: "Series" };
 }
 
 export default async function SeriesPage({ params }: { params: Promise<{ slug: string }> }) {

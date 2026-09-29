@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { CalendarDays, Clock3, Home, ChevronRight, ArrowLeft, ArrowRight } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { LazyImage } from "@/components/effects/Typewriter";
@@ -32,8 +32,8 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const [{ slug }, { t }] = await Promise.all([params, getT()]);
+export async function generateMetadata({ params }: PageProps, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ slug }, { t }, { alternates }] = await Promise.all([params, getT(), parent]);
   const post = await getPostBySlug(slug);
   if (!post) return { title: t("posts.notFound") };
   // 分享卡图：有封面用封面；无封面走 /api/og 动态渲染的渐变图（与 AutoCover 同视觉）
@@ -41,6 +41,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: post.title,
     description: post.description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: `/posts/${post.slug}`, types: alternates?.types ?? undefined },
     openGraph: {
       title: post.title,
       description: post.description,

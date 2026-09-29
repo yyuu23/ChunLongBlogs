@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { FolderOpen, Tag, SearchX } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { PostCard } from "@/components/posts/PostCard";
@@ -10,9 +10,17 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("nav.posts") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("posts.pageDesc");
+  return {
+    title: t("nav.posts"),
+    description,
+    // canonical 写死 /posts：分类/标签/分页参数只是同一列表视图的变体，统一去参规范化。
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/posts", types: alternates?.types ?? undefined },
+    openGraph: { title: t("nav.posts"), description },
+  };
 }
 
 interface PageProps {

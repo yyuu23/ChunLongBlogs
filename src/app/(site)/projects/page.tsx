@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { Blocks } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
 import { ProjectCard } from "@/components/projects/ProjectCard";
@@ -7,9 +7,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("projects.title"), description: t("projects.subtitle") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("projects.subtitle");
+  return {
+    title: t("projects.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/projects", types: alternates?.types ?? undefined },
+    openGraph: { title: t("projects.title"), description },
+  };
 }
 
 export default async function ProjectsPage() {

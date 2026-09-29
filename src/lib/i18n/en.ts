@@ -78,6 +78,7 @@ export const en: Dictionary = {
   },
   posts: {
     all: "All posts",
+    pageDesc: "All posts in reverse chronological order, filterable by category and tag",
     searchTitle: "Search: {q}",
     tagTitle: "Tag: {tag}",
     categoryTitle: "Category: {category}",
@@ -154,6 +155,7 @@ export const en: Dictionary = {
   },
   archive: {
     title: "Archive",
+    pageDesc: "Browse all posts on a year-by-month timeline",
     subtitle: "{n} posts in total · time is the best index",
     yearTotal: "{n} post | {n} posts",
     yearTitle: "{y}",
@@ -168,6 +170,7 @@ export const en: Dictionary = {
   },
   albums: {
     title: "Albums",
+    pageDesc: "Photo albums collecting moments from life and travel",
     subtitle: "{n} albums · {m} photos · tap an album to open the photo wall",
     expandHint: "Tap to open photo wall ↓",
     photoCount: "{n} photo | {n} photos",
@@ -177,11 +180,16 @@ export const en: Dictionary = {
   friends: {
     title: "Friends",
     subtitle: "A bosom friend afar brings a distant land near",
+    pageDesc: "Friend sites along the way — email me to exchange links",
     apply: "Apply for a link",
     applyHint: "To exchange links, email me with your site name, URL, avatar and a short intro",
   },
+  about: {
+    pageDesc: "About the blogger and this site: intro, writing topics, and current projects",
+  },
   lab: {
     title: "Lab",
+    pageDesc: "An interactive solar-system lab: leaving stars, drift bottles, fireworks, ambient noise and more",
     subtitle: "Eight planets · closer means more personal · faster orbit means more frequent updates",
     dragHint: "Drag to rotate · scroll to zoom",
     loadingTextures: "Loading planet textures {p}%",

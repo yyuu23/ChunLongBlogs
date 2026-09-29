@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { DemoShell } from "@/components/lab/demos/registry";
@@ -12,10 +12,14 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const [{ slug }, { locale }] = await Promise.all([params, getT()]);
+export async function generateMetadata({ params }: PageProps, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ slug }, { locale }, { alternates }] = await Promise.all([params, getT(), parent]);
   const demo = labDemoBySlug(slug);
-  return { title: demo ? pick(locale, demo.name) : "404" };
+  // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+  return {
+    title: demo ? pick(locale, demo.name) : "404",
+    alternates: { canonical: `/lab/${slug}`, types: alternates?.types ?? undefined },
+  };
 }
 
 /** 实验台 demo 页：/lab/<slug>（注册表见 lib/lab-demos.ts，无效 slug 404） */

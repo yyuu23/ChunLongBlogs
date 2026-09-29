@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata, ResolvingMetadata } from "next";
 import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { BookOpenText, FileText, Eye, PenLine, Images } from "lucide-react";
 import { TextHero } from "@/components/home/TextHero";
@@ -20,6 +21,13 @@ import { getPublishedPosts, getSiteStats } from "@/lib/content/posts";
 import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  // 首页 canonical 指向站点根；title/description 沿用根布局默认值（siteName/siteDescription）。
+  // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+  const { alternates } = await parent;
+  return { alternates: { canonical: "/", types: alternates?.types ?? undefined } };
+}
 
 /** "最近在听"卡的显示窗口：48h 内有播放才渲染 */
 const LISTENING_WINDOW_MS = 48 * 3_600_000;

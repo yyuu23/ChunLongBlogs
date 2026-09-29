@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { desc } from "drizzle-orm";
 import { MapPin } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
@@ -11,9 +11,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("moments.title") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("moments.subtitle");
+  return {
+    title: t("moments.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/moments", types: alternates?.types ?? undefined },
+    openGraph: { title: t("moments.title"), description },
+  };
 }
 
 export default async function MomentsPage() {

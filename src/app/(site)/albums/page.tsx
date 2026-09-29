@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { asc } from "drizzle-orm";
 import { Images } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
@@ -9,9 +9,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("albums.title") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("albums.pageDesc");
+  return {
+    title: t("albums.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/albums", types: alternates?.types ?? undefined },
+    openGraph: { title: t("albums.title"), description },
+  };
 }
 
 export default async function AlbumsPage() {

@@ -13,6 +13,10 @@ export function BackgroundLayer() {
   const { server, effective } = useWallpaper();
   const slides = server.images.length ? server.images : ["/assets/bg/bg-1.svg"];
   const [carouselIndex, setCarouselIndex] = useState(0);
+  // 已挂 background-image 的 slide 集合：首屏只挂「当前 + 下一张」，
+  // 其余 slide 的 div 保留但不出图——6 张全量直出约 1.4MB，这里省掉
+  // 首屏约 2/3 的壁纸带宽；轮播节奏与交叉淡入时长不动，视觉零变化。
+  const [loaded, setLoaded] = useState<Set<number>>(() => new Set([0, 1]));
 
   useEffect(() => {
     // 固定某张（fixedIndex 非 null）时不启动轮播
@@ -24,6 +28,18 @@ export function BackgroundLayer() {
     );
     return () => clearInterval(timer);
   }, [server.mode, effective.fixedIndex, effective.intervalS, slides.length]);
+
+  // 指针每次前进，提前把「下一张」挂上 url 预载：下载发生在一个轮播周期内，
+  // 到点切换时图已就绪，交叉淡入不会被下载打断；淡出的旧张永不撤图，零闪烁
+  useEffect(() => {
+    const next = (carouselIndex + 1) % slides.length;
+    setLoaded((prev) => {
+      if (prev.has(next)) return prev;
+      const copy = new Set(prev);
+      copy.add(next);
+      return copy;
+    });
+  }, [carouselIndex, slides.length]);
 
   // 固定时同步轮播指针：切回「自动」从当前这张无缝继续
   useEffect(() => {
@@ -47,7 +63,9 @@ export function BackgroundLayer() {
               key={src + i}
               className="absolute inset-0 bg-cover bg-center transition-opacity duration-[1500ms] ease-in-out"
               style={{
-                backgroundImage: `url(${src})`,
+                // 当前张永远有图（访客在设置里固定到未预载的某张时按需下载，
+                // 低频路径可接受）；其余按 loaded 集合渐进挂图
+                backgroundImage: i === index || loaded.has(i) ? `url(${src})` : undefined,
                 opacity: i === index ? 1 : 0,
                 animation: i === index ? kenburns : undefined,
               }}

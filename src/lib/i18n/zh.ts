@@ -77,6 +77,7 @@ export const zh = {
   },
   posts: {
     all: "全部文章",
+    pageDesc: "全部文章按时间倒序排列，支持分类与标签筛选",
     searchTitle: "搜索：{q}",
     tagTitle: "标签：{tag}",
     categoryTitle: "分类：{category}",
@@ -153,6 +154,7 @@ export const zh = {
   },
   archive: {
     title: "归档",
+    pageDesc: "按年份与月份的时间轴浏览全站文章归档",
     subtitle: "共 {n} 篇 · 时间是最好的索引",
     yearTotal: "{n} 篇",
     yearTitle: "{y} 年",
@@ -167,6 +169,7 @@ export const zh = {
   },
   albums: {
     title: "相册",
+    pageDesc: "按相册整理的照片墙，收藏生活与旅途的瞬间",
     subtitle: "{n} 本相册 · {m} 张照片 · 点击相册展开照片墙",
     expandHint: "点击展开照片墙 ↓",
     photoCount: "{n} 张",
@@ -176,11 +179,16 @@ export const zh = {
   friends: {
     title: "友链",
     subtitle: "海内存知己，天涯若比邻",
+    pageDesc: "一路同行的友站收录，欢迎邮件申请互换友链",
     apply: "申请友链",
     applyHint: "互换友链请邮件联系，附上站点名称、链接、头像与简介",
   },
+  about: {
+    pageDesc: "关于站长与小站：自我介绍、写作方向与正在做的项目",
+  },
   lab: {
     title: "实验室",
+    pageDesc: "太阳系主题的互动实验室：留星、漂流瓶、烟花与白噪音等小实验",
     subtitle: "八颗行星 · 越近越私人 · 转得越快更新越勤",
     dragHint: "拖拽旋转 · 滚轮缩放",
     loadingTextures: "加载行星贴图 {p}%",

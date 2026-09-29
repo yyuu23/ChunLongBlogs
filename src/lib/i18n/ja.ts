@@ -80,6 +80,7 @@ export const ja: Dictionary = {
   },
   posts: {
     all: "すべての記事",
+    pageDesc: "すべての記事を新しい順に閲覧。カテゴリーとタグで絞り込みできます",
     searchTitle: "検索：{q}",
     tagTitle: "タグ：{tag}",
     categoryTitle: "カテゴリー：{category}",
@@ -156,6 +157,7 @@ export const ja: Dictionary = {
   },
   archive: {
     title: "アーカイブ",
+    pageDesc: "年・月のタイムラインで全記事をさかのぼるアーカイブ",
     subtitle: "全 {n} 件 · 時間は最良の索引",
     yearTotal: "{n} 件",
     yearTitle: "{y} 年",
@@ -170,6 +172,7 @@ export const ja: Dictionary = {
   },
   albums: {
     title: "アルバム",
+    pageDesc: "アルバムごとに整理したフォトウォール。日常と旅の瞬間をまとめています",
     subtitle: "{n} 冊 · {m} 枚の写真 · アルバムをタップしてフォトウォールを開く",
     expandHint: "タップしてフォトウォールを開く ↓",
     photoCount: "{n} 枚",
@@ -179,11 +182,16 @@ export const ja: Dictionary = {
   friends: {
     title: "リンク",
     subtitle: "海内存知己、天涯若比鄰",
+    pageDesc: "ともに歩む友好サイトの一覧。メールで相互リンクを申請できます",
     apply: "リンクを申請",
     applyHint: "相互リンク希望の方は、サイト名・URL・アイコン・紹介文を添えてメールでご連絡ください",
   },
+  about: {
+    pageDesc: "管理人とこのサイトについて：自己紹介、執筆テーマ、進行中のプロジェクト",
+  },
   lab: {
     title: "ラボ",
+    pageDesc: "太陽系をテーマにしたインタラクティブ実験室：スター、漂流ボトル、花火、環境音などの小実験",
     subtitle: "8 つの惑星 · 近いほどプライベート · 軌道が速いほど更新頻繁",
     dragHint: "ドラッグで回転 · ホイールでズーム",
     loadingTextures: "惑星テクスチャ読み込み {p}%",

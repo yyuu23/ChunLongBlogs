@@ -6,6 +6,9 @@ import { LAB_DEMOS } from "@/lib/lab/catalog";
 
 export const dynamic = "force-dynamic";
 
+/** 站点上线（备案通过）的纪元日期：静态页与 lab demo 无真实更新时间，固定值避免向爬虫发出不真实的更新信号 */
+const SITE_EPOCH = new Date("2026-09-01T00:00:00+08:00");
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL ?? "http://localhost:3000";
 
@@ -24,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/chat",
   ].map((path) => ({
     url: `${base}${path}`,
-    lastModified: new Date(),
+    lastModified: SITE_EPOCH,
     changeFrequency: path === "" ? "daily" : "weekly",
     priority: path === "" ? 1 : ["/music", "/lab", "/chat"].includes(path) ? 0.5 : 0.7,
   }));
@@ -54,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 实验台 demo 页：可分享的独立小实验（注册表单一事实来源）
   const demoPages: MetadataRoute.Sitemap = LAB_DEMOS.map((d) => ({
     url: `${base}/lab/${d.slug}`,
-    lastModified: new Date(),
+    lastModified: SITE_EPOCH,
     changeFrequency: "monthly",
     priority: 0.4,
   }));

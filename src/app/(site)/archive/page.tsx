@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
 import { FadeIn } from "@/components/effects/PageTransition";
@@ -9,9 +9,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("archive.title") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("archive.pageDesc");
+  return {
+    title: t("archive.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/archive", types: alternates?.types ?? undefined },
+    openGraph: { title: t("archive.title"), description },
+  };
 }
 
 export default async function ArchivePage() {

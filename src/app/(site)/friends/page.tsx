@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { asc } from "drizzle-orm";
 import { Link2, Mail } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
@@ -10,9 +10,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("friends.title") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("friends.pageDesc");
+  return {
+    title: t("friends.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/friends", types: alternates?.types ?? undefined },
+    openGraph: { title: t("friends.title"), description },
+  };
 }
 
 export default async function FriendsPage() {
@@ -58,6 +65,7 @@ export default async function FriendsPage() {
                   <img
                     src={f.avatar}
                     alt={f.name}
+                    loading="lazy"
                     className="relative h-14 w-14 rounded-full ring-2 ring-white/60 transition-transform duration-500 group-hover:scale-105 dark:ring-slate-800"
                   />
                 </div>

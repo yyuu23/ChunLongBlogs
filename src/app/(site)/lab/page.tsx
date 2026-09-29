@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { desc, eq, isNull, sql } from "drizzle-orm";
 import { FlaskConical } from "lucide-react";
 import { PageTransition } from "@/components/effects/PageTransition";
@@ -13,9 +13,16 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("lab.title") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("lab.pageDesc");
+  return {
+    title: t("lab.title"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/lab", types: alternates?.types ?? undefined },
+    openGraph: { title: t("lab.title"), description },
+  };
 }
 
 export default async function LabPage() {

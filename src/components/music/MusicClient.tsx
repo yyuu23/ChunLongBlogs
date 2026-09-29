@@ -87,7 +87,7 @@ export function MusicClient({ playlists }: { playlists: MusicPlaylist[] }) {
               <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
                 {pl.cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={pl.cover} alt={pl.title} className="h-full w-full object-cover" />
+                  <img src={pl.cover} alt={pl.title} loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center bg-accent-br-gradient text-xl text-white">
                     🎧

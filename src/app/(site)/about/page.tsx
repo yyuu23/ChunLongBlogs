@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Blocks, UserRound } from "lucide-react";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
@@ -7,11 +7,19 @@ import { getSiteConfig } from "@/lib/site/repository";
 import { getT } from "@/lib/i18n/server";
 import { getPublishedProjects } from "@/lib/content/projects";
 import { ProjectCard } from "@/components/projects/ProjectCard";
+import { dateKey } from "@/lib/shared/date-key";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
-  return { title: t("nav.about") };
+export async function generateMetadata(_props: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const [{ t }, { alternates }] = await Promise.all([getT(), parent]);
+  const description = t("about.pageDesc");
+  return {
+    title: t("nav.about"),
+    description,
+    // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+    alternates: { canonical: "/about", types: alternates?.types ?? undefined },
+    openGraph: { title: t("nav.about"), description },
+  };
 }
 
 export default async function AboutPage() {
@@ -78,7 +86,7 @@ export default async function AboutPage() {
                   .map((project) => (
                     <li key={project.id} className="relative">
                       <span className="absolute -left-[1.58rem] top-1.5 h-2 w-2 rounded-full bg-accent-solid" />
-                      <p className="text-xs text-muted">{project.startedAt!.toISOString().slice(0, 7)}</p>
+                      <p className="text-xs text-muted">{dateKey(project.startedAt!).slice(0, 7)}</p>
                       <Link href={`/projects/${project.slug}`} className="font-medium hover-text-accent">{project.title}</Link>
                       <p className="mt-0.5 line-clamp-2 text-xs text-muted">{project.summary}</p>
                     </li>

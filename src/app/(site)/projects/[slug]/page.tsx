@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import { ArrowLeft, ExternalLink, FlaskConical, Layers3 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/BrandIcons";
 import { PageTransition, FadeIn } from "@/components/effects/PageTransition";
@@ -10,10 +10,20 @@ import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  const [{ slug }, { alternates }] = await Promise.all([params, parent]);
   const item = await getProjectBySlug(slug);
-  return item ? { title: item.title, description: item.summary } : { title: "Project" };
+  // 页面级 alternates 会整体替换根布局（浅合并），RSS 自动发现的 types 需显式带回
+  return item
+    ? {
+        title: item.title,
+        description: item.summary,
+        alternates: { canonical: `/projects/${slug}`, types: alternates?.types ?? undefined },
+      }
+    : { title: "Project" };
 }
 
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -32,6 +42,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
         <FadeIn>
           <div className="glass-card overflow-hidden">
             {item.cover && (
+              // 详情页首屏 banner 是 LCP 候选，刻意不加 loading="lazy"
               // eslint-disable-next-line @next/next/no-img-element
               <img src={item.cover} alt={item.title} className="aspect-[21/8] w-full object-cover" />
             )}

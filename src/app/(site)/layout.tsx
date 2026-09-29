@@ -14,7 +14,7 @@ import { VisitMilestone } from "@/components/effects/VisitMilestone";
 import { ReadingProgress } from "@/components/posts/ReadingProgress";
 import { PlayerProvider } from "@/components/music/PlayerProvider";
 import { Mascot } from "@/components/mascot/Mascot";
-import { FloatingChatWidget } from "@/components/chat/FloatingChatWidget";
+import { LazyFloatingChat } from "@/components/chat/LazyFloatingChat";
 import { ProactiveChat } from "@/components/mascot/ProactiveChat";
 import { SearchPalette } from "@/components/layout/SearchPalette";
 import { WallpaperProvider } from "@/components/providers/WallpaperProvider";
@@ -60,7 +60,7 @@ export default async function SiteLayout({ children }: { children: ReactNode }) 
       <MobileTabBar />
       <FloatingTools />
       <Mascot />
-      <FloatingChatWidget />
+      <LazyFloatingChat />
       <ProactiveChat />
       <AchievementToasts />
       {/* 好感度升级 toast（与成就 toast 错位列）：升级时看板娘同步庆祝 */}

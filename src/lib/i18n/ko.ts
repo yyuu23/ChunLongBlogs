@@ -78,6 +78,7 @@ export const ko: Dictionary = {
   },
   posts: {
     all: "모든 글",
+    pageDesc: "모든 글을 최신순으로 살펴보기, 분류와 태그로 필터링할 수 있어요",
     searchTitle: "검색: {q}",
     tagTitle: "태그: {tag}",
     categoryTitle: "분류: {category}",
@@ -154,6 +155,7 @@ export const ko: Dictionary = {
   },
   archive: {
     title: "아카이브",
+    pageDesc: "연·월 타임라인으로 전체 글 아카이브를 돌아보기",
     subtitle: "총 {n}편 · 시간은 가장 좋은 색인",
     yearTotal: "{n}편",
     yearTitle: "{y}년",
@@ -168,6 +170,7 @@ export const ko: Dictionary = {
   },
   albums: {
     title: "앨범",
+    pageDesc: "앨범별로 정리된 사진 벽, 일상과 여행의 순간을 모아둔 곳",
     subtitle: "앨범 {n}권 · 사진 {m}장 · 앨범을 눌러 포토 월 열기",
     expandHint: "눌러서 포토 월 열기 ↓",
     photoCount: "{n}장",
@@ -177,11 +180,16 @@ export const ko: Dictionary = {
   friends: {
     title: "친구",
     subtitle: "海内存知己，天涯若比鄰",
+    pageDesc: "함께 걸어온 친구 사이트 모음, 메일로 링크 교환을 신청할 수 있어요",
     apply: "링크 신청",
     applyHint: "링크 교환을 원하시면 사이트 이름, 주소, 아바타, 소개를 담아 메일로 연락해 주세요",
   },
+  about: {
+    pageDesc: "블로거와 이 사이트 소개: 자기소개, 글의 방향, 진행 중인 프로젝트",
+  },
   lab: {
     title: "랩",
+    pageDesc: "태양계 테마의 인터랙티브 실험실: 별 남기기, 유리병, 불꽃놀이, 배경음 등 미니 실험",
     subtitle: "여덟 개의 행성 · 가까울수록 개인적 · 궤도가 빠를수록 자주 업데이트",
     dragHint: "드래그로 회전 · 휠로 확대",
     loadingTextures: "행성 텍스처 불러오는 중 {p}%",

@@ -52,6 +52,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 > 把"想做"变成"做完"，是博客存在的意义。
 `,
   icp: "",
+  gongan: "",
   footerText: "",
   ccLicense: "BY-NC-SA 4.0",
   aiPersona: "你是 ChunLong Blog 的看板娘小助手，性格活泼，回答简洁友好，偶尔使用颜文字。用中文回答。",

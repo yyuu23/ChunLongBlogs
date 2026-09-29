@@ -18,6 +18,7 @@ import {
   tags,
 } from "@/lib/db/schema";
 import { requireAdminApi } from "@/lib/auth/admin-session";
+import { logError } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -35,69 +36,75 @@ export async function GET() {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const [
-    categoryRows,
-    tagRows,
-    seriesRows,
-    postRows,
-    postTagRows,
-    projectRows,
-    projectPostRows,
-    momentRows,
-    friendRows,
-    albumRows,
-    photoRows,
-    playlistRows,
-    songRows,
-    siteRows,
-  ] = await Promise.all([
-    db.select().from(categories),
-    db.select().from(tags),
-    db.select().from(series),
-    db.select().from(posts),
-    db.select().from(postTags),
-    db.select().from(projects),
-    db.select().from(projectPosts),
-    db.select().from(moments),
-    db.select().from(friendLinks),
-    db.select().from(albums),
-    db.select().from(photos),
-    db.select().from(playlists),
-    db.select().from(songs),
-    db.select().from(siteConfigs).where(eq(siteConfigs.key, "site")).limit(1),
-  ]);
+  try {
+    const [
+      categoryRows,
+      tagRows,
+      seriesRows,
+      postRows,
+      postTagRows,
+      projectRows,
+      projectPostRows,
+      momentRows,
+      friendRows,
+      albumRows,
+      photoRows,
+      playlistRows,
+      songRows,
+      siteRows,
+    ] = await Promise.all([
+      db.select().from(categories),
+      db.select().from(tags),
+      db.select().from(series),
+      db.select().from(posts),
+      db.select().from(postTags),
+      db.select().from(projects),
+      db.select().from(projectPosts),
+      db.select().from(moments),
+      db.select().from(friendLinks),
+      db.select().from(albums),
+      db.select().from(photos),
+      db.select().from(playlists),
+      db.select().from(songs),
+      db.select().from(siteConfigs).where(eq(siteConfigs.key, "site")).limit(1),
+    ]);
 
-  const payload = {
-    version: 2,
-    exportedAt: new Date().toISOString(),
-    tables: {
-      categories: categoryRows,
-      tags: tagRows,
-      series: seriesRows,
-      posts: postRows,
-      postTags: postTagRows,
-      projects: projectRows,
-      projectPosts: projectPostRows,
-      moments: momentRows,
-      friendLinks: friendRows,
-      albums: albumRows,
-      photos: photoRows,
-      playlists: playlistRows,
-      songs: songRows,
-    },
-    // moments.images 本身是 JSON 字符串列，导出后会"字符串里套字符串"——无损，导入时原样回传
-    siteConfig: siteRows[0] ? (JSON.parse(siteRows[0].value) as unknown) : null,
-  };
+    const payload = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      tables: {
+        categories: categoryRows,
+        tags: tagRows,
+        series: seriesRows,
+        posts: postRows,
+        postTags: postTagRows,
+        projects: projectRows,
+        projectPosts: projectPostRows,
+        moments: momentRows,
+        friendLinks: friendRows,
+        albums: albumRows,
+        photos: photoRows,
+        playlists: playlistRows,
+        songs: songRows,
+      },
+      // moments.images 本身是 JSON 字符串列，导出后会"字符串里套字符串"——无损，导入时原样回传
+      siteConfig: siteRows[0] ? (JSON.parse(siteRows[0].value) as unknown) : null,
+    };
 
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 
-  // 紧凑输出（不 pretty-print），体积近乎减半
-  return new Response(JSON.stringify(payload), {
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="blog-export-${stamp}.json"`,
-    },
-  });
+    // 紧凑输出（不 pretty-print），体积近乎减半
+    return new Response(JSON.stringify(payload), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="blog-export-${stamp}.json"`,
+      },
+    });
+  } catch (err) {
+    // 14 张表的 Promise.all 任一失败都曾是裸 500；备份失败要能从日志定位是哪张表
+    logError("admin/export", err);
+    return NextResponse.json({ error: "导出失败，请查看服务端日志" }, { status: 500 });
+  }
 }

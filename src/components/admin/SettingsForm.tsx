@@ -407,6 +407,10 @@ export function SettingsForm({ initial, embeddingStatus }: { initial: SiteConfig
           <input value={config.icp} onChange={(e) => set("icp", e.target.value)} className={input} />
         </label>
         <label className={label}>
+          <span className="text-xs font-medium text-slate-500">公安备案号（可空，ICP 通过后 30 日内办理）</span>
+          <input value={config.gongan} onChange={(e) => set("gongan", e.target.value)} className={input} placeholder="如：沪公网安备3101100200xxxxx号" />
+        </label>
+        <label className={label}>
           <span className="text-xs font-medium text-slate-500">页脚附加文字（可空）</span>
           <input value={config.footerText} onChange={(e) => set("footerText", e.target.value)} className={input} />
         </label>

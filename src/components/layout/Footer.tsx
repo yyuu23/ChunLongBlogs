@@ -45,6 +45,16 @@ export async function Footer({ config }: { config: SiteConfig }) {
             {config.icp}
           </a>
         )}
+        {config.gongan && (
+          <a
+            href="https://beian.mis.gov.cn/"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block"
+          >
+            {config.gongan}
+          </a>
+        )}
         {config.footerText && <p className="mt-1">{config.footerText}</p>}
       </div>
     </footer>

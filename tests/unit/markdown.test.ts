@@ -23,6 +23,45 @@ describe("renderMarkdown 管线", () => {
     expect(html).toContain("<pre");
   });
 
+  it("GitHub 提示框类名在清洗后保留（markdown-alert*）", async () => {
+    const html = await renderMarkdown("> [!NOTE]\n> 提示内容");
+    expect(html).toContain("markdown-alert");
+  });
+
+  it("GFM 任务列表渲染 checkbox", async () => {
+    const html = await renderMarkdown("- [x] 已完成\n- [ ] 未完成");
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("checked");
+  });
+
+  it("裸 HTML 白名单元素（details/summary/kbd）保留", async () => {
+    const html = await renderMarkdown("<details><summary>点开</summary><kbd>Ctrl</kbd></details>");
+    expect(html).toContain("<details>");
+    expect(html).toContain("<summary>");
+    expect(html).toContain("<kbd>");
+  });
+
+  it("裸 HTML 危险载荷被剥：script 元素与 onerror 内联事件", async () => {
+    const html = await renderMarkdown(
+      '<script>alert(1)</script>\n\n<img src="https://ok.example/x.png" onerror="alert(2)">',
+    );
+    expect(html).not.toContain("script");
+    expect(html).not.toContain("onerror");
+    expect(html).toContain("https://ok.example/x.png"); // 图片本体保留
+  });
+
+  it("javascript: 协议链接被剥 href", async () => {
+    const html = await renderMarkdown("[点我](javascript:alert(1))");
+    expect(html).not.toContain("javascript:");
+  });
+
+  it("正文图片统一补 lazy / async 解码 / no-referrer", async () => {
+    const html = await renderMarkdown("![截图](https://ok.example/shot.png)");
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+    expect(html).toContain('referrerpolicy="no-referrer"');
+  });
+
   it("cacheKey 命中返回同一结果；不同 key 不串", async () => {
     const a = await renderMarkdown("## A", "k1");
     const b = await renderMarkdown("## A", "k1");

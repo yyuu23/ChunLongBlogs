@@ -80,6 +80,8 @@ export interface SiteConfig {
   gradientPalette: string[];
   aboutMarkdown: string;
   icp: string;
+  /** 公安备案号（如"沪公网安备3101100200xxxxx号"，含"公安备案"图标文案整串由管理员填） */
+  gongan: string;
   footerText: string;
   ccLicense: string;
   aiPersona: string;
